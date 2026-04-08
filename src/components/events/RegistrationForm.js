@@ -1,0 +1,191 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { formatMoney } from '@/lib/utils';
+
+export default function RegistrationForm({ event, existingRegistration }) {
+  const router = useRouter();
+  const [selectedItems, setSelectedItems] = useState({});
+  const [names, setNames] = useState({});
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const total = Object.entries(selectedItems).reduce((sum, [itemId, qty]) => {
+    const item = event.items.find((i) => i.id === parseInt(itemId));
+    return sum + (item ? item.price * qty : 0);
+  }, 0);
+
+  function updateQty(itemId, qty) {
+    if (qty === 0) {
+      const next = { ...selectedItems };
+      delete next[itemId];
+      setSelectedItems(next);
+      const nextNames = { ...names };
+      delete nextNames[itemId];
+      setNames(nextNames);
+    } else {
+      setSelectedItems((prev) => ({ ...prev, [itemId]: qty }));
+      // Adjust names array size
+      setNames((prev) => {
+        const current = prev[itemId] || [];
+        const adjusted = Array.from({ length: qty }, (_, i) => current[i] || '');
+        return { ...prev, [itemId]: adjusted };
+      });
+    }
+  }
+
+  function updateName(itemId, idx, val) {
+    setNames((prev) => {
+      const current = [...(prev[itemId] || [])];
+      current[idx] = val;
+      return { ...prev, [itemId]: current };
+    });
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+
+    const items = Object.entries(selectedItems).map(([itemId, qty]) => ({
+      eventItemId: parseInt(itemId),
+      quantity: qty,
+      names: names[itemId] || [],
+    }));
+
+    if (items.length === 0) {
+      setError('請至少選擇一個報名項目');
+      return;
+    }
+
+    // Validate required names
+    for (const item of items) {
+      const eventItem = event.items.find((i) => i.id === item.eventItemId);
+      if (eventItem?.requires_name) {
+        const emptyNames = item.names.filter((n) => !n.trim());
+        if (emptyNames.length > 0) {
+          setError(`請填寫「${eventItem.name}」的牌位姓名`);
+          return;
+        }
+      }
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id, items, notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '報名失敗，請稍後再試');
+      } else {
+        router.push(`/history?registered=${event.id}`);
+      }
+    } catch {
+      setError('網路錯誤，請稍後再試');
+    }
+    setLoading(false);
+  }
+
+  if (existingRegistration) {
+    return (
+      <div className="card p-4 text-center">
+        <div className="text-2xl mb-2">✅</div>
+        <div className="font-bold text-temple-dark">您已完成報名</div>
+        <div className="text-sm text-gray-500 mt-1">
+          繳款狀態：{existingRegistration.payment_status === 'paid' ? '✅ 已繳款' : '⏳ 待繳款'}
+        </div>
+        {existingRegistration.receipt_number && (
+          <div className="text-sm text-gray-500">收據號碼：{existingRegistration.receipt_number}</div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="card p-4">
+        <h3 className="font-bold text-temple-dark mb-3">選擇報名項目</h3>
+        <div className="space-y-4">
+          {event.items.map((item) => {
+            const qty = selectedItems[item.id] || 0;
+            return (
+              <div key={item.id}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-sm">{item.name}</div>
+                    {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
+                    <div className="text-temple-gold text-sm font-medium">{formatMoney(item.price)}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateQty(item.id, Math.max(0, qty - 1))}
+                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 active:bg-gray-100"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center font-medium">{qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateQty(item.id, Math.min(item.max_quantity || 99, qty + 1))}
+                      className="w-8 h-8 rounded-full border border-temple-red text-temple-red flex items-center justify-center active:bg-red-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {qty > 0 && item.requires_name ? (
+                  <div className="mt-2 space-y-1.5">
+                    {Array.from({ length: qty }).map((_, idx) => (
+                      <input
+                        key={idx}
+                        type="text"
+                        className="input-field text-sm"
+                        placeholder={`第${idx + 1}位牌位姓名`}
+                        value={(names[item.id] || [])[idx] || ''}
+                        onChange={(e) => updateName(item.id, idx, e.target.value)}
+                        required
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <label className="block font-medium text-sm mb-1.5">備註（選填）</label>
+        <textarea
+          className="input-field resize-none"
+          rows={3}
+          placeholder="如有特殊需求請填寫..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
+          {error}
+        </div>
+      )}
+
+      <div className="card p-4">
+        <div className="flex justify-between items-center mb-3">
+          <span className="font-bold text-temple-dark">合計金額</span>
+          <span className="text-xl font-bold text-temple-red">{formatMoney(total)}</span>
+        </div>
+        <button type="submit" disabled={loading || Object.keys(selectedItems).length === 0} className="w-full btn-primary py-3">
+          {loading ? '報名中...' : '確認報名'}
+        </button>
+        <p className="text-xs text-gray-400 text-center mt-2">繳款方式請洽佛堂服務台</p>
+      </div>
+    </form>
+  );
+}

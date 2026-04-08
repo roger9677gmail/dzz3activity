@@ -1,0 +1,42 @@
+{
+  "name": "佛堂法會報名系統",
+  "short_name": "法會報名",
+  "description": "佛堂法會活動報名與管理系統",
+  "start_url": "/events",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFF8F0",
+  "theme_color": "#8B1A1A",
+  "lang": "zh-TW",
+  "categories": ["lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "法會活動",
+      "short_name": "活動",
+      "description": "查看法會活動",
+      "url": "/events",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "報名紀錄",
+      "short_name": "紀錄",
+      "description": "查看我的報名紀錄",
+      "url": "/history",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

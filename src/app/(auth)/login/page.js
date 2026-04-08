@@ -1,0 +1,99 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [form, setForm] = useState({ phone: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '登入失敗');
+      } else {
+        window.location.href = '/events';
+      }
+    } catch {
+      setError('網路錯誤，請稍後再試');
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="min-h-screen bg-temple-cream flex flex-col">
+      {/* Top banner */}
+      <div className="bg-temple-red px-6 py-8 text-center">
+        <div className="text-4xl mb-2">⛩️</div>
+        <h1 className="text-white text-xl font-bold">佛堂法會報名系統</h1>
+        <p className="text-red-200 text-sm mt-1">師兄姐專屬服務平台</p>
+      </div>
+
+      <div className="flex-1 px-5 pt-8">
+        <h2 className="text-xl font-bold text-temple-dark mb-6">師兄姐登入</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">電話號碼</label>
+            <input
+              type="tel"
+              required
+              className="input-field"
+              placeholder="輸入您的電話號碼"
+              value={form.phone}
+              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼</label>
+            <input
+              type="password"
+              required
+              className="input-field"
+              placeholder="輸入密碼"
+              value={form.password}
+              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
+              {error}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="w-full btn-primary py-3 text-base">
+            {loading ? '登入中...' : '登入'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            尚未加入？{' '}
+            <Link href="/register" className="text-temple-red font-medium">
+              立即註冊
+            </Link>
+          </p>
+        </div>
+
+        <div className="mt-4 text-center">
+          <Link href="/admin/login" className="text-xs text-gray-400 hover:text-gray-600">
+            管理員入口
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

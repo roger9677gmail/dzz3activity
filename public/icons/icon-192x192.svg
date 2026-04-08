@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#8B1A1A"/>
+  <!-- Temple roof -->
+  <polygon points="96,20 160,70 32,70" fill="#C4962A"/>
+  <rect x="44" y="70" width="104" height="8" fill="#C4962A"/>
+  <!-- Pillars -->
+  <rect x="56" y="78" width="16" height="72" fill="#E6D5B0"/>
+  <rect x="120" y="78" width="16" height="72" fill="#E6D5B0"/>
+  <!-- Door -->
+  <rect x="78" y="110" width="36" height="40" fill="#C4962A"/>
+  <rect x="82" y="114" width="28" height="36" fill="#7A1A1A"/>
+  <circle cx="96" cy="138" r="3" fill="#C4962A"/>
+  <!-- Base -->
+  <rect x="40" y="150" width="112" height="10" fill="#C4962A"/>
+  <rect x="32" y="160" width="128" height="8" fill="#E6B84A"/>
+  <!-- Stars/dots decoration -->
+  <circle cx="70" cy="50" r="4" fill="#FFF8F0" opacity="0.7"/>
+  <circle cx="96" cy="40" r="4" fill="#FFF8F0" opacity="0.7"/>
+  <circle cx="122" cy="50" r="4" fill="#FFF8F0" opacity="0.7"/>
+</svg>

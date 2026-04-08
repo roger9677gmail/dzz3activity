@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-temple-cream text-temple-dark font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  * {
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-temple-red text-white font-medium py-2.5 px-4 rounded-lg
+           active:bg-temple-red-dark transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-temple-red border border-temple-red font-medium py-2.5 px-4 rounded-lg
+           active:bg-red-50 transition-colors;
+  }
+
+  .btn-gold {
+    @apply bg-temple-gold text-white font-medium py-2.5 px-4 rounded-lg
+           active:bg-amber-600 transition-colors;
+  }
+
+  .input-field {
+    @apply w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
+           focus:outline-none focus:ring-2 focus:ring-temple-red focus:border-transparent
+           bg-white placeholder-gray-400;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  }
+
+  .page-header {
+    @apply bg-temple-red text-white px-4 py-4 sticky top-0 z-10 shadow-sm;
+  }
+
+  .badge-active { @apply bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-closed { @apply bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-paid { @apply bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-unpaid { @apply bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-confirmed { @apply bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-pending { @apply bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full font-medium; }
+  .badge-cancelled { @apply bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-medium; }
+}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>佛堂法會報名系統 - 離線</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Noto Sans TC", system-ui, sans-serif;
+      background: #FFF8F0;
+      color: #2D1A0A;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      text-align: center;
+    }
+    .icon { font-size: 4rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.25rem; font-weight: bold; color: #8B1A1A; margin-bottom: 0.5rem; }
+    p { color: #7A6050; font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem; }
+    button {
+      background: #8B1A1A;
+      color: white;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:active { background: #5C1010; }
+  </style>
+</head>
+<body>
+  <div class="icon">⛩️</div>
+  <h1>佛堂法會報名系統</h1>
+  <p>
+    目前無網路連線<br>
+    請檢查您的網路設定後再試
+  </p>
+  <button onclick="window.location.reload()">重新連線</button>
+</body>
+</html>
