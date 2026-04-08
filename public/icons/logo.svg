@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background circle with temple red gradient -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#A02020"/>
+      <stop offset="100%" stop-color="#6B1010"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- Subtle gold ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#C4962A" stroke-width="2" opacity="0.3"/>
+
+  <!-- Meditation figure - faithful recreation of the logo -->
+  <g transform="translate(256,270) scale(1.6)" fill="#FFFFFF">
+    <!-- Head -->
+    <ellipse cx="0" cy="-82" rx="22" ry="20"/>
+
+    <!-- Body/torso - mountain-like shape -->
+    <path d="
+      M 0,-58
+      C 8,-55 18,-40 24,-20
+      C 30,0 32,10 30,20
+      C 28,28 20,35 10,40
+      C 5,42 -5,42 -10,40
+      C -20,35 -28,28 -30,20
+      C -32,10 -30,0 -24,-20
+      C -18,-40 -8,-55 0,-58
+      Z
+    "/>
+
+    <!-- Left leg/lotus - extending to the left -->
+    <path d="
+      M -10,35
+      C -18,38 -30,42 -50,46
+      C -65,49 -85,50 -100,48
+      C -108,47 -112,44 -110,40
+      C -108,36 -100,33 -88,32
+      C -72,31 -55,32 -42,34
+      C -32,35 -20,36 -10,35
+      Z
+    "/>
+
+    <!-- Right leg/lotus - extending to the right -->
+    <path d="
+      M 10,35
+      C 18,38 30,42 50,46
+      C 65,49 85,50 100,48
+      C 108,47 112,44 110,40
+      C 108,36 100,33 88,32
+      C 72,31 55,32 42,34
+      C 32,35 20,36 10,35
+      Z
+    "/>
+  </g>
+</svg>

@@ -10,18 +10,19 @@
     "gen-vapid": "node -e \"const wp=require('web-push');const keys=wp.generateVAPIDKeys();console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY='+keys.publicKey);console.log('VAPID_PRIVATE_KEY='+keys.privateKey);\""
   },
   "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
+    "jose": "^5.9.6",
     "next": "14.2.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@ducanh2912/next-pwa": "^10.2.9",
-    "better-sqlite3": "^11.7.0",
-    "bcryptjs": "^2.4.3",
-    "jose": "^5.9.6",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.17",
+    "autoprefixer": "^10.4.20",
     "postcss": "^8.5.1",
-    "autoprefixer": "^10.4.20"
+    "sharp": "^0.34.5",
+    "tailwindcss": "^3.4.17"
   }
 }

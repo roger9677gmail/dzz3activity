@@ -2,7 +2,6 @@ node_modules/
 .next/
 data/
 .env.local
-public/icons/*.png
 *.db
 *.db-wal
 *.db-shm
