@@ -9,7 +9,7 @@ export default async function AdminReportsPage() {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const events = db.prepare("SELECT id, name FROM events ORDER BY start_date DESC").all();
+  const events = await db.prepare("SELECT id, name FROM events ORDER BY start_date DESC").all();
 
   return (
     <div className="p-6">

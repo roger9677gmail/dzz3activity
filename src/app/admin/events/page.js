@@ -11,7 +11,7 @@ export default async function AdminEventsPage() {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const events = db.prepare(`
+  const events = await db.prepare(`
     SELECT e.*,
       (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') as reg_count
     FROM events e

@@ -6,14 +6,15 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
+    "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js",
     "gen-vapid": "node -e \"const wp=require('web-push');const keys=wp.generateVAPIDKeys();console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY='+keys.publicKey);console.log('VAPID_PRIVATE_KEY='+keys.privateKey);\""
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.7.0",
     "jose": "^5.9.6",
+    "mysql2": "^3.22.3",
     "next": "14.2.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -18,11 +18,11 @@ export async function GET(request) {
   }
   query += ' ORDER BY e.start_date DESC';
 
-  const events = db.prepare(query).all(...params);
+  const events = await db.prepare(query).all(...params);
 
   // Attach items to each event
   for (const ev of events) {
-    ev.items = db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
+    ev.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
   }
 
   return NextResponse.json(events);
@@ -36,21 +36,24 @@ export const POST = withAdminAuth(async (request) => {
       return NextResponse.json({ error: '活動名稱、日期及報名截止日為必填' }, { status: 400 });
     }
 
-    const result = db.prepare(`
-      INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, max_capacity, banner_color)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status || 'active', max_capacity || null, banner_color || '#8B1A1A');
+    const eventId = await db.transaction(async (tx) => {
+      const result = await tx.prepare(`
+        INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, max_capacity, banner_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status || 'active', max_capacity || null, banner_color || '#8B1A1A');
 
-    const eventId = result.lastInsertRowid;
+      const newId = result.lastInsertRowid;
 
-    if (items && Array.isArray(items)) {
-      for (const [i, item] of items.entries()) {
-        db.prepare(`
-          INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, sort_order)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(eventId, item.name, item.description || null, item.price || 0, item.max_quantity || 5, item.requires_name ? 1 : 0, i);
+      if (items && Array.isArray(items)) {
+        for (const [i, item] of items.entries()) {
+          await tx.prepare(`
+            INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(newId, item.name, item.description || null, item.price || 0, item.max_quantity || 5, item.requires_name ? 1 : 0, i);
+        }
       }
-    }
+      return newId;
+    });
 
     return NextResponse.json({ success: true, id: eventId });
   } catch (err) {

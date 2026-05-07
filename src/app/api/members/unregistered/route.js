@@ -10,7 +10,7 @@ export const GET = withAdminAuth(async (request) => {
     return NextResponse.json({ error: '請指定活動ID' }, { status: 400 });
   }
 
-  const members = db.prepare(`
+  const members = await db.prepare(`
     SELECT m.id, m.name, m.phone, m.email, m.created_at
     FROM members m
     WHERE m.role = 'member'

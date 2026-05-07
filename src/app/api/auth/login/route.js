@@ -10,7 +10,7 @@ export async function POST(request) {
       return NextResponse.json({ error: '請填寫電話及密碼' }, { status: 400 });
     }
 
-    const member = db.prepare('SELECT * FROM members WHERE phone = ? AND role = ?').get(phone, 'member');
+    const member = await db.prepare('SELECT * FROM members WHERE phone = ? AND role = ?').get(phone, 'member');
     if (!member) {
       return NextResponse.json({ error: '電話號碼或密碼錯誤' }, { status: 401 });
     }

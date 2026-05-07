@@ -13,11 +13,11 @@ export default async function AdminMembersPage({ searchParams }) {
   const mode = searchParams.mode || 'all'; // 'all' | 'unregistered'
   const search = searchParams.search || '';
 
-  const events = db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
+  const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
 
   let members;
   if (mode === 'unregistered' && eventId) {
-    members = db.prepare(`
+    members = await db.prepare(`
       SELECT m.id, m.name, m.phone, m.email, m.created_at
       FROM members m
       WHERE m.role = 'member'
@@ -29,7 +29,7 @@ export default async function AdminMembersPage({ searchParams }) {
       ORDER BY m.name
     `).all(...[eventId, ...(search ? [`%${search}%`, `%${search}%`] : [])]);
   } else {
-    members = db.prepare(`
+    members = await db.prepare(`
       SELECT m.id, m.name, m.phone, m.email, m.created_at,
         (SELECT COUNT(*) FROM registrations r WHERE r.member_id = m.id AND r.status != 'cancelled') as reg_count
       FROM members m

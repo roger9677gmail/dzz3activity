@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function EventsPage() {
   const session = await getSession(false);
 
-  const events = db.prepare(`
+  const events = await db.prepare(`
     SELECT e.*,
       (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') as reg_count
     FROM events e
@@ -16,15 +16,14 @@ export default async function EventsPage() {
   `).all();
 
   for (const ev of events) {
-    ev.items = db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
+    ev.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
   }
 
   // Which events has this member registered for?
-  const myRegistrationIds = new Set(
-    db.prepare("SELECT event_id FROM registrations WHERE member_id = ? AND status != 'cancelled'")
-      .all(session.sub)
-      .map((r) => r.event_id)
-  );
+  const myRegRows = await db
+    .prepare("SELECT event_id FROM registrations WHERE member_id = ? AND status != 'cancelled'")
+    .all(session.sub);
+  const myRegistrationIds = new Set(myRegRows.map((r) => r.event_id));
 
   const upcoming = events.filter((e) => e.status === 'active');
   const past = events.filter((e) => e.status !== 'active');

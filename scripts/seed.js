@@ -1,104 +1,38 @@
-const Database = require('better-sqlite3');
+#!/usr/bin/env node
+/**
+ * Seed initial data for a fresh MySQL database.
+ * Assumes scripts/migrate.js has already created the schema.
+ *   DB_HOST=... DB_USER=... DB_PASSWORD=... DB_NAME=... node scripts/seed.js
+ */
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
-const path = require('path');
-const fs = require('fs');
 
-const dataDir = path.join(__dirname, '../data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const config = process.env.DB_SOCKET_PATH
+  ? {
+      socketPath: process.env.DB_SOCKET_PATH,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+    }
+  : {
+      host: process.env.DB_HOST || '127.0.0.1',
+      port: Number(process.env.DB_PORT) || 3306,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+    };
 
-const db = new Database(path.join(dataDir, 'temple.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-// Create schema
-db.exec(`
-  CREATE TABLE IF NOT EXISTS members (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL, phone TEXT NOT NULL UNIQUE, email TEXT,
-    password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member',
-    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+async function ensureMember(conn, name, phone, password, role) {
+  const [rows] = await conn.query('SELECT id FROM members WHERE phone = ?', [phone]);
+  if (rows.length > 0) return null;
+  const hash = bcrypt.hashSync(password, 10);
+  await conn.query(
+    'INSERT INTO members (name, phone, password, role) VALUES (?, ?, ?, ?)',
+    [name, phone, hash, role]
   );
-  CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL, description TEXT, start_date TEXT NOT NULL,
-    end_date TEXT NOT NULL, registration_deadline TEXT NOT NULL,
-    location TEXT, status TEXT NOT NULL DEFAULT 'active',
-    max_capacity INTEGER, banner_color TEXT DEFAULT '#8B1A1A',
-    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-  );
-  CREATE TABLE IF NOT EXISTS event_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-    name TEXT NOT NULL, description TEXT, price INTEGER NOT NULL DEFAULT 0,
-    max_quantity INTEGER DEFAULT 5, requires_name INTEGER NOT NULL DEFAULT 1,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-  );
-  CREATE TABLE IF NOT EXISTS registrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id INTEGER NOT NULL REFERENCES events(id),
-    member_id INTEGER NOT NULL REFERENCES members(id),
-    status TEXT NOT NULL DEFAULT 'pending', total_amount INTEGER NOT NULL DEFAULT 0,
-    notes TEXT, payment_status TEXT NOT NULL DEFAULT 'unpaid',
-    receipt_number TEXT, payment_date TEXT, payment_notes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-    UNIQUE(event_id, member_id)
-  );
-  CREATE TABLE IF NOT EXISTS registration_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    registration_id INTEGER NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
-    event_item_id INTEGER NOT NULL REFERENCES event_items(id),
-    quantity INTEGER NOT NULL DEFAULT 1, names TEXT, subtotal INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-  );
-  CREATE TABLE IF NOT EXISTS push_subscriptions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-    endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_reg_member ON registrations(member_id);
-  CREATE INDEX IF NOT EXISTS idx_reg_event ON registrations(event_id);
-  CREATE INDEX IF NOT EXISTS idx_event_items_event ON event_items(event_id);
-`);
-
-console.log('✅ 資料庫結構建立完成');
-
-// Create admin account
-const adminHash = bcrypt.hashSync('admin1234', 10);
-const existing = db.prepare("SELECT id FROM members WHERE phone = '0900000000'").get();
-if (!existing) {
-  db.prepare("INSERT INTO members (name, phone, password, role) VALUES (?, ?, ?, 'admin')")
-    .run('管理員', '0900000000', adminHash);
-  console.log('✅ 管理員帳號建立: 電話 0900000000 / 密碼 admin1234');
-} else {
-  console.log('ℹ️  管理員帳號已存在');
+  return phone;
 }
 
-// Create demo member accounts
-const members = [
-  { name: '王師兄', phone: '0911111111' },
-  { name: '李師姐', phone: '0922222222' },
-  { name: '張師兄', phone: '0933333333' },
-  { name: '陳師姐', phone: '0944444444' },
-  { name: '林師兄', phone: '0955555555' },
-];
-
-const memberHash = bcrypt.hashSync('member123', 10);
-for (const m of members) {
-  const ex = db.prepare('SELECT id FROM members WHERE phone = ?').get(m.phone);
-  if (!ex) {
-    db.prepare("INSERT INTO members (name, phone, password, role) VALUES (?, ?, ?, 'member')")
-      .run(m.name, m.phone, memberHash);
-    console.log(`✅ 師兄姐帳號: ${m.name} / ${m.phone} / 密碼: member123`);
-  }
-}
-
-// Create 4 predefined events
 const events = [
   {
     name: '中元普渡法會',
@@ -160,36 +94,59 @@ const events = [
   },
 ];
 
-for (const ev of events) {
-  const ex = db.prepare('SELECT id FROM events WHERE name = ?').get(ev.name);
-  if (!ex) {
-    const r = db.prepare(`
-      INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, banner_color)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
-    `).run(ev.name, ev.description, ev.start_date, ev.end_date, ev.registration_deadline, ev.location, ev.banner_color);
-
-    for (const [i, item] of ev.items.entries()) {
-      db.prepare(`
-        INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, sort_order)
-        VALUES (?, ?, ?, ?, 5, ?, ?)
-      `).run(r.lastInsertRowid, item.name, item.description, item.price, item.requires_name ? 1 : 0, i);
-    }
-    console.log(`✅ 法會活動建立: ${ev.name}`);
-  } else {
-    console.log(`ℹ️  活動已存在: ${ev.name}`);
+(async () => {
+  if (!config.user || !config.database) {
+    console.error('Missing DB env vars: DB_USER, DB_NAME, DB_PASSWORD, and DB_HOST or DB_SOCKET_PATH.');
+    process.exit(1);
   }
-}
+  const conn = await mysql.createConnection(config);
+  try {
+    if (await ensureMember(conn, '管理員', '0900000000', 'admin1234', 'admin')) {
+      console.log('✅ 管理員帳號建立: 0900000000 / admin1234');
+    } else {
+      console.log('ℹ️  管理員帳號已存在');
+    }
 
-console.log('\n🎉 初始化完成！');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-console.log('管理員登入：');
-console.log('  電話: 0900000000');
-console.log('  密碼: admin1234');
-console.log('  入口: http://localhost:3000/admin/login');
-console.log('');
-console.log('師兄姐登入（示範帳號）：');
-console.log('  電話: 0911111111 ~ 0955555555');
-console.log('  密碼: member123');
-console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    const demoMembers = [
+      { name: '王師兄', phone: '0911111111' },
+      { name: '李師姐', phone: '0922222222' },
+      { name: '張師兄', phone: '0933333333' },
+      { name: '陳師姐', phone: '0944444444' },
+      { name: '林師兄', phone: '0955555555' },
+    ];
+    for (const m of demoMembers) {
+      if (await ensureMember(conn, m.name, m.phone, 'member123', 'member')) {
+        console.log(`✅ 師兄姐帳號: ${m.name} / ${m.phone} / member123`);
+      }
+    }
 
-db.close();
+    for (const ev of events) {
+      const [exRows] = await conn.query('SELECT id FROM events WHERE name = ?', [ev.name]);
+      if (exRows.length > 0) {
+        console.log(`ℹ️  活動已存在: ${ev.name}`);
+        continue;
+      }
+      const [r] = await conn.query(
+        `INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, banner_color)
+         VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`,
+        [ev.name, ev.description, ev.start_date, ev.end_date, ev.registration_deadline, ev.location, ev.banner_color]
+      );
+      const eventId = r.insertId;
+      for (const [i, item] of ev.items.entries()) {
+        await conn.query(
+          `INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, sort_order)
+           VALUES (?, ?, ?, ?, 5, ?, ?)`,
+          [eventId, item.name, item.description, item.price, item.requires_name ? 1 : 0, i]
+        );
+      }
+      console.log(`✅ 法會活動建立: ${ev.name}`);
+    }
+
+    console.log('\n🎉 初始化完成！');
+  } finally {
+    await conn.end();
+  }
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

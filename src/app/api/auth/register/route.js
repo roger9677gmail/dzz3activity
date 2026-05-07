@@ -14,13 +14,13 @@ export async function POST(request) {
       return NextResponse.json({ error: '密碼至少需6碼' }, { status: 400 });
     }
 
-    const existing = db.prepare('SELECT id FROM members WHERE phone = ?').get(phone);
+    const existing = await db.prepare('SELECT id FROM members WHERE phone = ?').get(phone);
     if (existing) {
       return NextResponse.json({ error: '此電話號碼已註冊' }, { status: 409 });
     }
 
     const hash = await bcrypt.hash(password, 10);
-    const result = db
+    const result = await db
       .prepare('INSERT INTO members (name, phone, email, password, role) VALUES (?, ?, ?, ?, ?)')
       .run(name, phone, email || null, hash, 'member');
 

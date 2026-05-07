@@ -10,13 +10,13 @@ export default async function AdminDashboard() {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const totalMembers = db.prepare("SELECT COUNT(*) as count FROM members WHERE role='member'").get().count;
-  const totalEvents = db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get().count;
-  const totalRegistrations = db.prepare("SELECT COUNT(*) as count FROM registrations WHERE status != 'cancelled'").get().count;
-  const totalRevenue = db.prepare("SELECT SUM(total_amount) as sum FROM registrations WHERE payment_status='paid'").get().sum || 0;
-  const unpaidCount = db.prepare("SELECT COUNT(*) as count FROM registrations WHERE payment_status='unpaid' AND status != 'cancelled'").get().count;
+  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE role='member'").get()).count;
+  const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
+  const totalRegistrations = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE status != 'cancelled'").get()).count;
+  const totalRevenue = (await db.prepare("SELECT SUM(total_amount) as sum FROM registrations WHERE payment_status='paid'").get()).sum || 0;
+  const unpaidCount = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE payment_status='unpaid' AND status != 'cancelled'").get()).count;
 
-  const eventStats = db.prepare(`
+  const eventStats = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.status, e.banner_color,
       COUNT(r.id) as reg_count,
       SUM(CASE WHEN r.payment_status='paid' THEN 1 ELSE 0 END) as paid_count,

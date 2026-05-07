@@ -14,6 +14,6 @@ export const GET = withAdminAuth(async (request) => {
   }
   query += ' ORDER BY name';
 
-  const members = db.prepare(query).all(...params);
+  const members = await db.prepare(query).all(...params);
   return NextResponse.json(members);
 });

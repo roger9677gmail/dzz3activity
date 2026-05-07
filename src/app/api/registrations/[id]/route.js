@@ -3,7 +3,7 @@ import db from '@/lib/db';
 import { withAdminAuth } from '@/lib/middleware';
 
 export const GET = withAdminAuth(async (request, { params }) => {
-  const reg = db.prepare(`
+  const reg = await db.prepare(`
     SELECT r.*, m.name as member_name, m.phone as member_phone, m.email as member_email,
            e.name as event_name, e.start_date, e.end_date
     FROM registrations r
@@ -14,7 +14,7 @@ export const GET = withAdminAuth(async (request, { params }) => {
 
   if (!reg) return NextResponse.json({ error: '報名記錄不存在' }, { status: 404 });
 
-  reg.items = db.prepare(`
+  reg.items = await db.prepare(`
     SELECT ri.*, ei.name as item_name, ei.price as item_price
     FROM registration_items ri
     JOIN event_items ei ON ei.id = ri.event_item_id
@@ -26,8 +26,8 @@ export const GET = withAdminAuth(async (request, { params }) => {
 
 export const PUT = withAdminAuth(async (request, { params }) => {
   const { status, notes } = await request.json();
-  db.prepare(`
-    UPDATE registrations SET status=?, notes=?, updated_at=datetime('now','localtime')
+  await db.prepare(`
+    UPDATE registrations SET status=?, notes=?, updated_at=NOW()
     WHERE id=?
   `).run(status, notes || null, params.id);
   return NextResponse.json({ success: true });

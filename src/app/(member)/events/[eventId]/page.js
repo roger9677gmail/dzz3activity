@@ -9,13 +9,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function EventDetailPage({ params }) {
   const session = await getSession(false);
-  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
+  const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
   if (!event) notFound();
 
-  event.items = db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
+  event.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
 
-  const existingRegistration = db.prepare(`
-    SELECT r.*, GROUP_CONCAT(ei.name || 'x' || ri.quantity, ', ') as items_summary
+  const existingRegistration = await db.prepare(`
+    SELECT r.*, GROUP_CONCAT(CONCAT(ei.name, 'x', ri.quantity) SEPARATOR ', ') as items_summary
     FROM registrations r
     LEFT JOIN registration_items ri ON ri.registration_id = r.id
     LEFT JOIN event_items ei ON ei.id = ri.event_item_id

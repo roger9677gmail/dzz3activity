@@ -13,13 +13,13 @@ export const POST = withAdminAuth(async (request) => {
     let subscriptions;
     if (eventId) {
       // Only send to members registered for this event
-      subscriptions = db.prepare(`
+      subscriptions = await db.prepare(`
         SELECT ps.* FROM push_subscriptions ps
         JOIN registrations r ON r.member_id = ps.member_id
         WHERE r.event_id = ? AND r.status != 'cancelled'
       `).all(eventId);
     } else {
-      subscriptions = db.prepare('SELECT * FROM push_subscriptions').all();
+      subscriptions = await db.prepare('SELECT * FROM push_subscriptions').all();
     }
 
     if (subscriptions.length === 0) {
@@ -40,7 +40,7 @@ export const POST = withAdminAuth(async (request) => {
     // Clean up expired subscriptions
     const expired = results.filter((r) => r.expired);
     for (const e of expired) {
-      db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(e.endpoint);
+      await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(e.endpoint);
     }
 
     const sent = results.filter((r) => r.success).length;

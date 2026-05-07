@@ -15,7 +15,7 @@ export default async function AdminRegistrationsPage({ searchParams }) {
   const paymentStatus = searchParams.payment_status || '';
   const search = searchParams.search || '';
 
-  const events = db.prepare("SELECT id, name FROM events ORDER BY start_date DESC").all();
+  const events = await db.prepare("SELECT id, name FROM events ORDER BY start_date DESC").all();
 
   let query = `
     SELECT r.*, m.name as member_name, m.phone as member_phone, e.name as event_name
@@ -33,9 +33,9 @@ export default async function AdminRegistrationsPage({ searchParams }) {
   }
   query += ' ORDER BY r.created_at DESC LIMIT 200';
 
-  const registrations = db.prepare(query).all(...params);
+  const registrations = await db.prepare(query).all(...params);
   for (const reg of registrations) {
-    reg.items = db.prepare(`
+    reg.items = await db.prepare(`
       SELECT ri.*, ei.name as item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id

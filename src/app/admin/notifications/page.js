@@ -9,8 +9,8 @@ export default async function AdminNotificationsPage() {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const events = db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
-  const subCount = db.prepare('SELECT COUNT(*) as count FROM push_subscriptions').get().count;
+  const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
+  const subCount = (await db.prepare('SELECT COUNT(*) as count FROM push_subscriptions').get()).count;
 
   return (
     <div className="p-6">

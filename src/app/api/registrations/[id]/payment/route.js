@@ -6,11 +6,11 @@ export const PUT = withAdminAuth(async (request, { params }) => {
   try {
     const { payment_status, receipt_number, payment_date, payment_notes } = await request.json();
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE registrations
       SET payment_status=?, receipt_number=?, payment_date=?, payment_notes=?,
           status=CASE WHEN ? = 'paid' THEN 'confirmed' ELSE status END,
-          updated_at=datetime('now','localtime')
+          updated_at=NOW()
       WHERE id=?
     `).run(payment_status, receipt_number || null, payment_date || null, payment_notes || null, payment_status, params.id);
 

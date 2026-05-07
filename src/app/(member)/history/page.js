@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function HistoryPage() {
   const session = await getSession(false);
 
-  const registrations = db.prepare(`
+  const registrations = await db.prepare(`
     SELECT r.*, e.name as event_name, e.start_date, e.end_date, e.banner_color
     FROM registrations r
     JOIN events e ON e.id = r.event_id
@@ -17,7 +17,7 @@ export default async function HistoryPage() {
   `).all(session.sub);
 
   for (const reg of registrations) {
-    reg.items = db.prepare(`
+    reg.items = await db.prepare(`
       SELECT ri.*, ei.name as item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id

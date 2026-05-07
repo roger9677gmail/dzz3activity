@@ -25,10 +25,10 @@ export const GET = withAdminAuth(async (request, { params }) => {
   }
   query += ' ORDER BY r.created_at DESC';
 
-  const registrations = db.prepare(query).all(...queryParams);
+  const registrations = await db.prepare(query).all(...queryParams);
 
   for (const reg of registrations) {
-    reg.items = db.prepare(`
+    reg.items = await db.prepare(`
       SELECT ri.*, ei.name as item_name, ei.price as item_price
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id

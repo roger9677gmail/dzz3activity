@@ -11,10 +11,10 @@ export default async function EventRegistrationsPage({ params }) {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
+  const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
   if (!event) notFound();
 
-  const registrations = db.prepare(`
+  const registrations = await db.prepare(`
     SELECT r.*, m.name as member_name, m.phone as member_phone
     FROM registrations r
     JOIN members m ON m.id = r.member_id
@@ -23,7 +23,7 @@ export default async function EventRegistrationsPage({ params }) {
   `).all(params.eventId);
 
   for (const reg of registrations) {
-    reg.items = db.prepare(`
+    reg.items = await db.prepare(`
       SELECT ri.*, ei.name as item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id

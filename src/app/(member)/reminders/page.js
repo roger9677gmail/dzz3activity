@@ -9,20 +9,20 @@ export default async function RemindersPage() {
   const session = await getSession(false);
 
   // Upcoming events the member registered for
-  const upcomingRegistered = db.prepare(`
+  const upcomingRegistered = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.end_date, e.location, e.banner_color
     FROM registrations r
     JOIN events e ON e.id = r.event_id
-    WHERE r.member_id = ? AND r.status != 'cancelled' AND e.start_date >= date('now')
+    WHERE r.member_id = ? AND r.status != 'cancelled' AND e.start_date >= CURDATE()
     ORDER BY e.start_date
   `).all(session.sub);
 
   // Active events not yet registered
-  const unregistered = db.prepare(`
+  const unregistered = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.registration_deadline, e.banner_color
     FROM events e
     WHERE e.status = 'active'
-      AND date(e.registration_deadline) >= date('now')
+      AND e.registration_deadline >= CURDATE()
       AND e.id NOT IN (
         SELECT event_id FROM registrations
         WHERE member_id = ? AND status != 'cancelled'

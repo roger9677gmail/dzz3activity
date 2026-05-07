@@ -9,9 +9,9 @@ export default async function EditEventPage({ params }) {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
+  const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
   if (!event) notFound();
-  event.items = db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
+  event.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
 
   return (
     <div className="p-6 max-w-2xl">

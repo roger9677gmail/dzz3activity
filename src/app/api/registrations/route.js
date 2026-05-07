@@ -30,13 +30,13 @@ export const GET = withAdminAuth(async (request) => {
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
-  const total = db.prepare(query.replace('SELECT r.*, m.name as member_name, m.phone as member_phone,\n           e.name as event_name', 'SELECT COUNT(*)')).get(...params);
+  const totalRow = await db.prepare(query.replace('SELECT r.*, m.name as member_name, m.phone as member_phone,\n           e.name as event_name', 'SELECT COUNT(*) AS total')).get(...params);
   query += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
 
-  const registrations = db.prepare(query).all(...params);
+  const registrations = await db.prepare(query).all(...params);
   for (const reg of registrations) {
-    reg.items = db.prepare(`
+    reg.items = await db.prepare(`
       SELECT ri.*, ei.name as item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
@@ -44,14 +44,14 @@ export const GET = withAdminAuth(async (request) => {
     `).all(reg.id);
   }
 
-  return NextResponse.json({ registrations, total: total['COUNT(*)'], page, limit });
+  return NextResponse.json({ registrations, total: totalRow?.total || 0, page, limit });
 });
 
 export const POST = withAuth(async (request) => {
   try {
     const { eventId, items, notes } = await request.json();
 
-    const event = db.prepare("SELECT * FROM events WHERE id = ? AND status = 'active'").get(eventId);
+    const event = await db.prepare("SELECT * FROM events WHERE id = ? AND status = 'active'").get(eventId);
     if (!event) return NextResponse.json({ error: '活動不存在或已截止報名' }, { status: 400 });
     if (new Date(event.registration_deadline) < new Date()) {
       return NextResponse.json({ error: '報名截止日期已過' }, { status: 400 });
@@ -60,35 +60,36 @@ export const POST = withAuth(async (request) => {
       return NextResponse.json({ error: '請至少選擇一個報名項目' }, { status: 400 });
     }
 
-    const insertRegistration = db.transaction((memberId, eventId, items, notes) => {
+    const memberId = request.session.sub;
+    const regId = await db.transaction(async (tx) => {
       let total = 0;
-      const resolvedItems = items.map((item) => {
-        const eventItem = db.prepare('SELECT * FROM event_items WHERE id = ? AND event_id = ?').get(item.eventItemId, eventId);
+      const resolvedItems = [];
+      for (const item of items) {
+        const eventItem = await tx.prepare('SELECT * FROM event_items WHERE id = ? AND event_id = ?').get(item.eventItemId, eventId);
         if (!eventItem) throw new Error(`項目不存在: ${item.eventItemId}`);
         const subtotal = eventItem.price * item.quantity;
         total += subtotal;
-        return { ...item, subtotal };
-      });
+        resolvedItems.push({ ...item, subtotal });
+      }
 
-      const reg = db.prepare(`
+      const reg = await tx.prepare(`
         INSERT INTO registrations (event_id, member_id, total_amount, notes)
         VALUES (?, ?, ?, ?)
       `).run(eventId, memberId, total, notes || null);
 
-      const regId = reg.lastInsertRowid;
+      const newRegId = reg.lastInsertRowid;
       for (const item of resolvedItems) {
-        db.prepare(`
+        await tx.prepare(`
           INSERT INTO registration_items (registration_id, event_item_id, quantity, names, subtotal)
           VALUES (?, ?, ?, ?, ?)
-        `).run(regId, item.eventItemId, item.quantity, JSON.stringify(item.names || []), item.subtotal);
+        `).run(newRegId, item.eventItemId, item.quantity, JSON.stringify(item.names || []), item.subtotal);
       }
-      return regId;
+      return newRegId;
     });
 
-    const regId = insertRegistration(request.session.sub, eventId, items, notes);
     return NextResponse.json({ success: true, registrationId: regId });
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.code === 'ER_DUP_ENTRY' || (err.message && err.message.includes('Duplicate entry'))) {
       return NextResponse.json({ error: '您已報名此活動' }, { status: 409 });
     }
     console.error(err);

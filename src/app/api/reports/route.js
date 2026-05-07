@@ -34,22 +34,23 @@ export const GET = withAdminAuth(async (request) => {
   if (paymentStatus) { query += ' AND r.payment_status = ?'; params.push(paymentStatus); }
   query += ' ORDER BY e.name, m.name';
 
-  const rows = db.prepare(query).all(...params);
+  const rows = await db.prepare(query).all(...params);
 
   // Add items detail
-  const enriched = rows.map((row) => {
-    const items = db.prepare(`
+  const enriched = [];
+  for (const row of rows) {
+    const items = await db.prepare(`
       SELECT ei.name as 項目, ri.quantity as 數量, ri.subtotal as 小計, ri.names as 牌位姓名
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id = ?
     `).all(row['報名編號']);
 
-    return {
+    enriched.push({
       ...row,
       報名項目: items.map((i) => `${i['項目']}x${i['數量']}(${i['牌位姓名'] ? JSON.parse(i['牌位姓名']).join(',') : ''})`).join('|'),
-    };
-  });
+    });
+  }
 
   if (format === 'csv') {
     if (enriched.length === 0) {
