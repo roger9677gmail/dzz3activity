@@ -51,15 +51,16 @@ CREATE TABLE IF NOT EXISTS events (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS event_items (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  event_id      INT UNSIGNED NOT NULL,
-  name          VARCHAR(255) NOT NULL,
-  description   TEXT,
-  price         INT          NOT NULL DEFAULT 0,
-  max_quantity  INT          DEFAULT 5,
-  requires_name TINYINT(1)   NOT NULL DEFAULT 1,
-  sort_order    INT          NOT NULL DEFAULT 0,
-  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id         INT UNSIGNED NOT NULL,
+  name             VARCHAR(255) NOT NULL,
+  description      TEXT,
+  price            INT          NOT NULL DEFAULT 0,
+  max_quantity     INT          DEFAULT 5,
+  requires_name    TINYINT(1)   NOT NULL DEFAULT 1,
+  requires_content TINYINT(1)   NOT NULL DEFAULT 0,
+  sort_order       INT          NOT NULL DEFAULT 0,
+  created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_event_items_event (event_id),
   CONSTRAINT fk_event_items_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -91,6 +92,7 @@ CREATE TABLE IF NOT EXISTS registration_items (
   event_item_id   INT UNSIGNED NOT NULL,
   quantity        INT          NOT NULL DEFAULT 1,
   names           TEXT,
+  contents        TEXT,
   subtotal        INT          NOT NULL DEFAULT 0,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_regitem_registration (registration_id),
@@ -120,6 +122,25 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   try {
     await conn.query(SCHEMA);
     console.log('✅ Schema applied to database:', config.database);
+
+    // Idempotent ALTER TABLE upgrades for existing databases.
+    // Each statement is wrapped in try/catch so already-applied changes don't fail the run.
+    const ALTERS = [
+      "ALTER TABLE event_items ADD COLUMN requires_content TINYINT(1) NOT NULL DEFAULT 0 AFTER requires_name",
+      "ALTER TABLE registration_items ADD COLUMN contents TEXT AFTER names",
+    ];
+    for (const sql of ALTERS) {
+      try {
+        await conn.query(sql);
+        console.log('✅ Applied:', sql);
+      } catch (err) {
+        if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+          console.log('ℹ️  Skipped (already applied):', sql);
+        } else {
+          throw err;
+        }
+      }
+    }
   } finally {
     await conn.end();
   }

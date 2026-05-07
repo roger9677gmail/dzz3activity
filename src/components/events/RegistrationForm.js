@@ -7,6 +7,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
   const router = useRouter();
   const [selectedItems, setSelectedItems] = useState({});
   const [names, setNames] = useState({});
+  const [contents, setContents] = useState({});
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,10 +25,19 @@ export default function RegistrationForm({ event, existingRegistration }) {
       const nextNames = { ...names };
       delete nextNames[itemId];
       setNames(nextNames);
+      const nextContents = { ...contents };
+      delete nextContents[itemId];
+      setContents(nextContents);
     } else {
       setSelectedItems((prev) => ({ ...prev, [itemId]: qty }));
       // Adjust names array size
       setNames((prev) => {
+        const current = prev[itemId] || [];
+        const adjusted = Array.from({ length: qty }, (_, i) => current[i] || '');
+        return { ...prev, [itemId]: adjusted };
+      });
+      // Adjust contents array size
+      setContents((prev) => {
         const current = prev[itemId] || [];
         const adjusted = Array.from({ length: qty }, (_, i) => current[i] || '');
         return { ...prev, [itemId]: adjusted };
@@ -43,6 +53,14 @@ export default function RegistrationForm({ event, existingRegistration }) {
     });
   }
 
+  function updateContent(itemId, idx, val) {
+    setContents((prev) => {
+      const current = [...(prev[itemId] || [])];
+      current[idx] = val;
+      return { ...prev, [itemId]: current };
+    });
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -51,6 +69,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
       eventItemId: parseInt(itemId),
       quantity: qty,
       names: names[itemId] || [],
+      contents: contents[itemId] || [],
     }));
 
     if (items.length === 0) {
@@ -58,13 +77,20 @@ export default function RegistrationForm({ event, existingRegistration }) {
       return;
     }
 
-    // Validate required names
+    // Validate required names / contents
     for (const item of items) {
       const eventItem = event.items.find((i) => i.id === item.eventItemId);
       if (eventItem?.requires_name) {
         const emptyNames = item.names.filter((n) => !n.trim());
         if (emptyNames.length > 0) {
-          setError(`請填寫「${eventItem.name}」的牌位姓名`);
+          setError(`請填寫「${eventItem.name}」的功德主(陽上)姓名`);
+          return;
+        }
+      }
+      if (eventItem?.requires_content) {
+        const emptyContents = item.contents.filter((c) => !c.trim());
+        if (emptyContents.length > 0) {
+          setError(`請填寫「${eventItem.name}」的超渡內容`);
           return;
         }
       }
@@ -145,9 +171,25 @@ export default function RegistrationForm({ event, existingRegistration }) {
                         key={idx}
                         type="text"
                         className="input-field text-sm"
-                        placeholder={`第${idx + 1}位牌位姓名`}
+                        placeholder={`第${idx + 1}位功德主(陽上)姓名`}
                         value={(names[item.id] || [])[idx] || ''}
                         onChange={(e) => updateName(item.id, idx, e.target.value)}
+                        required
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {qty > 0 && item.requires_content ? (
+                  <div className="mt-2 space-y-1.5">
+                    {Array.from({ length: qty }).map((_, idx) => (
+                      <textarea
+                        key={idx}
+                        className="input-field text-sm resize-none"
+                        rows={2}
+                        placeholder={`第${idx + 1}位超渡內容（如：歷代祖先、冤親債主等）`}
+                        value={(contents[item.id] || [])[idx] || ''}
+                        onChange={(e) => updateContent(item.id, idx, e.target.value)}
                         required
                       />
                     ))}

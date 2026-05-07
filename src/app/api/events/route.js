@@ -47,9 +47,9 @@ export const POST = withAdminAuth(async (request) => {
       if (items && Array.isArray(items)) {
         for (const [i, item] of items.entries()) {
           await tx.prepare(`
-            INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).run(newId, item.name, item.description || null, item.price || 0, item.max_quantity || 5, item.requires_name ? 1 : 0, i);
+            INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, requires_content, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(newId, item.name, item.description || null, item.price || 0, item.max_quantity || 5, item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i);
         }
       }
       return newId;

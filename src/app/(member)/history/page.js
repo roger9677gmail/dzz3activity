@@ -59,11 +59,19 @@ export default async function HistoryPage() {
               <div className="space-y-1 mb-3">
                 {reg.items.map((item) => {
                   const itemNames = item.names ? JSON.parse(item.names) : [];
+                  const itemContents = item.contents ? JSON.parse(item.contents) : [];
                   return (
                     <div key={item.id} className="text-sm">
-                      <span className="text-gray-700">· {item.item_name} × {item.quantity}</span>
-                      {itemNames.length > 0 && (
-                        <span className="text-gray-400 ml-1">（{itemNames.join('、')}）</span>
+                      <div>
+                        <span className="text-gray-700">· {item.item_name} × {item.quantity}</span>
+                        {itemNames.length > 0 && (
+                          <span className="text-gray-400 ml-1">（{itemNames.join('、')}）</span>
+                        )}
+                      </div>
+                      {itemContents.length > 0 && itemContents.some((c) => c && c.trim()) && (
+                        <div className="text-xs text-gray-500 mt-0.5 pl-3">
+                          超渡內容：{itemContents.filter((c) => c && c.trim()).join('；')}
+                        </div>
                       )}
                     </div>
                   );

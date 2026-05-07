@@ -21,7 +21,7 @@ export default function EventForm({ event = null }) {
   });
 
   const [items, setItems] = useState(
-    event?.items || [{ name: '', description: '', price: 0, max_quantity: 5, requires_name: true }]
+    event?.items || [{ name: '', description: '', price: 0, max_quantity: 5, requires_name: true, requires_content: false }]
   );
 
   const [loading, setLoading] = useState(false);
@@ -32,7 +32,7 @@ export default function EventForm({ event = null }) {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { name: '', description: '', price: 0, max_quantity: 5, requires_name: true }]);
+    setItems((prev) => [...prev, { name: '', description: '', price: 0, max_quantity: 5, requires_name: true, requires_content: false }]);
   }
 
   function removeItem(idx) {
@@ -186,7 +186,12 @@ export default function EventForm({ event = null }) {
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={item.requires_name}
                   onChange={(e) => updateItem(idx, 'requires_name', e.target.checked)} />
-                需要填寫牌位姓名
+                需要填寫功德主(陽上)姓名
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={!!item.requires_content}
+                  onChange={(e) => updateItem(idx, 'requires_content', e.target.checked)} />
+                需要填寫超渡內容
               </label>
             </div>
           ))}

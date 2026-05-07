@@ -80,9 +80,9 @@ export const POST = withAuth(async (request) => {
       const newRegId = reg.lastInsertRowid;
       for (const item of resolvedItems) {
         await tx.prepare(`
-          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, subtotal)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(newRegId, item.eventItemId, item.quantity, JSON.stringify(item.names || []), item.subtotal);
+          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, contents, subtotal)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(newRegId, item.eventItemId, item.quantity, JSON.stringify(item.names || []), JSON.stringify(item.contents || []), item.subtotal);
       }
       return newRegId;
     });

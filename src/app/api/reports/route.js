@@ -40,15 +40,29 @@ export const GET = withAdminAuth(async (request) => {
   const enriched = [];
   for (const row of rows) {
     const items = await db.prepare(`
-      SELECT ei.name as 項目, ri.quantity as 數量, ri.subtotal as 小計, ri.names as 牌位姓名
+      SELECT ei.name as 項目, ri.quantity as 數量, ri.subtotal as 小計, ri.names as 功德主姓名, ri.contents as 超渡內容
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id = ?
     `).all(row['報名編號']);
 
+    const safeParse = (val) => {
+      if (!val) return [];
+      try { return JSON.parse(val); } catch { return []; }
+    };
+
     enriched.push({
       ...row,
-      報名項目: items.map((i) => `${i['項目']}x${i['數量']}(${i['牌位姓名'] ? JSON.parse(i['牌位姓名']).join(',') : ''})`).join('|'),
+      報名項目: items
+        .map((i) => `${i['項目']}x${i['數量']}(${safeParse(i['功德主姓名']).join(',')})`)
+        .join('|'),
+      超渡內容: items
+        .map((i) => {
+          const cs = safeParse(i['超渡內容']).filter((c) => c && c.trim());
+          return cs.length > 0 ? `${i['項目']}:${cs.join('；')}` : '';
+        })
+        .filter(Boolean)
+        .join('|'),
     });
   }
 

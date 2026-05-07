@@ -93,10 +93,18 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                   <div className="mb-3 space-y-1">
                     {reg.items.map((item) => {
                       const names = item.names ? JSON.parse(item.names) : [];
+                      const contents = item.contents ? JSON.parse(item.contents) : [];
                       return (
                         <div key={item.id} className="text-sm">
-                          <span>{item.item_name} × {item.quantity}</span>
-                          {names.length > 0 && <span className="text-gray-400 ml-1">（{names.join('、')}）</span>}
+                          <div>
+                            <span>{item.item_name} × {item.quantity}</span>
+                            {names.length > 0 && <span className="text-gray-400 ml-1">（{names.join('、')}）</span>}
+                          </div>
+                          {contents.length > 0 && contents.some((c) => c && c.trim()) && (
+                            <div className="text-xs text-gray-500 mt-0.5 pl-2">
+                              超渡內容：{contents.filter((c) => c && c.trim()).join('；')}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
