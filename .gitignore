@@ -5,3 +5,11 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# next-pwa generated service worker artifacts
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/swe-worker-*.js
+public/swe-worker-*.js.map
