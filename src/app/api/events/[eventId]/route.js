@@ -29,9 +29,29 @@ export const PUT = withAdminAuth(async (request, { params }) => {
 
 export const DELETE = withAdminAuth(async (request, { params }) => {
   try {
-    db.prepare('DELETE FROM events WHERE id = ?').run(params.eventId);
+    const event = db.prepare('SELECT id FROM events WHERE id = ?').get(params.eventId);
+    if (!event) return NextResponse.json({ error: '活動不存在' }, { status: 404 });
+
+    const { count } = db.prepare(
+      "SELECT COUNT(*) AS count FROM registrations WHERE event_id = ? AND status != 'cancelled'"
+    ).get(params.eventId);
+
+    if (count > 0) {
+      return NextResponse.json(
+        { error: `此活動已有 ${count} 筆報名紀錄，無法刪除` },
+        { status: 409 }
+      );
+    }
+
+    const tx = db.transaction((eventId) => {
+      db.prepare('DELETE FROM registrations WHERE event_id = ?').run(eventId);
+      db.prepare('DELETE FROM events WHERE id = ?').run(eventId);
+    });
+    tx(params.eventId);
+
     return NextResponse.json({ success: true });
   } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });
   }
 });

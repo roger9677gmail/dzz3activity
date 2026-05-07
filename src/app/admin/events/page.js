@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatDate, getEventStatusLabel } from '@/lib/utils';
 import Link from 'next/link';
+import DeleteEventButton from '@/components/events/DeleteEventButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,7 @@ export default async function AdminEventsPage() {
                   className="flex-1 text-center text-sm py-1.5 rounded-lg border border-temple-red text-temple-red hover:bg-red-50">
                   查看名單 ({ev.reg_count})
                 </Link>
+                <DeleteEventButton eventId={ev.id} eventName={ev.name} regCount={ev.reg_count} />
               </div>
             </div>
           </div>
