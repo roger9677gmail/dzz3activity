@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { APP_VERSION } from '@/lib/version';
 
 // Resize an image File to at most maxSize on the longest side, return a JPEG data URL.
 async function resizeImage(file, maxSize = 400, quality = 0.85) {
@@ -261,6 +262,7 @@ export default function ProfilePage() {
           <p className="text-xs text-gray-400 leading-relaxed">
             大自在山活動報名系統讓師兄姐可以便利地報名各項活動，查看報名紀錄，並接收活動提醒通知。
           </p>
+          <p className="text-xs text-gray-300 mt-2">版本 {APP_VERSION}</p>
         </div>
 
         <button
