@@ -42,7 +42,11 @@ export default async function HistoryPage() {
         )}
 
         {registrations.map((reg) => (
-          <div key={reg.id} className="card overflow-hidden">
+          <Link
+            key={reg.id}
+            href={`/events/${reg.event_id}`}
+            className="card overflow-hidden block hover:shadow-md transition-shadow"
+          >
             <div className="h-1.5" style={{ backgroundColor: reg.banner_color || '#8B1A1A' }} />
             <div className="p-4">
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -97,7 +101,7 @@ export default async function HistoryPage() {
                 <div className="mt-1 text-xs text-gray-400">備註：{reg.notes}</div>
               )}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
