@@ -18,7 +18,6 @@ export default function ReportsClient({ events }) {
     if (presetPayment) params.set('payment_status', presetPayment);
     return `/api/reports?${params.toString()}`;
   }
-
   const reportTypes = [
     {
       title: '全部報名名單',
@@ -93,19 +92,10 @@ export default function ReportsClient({ events }) {
       {/* Custom export */}
       <div className="bg-white rounded-xl p-5 shadow-sm">
         <h3 className="font-bold text-gray-700 mb-3">自訂匯出</h3>
-        <p className="text-sm text-gray-500 mb-4">依上方篩選條件匯出客製化報表</p>
-        <div className="flex gap-3 flex-wrap">
-          <a href={buildUrl('xlsx')} className="flex-1 min-w-[140px] text-center btn-primary py-2.5">
-            📥 下載 Excel
-          </a>
-          <a href={buildUrl('csv')} className="flex-1 min-w-[120px] text-center btn-secondary py-2.5">
-            📄 下載 CSV
-          </a>
-          <a href={buildUrl('json')} target="_blank" rel="noopener noreferrer"
-            className="flex-1 min-w-[120px] text-center btn-secondary py-2.5">
-            🔗 查看 JSON
-          </a>
-        </div>
+        <p className="text-sm text-gray-500 mb-4">依上方篩選條件匯出 Excel 報表</p>
+        <a href={buildUrl('xlsx')} className="block text-center btn-primary py-2.5">
+          📥 下載 Excel
+        </a>
       </div>
     </div>
   );

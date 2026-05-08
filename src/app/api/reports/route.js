@@ -128,34 +128,11 @@ async function buildXlsx(rows) {
 
 export const GET = withAdminAuth(async (request) => {
   const { searchParams } = new URL(request.url);
-  const format = searchParams.get('format') || 'xlsx';
   const eventId = searchParams.get('eventId');
   const paymentStatus = searchParams.get('payment_status');
   const status = searchParams.get('status');
 
   const rows = await loadRows({ eventId, paymentStatus, status });
-
-  if (format === 'json') {
-    return NextResponse.json(rows);
-  }
-
-  if (format === 'csv') {
-    if (rows.length === 0) {
-      return new NextResponse('無資料', { headers: { 'Content-Type': 'text/csv; charset=utf-8' } });
-    }
-    const csvRows = [
-      '﻿' + HEADERS.join(','),
-      ...rows.map((r) => HEADERS.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')),
-    ];
-    return new NextResponse(csvRows.join('\r\n'), {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="report-${Date.now()}.csv"`,
-      },
-    });
-  }
-
-  // default: xlsx
   const buf = await buildXlsx(rows);
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
   return new NextResponse(buf, {

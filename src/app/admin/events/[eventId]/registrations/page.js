@@ -44,10 +44,10 @@ export default async function EventRegistrationsPage({ params }) {
           <p className="text-sm text-gray-500">報名名單 ・ {formatDate(event.start_date)}</p>
         </div>
         <a
-          href={`/api/reports?format=csv&eventId=${event.id}`}
+          href={`/api/reports?format=xlsx&eventId=${event.id}`}
           className="btn-secondary text-sm px-4 py-2"
         >
-          📄 匯出CSV
+          📥 匯出 Excel
         </a>
       </div>
 
