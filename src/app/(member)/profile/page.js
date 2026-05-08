@@ -1,14 +1,29 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+
+// Resize an image File to at most maxSize on the longest side, return a JPEG data URL.
+async function resizeImage(file, maxSize = 400, quality = 0.85) {
+  const bitmap = await createImageBitmap(file);
+  const ratio = Math.min(maxSize / bitmap.width, maxSize / bitmap.height, 1);
+  const w = Math.max(1, Math.round(bitmap.width * ratio));
+  const h = Math.max(1, Math.round(bitmap.height * ratio));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality);
+}
 
 export default function ProfilePage() {
   const router = useRouter();
+  const fileInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ phone: '', location_id: '', address: '' });
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -55,6 +70,59 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
+      setMessage('請選擇 PNG / JPEG / WebP 圖片');
+      return;
+    }
+    setUploadingAvatar(true);
+    setMessage('');
+    try {
+      const dataUrl = await resizeImage(file, 400, 0.85);
+      const res = await fetch('/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: dataUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || '上傳失敗');
+      } else {
+        setUser(data.user);
+        setMessage('頭像已更新');
+        setTimeout(() => setMessage(''), 2000);
+      }
+    } catch {
+      setMessage('圖片處理失敗，請換一張試試');
+    }
+    setUploadingAvatar(false);
+  }
+
+  async function handleAvatarRemove() {
+    if (!user?.avatar) return;
+    setUploadingAvatar(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || '移除失敗');
+      } else {
+        setUser(data.user);
+      }
+    } catch {
+      setMessage('網路錯誤');
+    }
+    setUploadingAvatar(false);
+  }
+
   async function handleLogout() {
     setLoggingOut(true);
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -78,9 +146,41 @@ export default function ProfilePage() {
       <div className="p-4 space-y-4">
         {/* Avatar and name */}
         <div className="card p-6 flex flex-col items-center">
-          <div className="w-20 h-20 rounded-full bg-temple-red flex items-center justify-center text-white text-3xl font-bold mb-3">
-            {user.name?.[0] || '?'}
-          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingAvatar}
+            className="relative w-40 h-40 rounded-full overflow-hidden bg-temple-red flex items-center justify-center text-white text-6xl font-bold mb-3 group focus:outline-none focus:ring-2 focus:ring-temple-red focus:ring-offset-2 disabled:opacity-60"
+            aria-label="更換大頭照"
+          >
+            {user.avatar ? (
+              // Stored as a data: URL; <img> avoids next/image domain config.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              <span>{user.name?.[0] || '?'}</span>
+            )}
+            <span className="absolute inset-x-0 bottom-0 bg-black/45 text-xs py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {uploadingAvatar ? '上傳中…' : '更換照片'}
+            </span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+          {user.avatar && (
+            <button
+              type="button"
+              onClick={handleAvatarRemove}
+              disabled={uploadingAvatar}
+              className="text-xs text-gray-400 hover:text-red-500 mb-2"
+            >
+              移除照片
+            </button>
+          )}
           <h2 className="text-xl font-bold text-temple-dark">{user.name}</h2>
           <span className="text-sm text-gray-500 mt-1">師兄姐</span>
         </div>
