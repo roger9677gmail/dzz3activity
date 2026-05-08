@@ -6,6 +6,8 @@ const withPWA = require('@ducanh2912/next-pwa').default({
   disable: process.env.NODE_ENV === 'development',
   workboxOptions: {
     disableDevLogs: true,
+    // Inject our Web Push handlers into the auto-generated SW.
+    importScripts: ['/push-sw.js'],
   },
 });
 
