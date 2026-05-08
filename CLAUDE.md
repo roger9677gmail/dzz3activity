@@ -100,8 +100,41 @@ gcloud builds submit --config=cloudbuild.yaml \
 1. 編輯 `scripts/migrate.js`：
    - 在 `SCHEMA` 區塊加入新欄位（給乾淨 DB 用）。
    - 在執行區段加上 try/catch 包的 `ALTER TABLE`（給既有 DB idempotent 升級）。
-2. Cloud Shell 用 cloud-sql-proxy + `npm run migrate` 跑一次。
+2. Cloud Shell / 本機跑：`npm run db:migrate`（細節見下節）。
 3. 同一份 commit 一起改後端 / 前端用到該欄位的程式碼。
+
+### 本地連線 / 跑 migration（Cloud Shell 或本機）
+
+第一次先做：
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+```
+
+確認當前帳號在專案內擁有：
+
+- `roles/cloudsql.client`（連線 Cloud SQL）
+- `roles/secretmanager.secretAccessor`（取 `db-password`）
+
+之後用 `scripts/db-proxy.sh` 一鍵起 proxy + 執行命令，結束時自動清掉 proxy：
+
+```bash
+npm run db:migrate   # 起 proxy → 跑 migrate → 結束時關 proxy
+npm run db:seed      # 同上但跑 seed
+npm run db:shell     # 開 mysql 互動 shell（需 mysql client）
+npm run db:proxy     # 只起 proxy 並等待，Ctrl-C 結束
+```
+
+腳本會自動：
+
+1. 檢查 `gcloud auth list` 有 active 帳號、ADC 檔存在。
+2. 若 PATH 沒有 `cloud-sql-proxy`，下載 v2 到 `~/.local/bin/`。
+3. 從 Secret Manager 取 `db-password`（或用呼叫端先 export 的 `DB_PASSWORD`）。
+4. 確認本地 port 沒被佔用，避免之前那種 silent ETIMEDOUT。
+5. 等 proxy ready 才執行命令、退出時自動 kill proxy。
+
+可用 env 覆寫：`CLOUDSQL_INSTANCE`、`DB_NAME`、`DB_USER`、`DB_PORT`、`DB_PASSWORD_SECRET`、`DB_PASSWORD`、`CLOUD_SQL_PROXY`。
 
 ---
 

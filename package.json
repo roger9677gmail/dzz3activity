@@ -8,6 +8,10 @@
     "start": "next start -p ${PORT:-3000}",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js",
+    "db:migrate": "bash scripts/db-proxy.sh migrate",
+    "db:seed": "bash scripts/db-proxy.sh seed",
+    "db:shell": "bash scripts/db-proxy.sh shell",
+    "db:proxy": "bash scripts/db-proxy.sh start",
     "gen-vapid": "node -e \"const wp=require('web-push');const keys=wp.generateVAPIDKeys();console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY='+keys.publicKey);console.log('VAPID_PRIVATE_KEY='+keys.privateKey);\""
   },
   "dependencies": {
