@@ -11,17 +11,22 @@ export default async function AdminEventsPage() {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
+  // 排序：報名中 (start_date 遞增) → 草稿 (start_date 遞增) → 已截止 (start_date 遞減)
   const events = await db.prepare(`
     SELECT e.*,
-      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') as reg_count
+      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') AS reg_count,
+      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid') AS paid_count
     FROM events e
-    ORDER BY e.start_date DESC
+    ORDER BY
+      CASE e.status WHEN 'active' THEN 1 WHEN 'draft' THEN 2 WHEN 'closed' THEN 3 ELSE 4 END,
+      CASE WHEN e.status = 'closed' THEN -UNIX_TIMESTAMP(e.start_date) ELSE UNIX_TIMESTAMP(e.start_date) END,
+      e.id
   `).all();
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">法會管理</h1>
+        <h1 className="text-2xl font-bold text-gray-800">活動管理</h1>
         <Link href="/admin/events/new" className="btn-primary text-sm px-4 py-2">+ 新增活動</Link>
       </div>
 
@@ -64,7 +69,7 @@ export default async function AdminEventsPage() {
                   className="flex-1 text-center text-sm py-1.5 rounded-lg border border-temple-red text-temple-red hover:bg-red-50">
                   查看名單 ({ev.reg_count})
                 </Link>
-                <DeleteEventButton eventId={ev.id} eventName={ev.name} regCount={ev.reg_count} />
+                <DeleteEventButton eventId={ev.id} eventName={ev.name} regCount={ev.reg_count} paidCount={ev.paid_count} />
               </div>
             </div>
           </div>
