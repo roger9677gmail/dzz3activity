@@ -13,3 +13,6 @@ public/workbox-*.js
 public/workbox-*.js.map
 public/swe-worker-*.js
 public/swe-worker-*.js.map
+
+# cloud-sql-proxy binary that scripts/db-proxy.sh might drop in repo root
+/cloud-sql-proxy
