@@ -8,6 +8,7 @@ const navItems = [
   { href: '/admin/events', label: '法會管理', icon: '🏛️' },
   { href: '/admin/registrations', label: '報名管理', icon: '📋' },
   { href: '/admin/members', label: '師兄姐管理', icon: '👥' },
+  { href: '/admin/admins', label: '管理員設定', icon: '🛡️' },
   { href: '/admin/reports', label: '報表匯出', icon: '📄' },
   { href: '/admin/notifications', label: '推播通知', icon: '🔔' },
 ];

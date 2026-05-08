@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ phone: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,14 +45,15 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">電話號碼</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
             <input
-              type="tel"
+              type="email"
               required
+              autoComplete="email"
               className="input-field"
-              placeholder="輸入您的電話號碼"
-              value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="輸入您的 Email"
+              value={form.email}
+              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
             />
           </div>
 
@@ -77,6 +78,12 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="w-full btn-primary py-3 text-base">
             {loading ? '登入中...' : '登入'}
           </button>
+
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-xs text-temple-red hover:underline">
+              忘記密碼？
+            </Link>
+          </div>
         </form>
 
         <div className="mt-6 text-center">

@@ -27,12 +27,14 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS members (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name        VARCHAR(100) NOT NULL,
-  phone       VARCHAR(32)  NOT NULL UNIQUE,
-  email       VARCHAR(255),
+  phone       VARCHAR(32),
+  email       VARCHAR(255) NOT NULL,
   password    VARCHAR(255) NOT NULL,
   role        VARCHAR(20)  NOT NULL DEFAULT 'member',
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_members_email (email),
+  UNIQUE KEY uk_members_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS events (
@@ -100,6 +102,19 @@ CREATE TABLE IF NOT EXISTS registration_items (
   CONSTRAINT fk_regitem_eventitem    FOREIGN KEY (event_item_id)   REFERENCES event_items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS password_reset_codes (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  code_hash   VARCHAR(255) NOT NULL,
+  expires_at  DATETIME     NOT NULL,
+  used_at     DATETIME,
+  attempts    INT          NOT NULL DEFAULT 0,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_prc_member (member_id),
+  INDEX idx_prc_expires (expires_at),
+  CONSTRAINT fk_prc_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   member_id   INT UNSIGNED NOT NULL,
@@ -126,16 +141,74 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     // Idempotent ALTER TABLE upgrades for existing databases.
     // Each statement is wrapped in try/catch so already-applied changes don't fail the run.
     const ALTERS = [
-      "ALTER TABLE event_items ADD COLUMN requires_content TINYINT(1) NOT NULL DEFAULT 0 AFTER requires_name",
-      "ALTER TABLE registration_items ADD COLUMN contents TEXT AFTER names",
+      ["ADD event_items.requires_content",
+        "ALTER TABLE event_items ADD COLUMN requires_content TINYINT(1) NOT NULL DEFAULT 0 AFTER requires_name"],
+      ["ADD registration_items.contents",
+        "ALTER TABLE registration_items ADD COLUMN contents TEXT AFTER names"],
     ];
-    for (const sql of ALTERS) {
+    for (const [label, sql] of ALTERS) {
       try {
         await conn.query(sql);
-        console.log('✅ Applied:', sql);
+        console.log('✅ Applied:', label);
       } catch (err) {
         if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
-          console.log('ℹ️  Skipped (already applied):', sql);
+          console.log('ℹ️  Skipped (already applied):', label);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    // Email-as-login migration for existing databases.
+    // - Purge members without email (test data per project decision).
+    // - Make email NOT NULL + UNIQUE, allow phone NULL, drop old phone-NOT-NULL constraint.
+    console.log('— Email-as-login migration —');
+
+    // 1) Cascade-delete registrations of email-less members so FK doesn't block.
+    const [delItems] = await conn.query(`
+      DELETE ri FROM registration_items ri
+      JOIN registrations r ON r.id = ri.registration_id
+      JOIN members m ON m.id = r.member_id
+      WHERE m.email IS NULL OR m.email = ''
+    `);
+    const [delRegs] = await conn.query(`
+      DELETE r FROM registrations r
+      JOIN members m ON m.id = r.member_id
+      WHERE m.email IS NULL OR m.email = ''
+    `);
+    const [delPush] = await conn.query(`
+      DELETE p FROM push_subscriptions p
+      JOIN members m ON m.id = p.member_id
+      WHERE m.email IS NULL OR m.email = ''
+    `);
+    const [delMembers] = await conn.query(`DELETE FROM members WHERE email IS NULL OR email = ''`);
+    console.log(`🧹 Purged email-less data: members=${delMembers.affectedRows}, registrations=${delRegs.affectedRows}, registration_items=${delItems.affectedRows}, push_subscriptions=${delPush.affectedRows}`);
+
+    // 2) Email column → NOT NULL + UNIQUE
+    const COL_ALTERS = [
+      ["members.email NOT NULL", "ALTER TABLE members MODIFY COLUMN email VARCHAR(255) NOT NULL"],
+      ["members.phone NULLABLE", "ALTER TABLE members MODIFY COLUMN phone VARCHAR(32) NULL"],
+    ];
+    for (const [label, sql] of COL_ALTERS) {
+      try {
+        await conn.query(sql);
+        console.log('✅ Applied:', label);
+      } catch (err) {
+        console.log('ℹ️  Skipped (likely already applied):', label, '-', err.code || err.message);
+      }
+    }
+
+    // 3) Add UNIQUE indexes (idempotent — catch dup-key errors)
+    const INDEX_ADDS = [
+      ["UNIQUE email", "ALTER TABLE members ADD UNIQUE KEY uk_members_email (email)"],
+    ];
+    for (const [label, sql] of INDEX_ADDS) {
+      try {
+        await conn.query(sql);
+        console.log('✅ Applied:', label);
+      } catch (err) {
+        if (err && (err.code === 'ER_DUP_KEYNAME' || /Duplicate key name/i.test(err.message || ''))) {
+          console.log('ℹ️  Skipped (index exists):', label);
         } else {
           throw err;
         }

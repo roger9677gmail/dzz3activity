@@ -46,13 +46,13 @@ export default function ProfilePage() {
         {/* User info */}
         <div className="card divide-y divide-gray-100">
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-gray-500">電話</span>
-            <span className="text-sm font-medium">{user.phone}</span>
+            <span className="text-sm text-gray-500">Email</span>
+            <span className="text-sm font-medium">{user.email}</span>
           </div>
-          {user.email && (
+          {user.phone && (
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-gray-500">Email</span>
-              <span className="text-sm font-medium">{user.email}</span>
+              <span className="text-sm text-gray-500">電話</span>
+              <span className="text-sm font-medium">{user.phone}</span>
             </div>
           )}
           <div className="flex items-center justify-between px-4 py-3">

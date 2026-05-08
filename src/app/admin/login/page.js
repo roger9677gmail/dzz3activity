@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ phone: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,9 +42,9 @@ export default function AdminLoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">管理員帳號（電話）</label>
-            <input type="tel" required className="input-field" placeholder="管理員電話號碼"
-              value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">管理員帳號（Email）</label>
+            <input type="email" required autoComplete="email" className="input-field" placeholder="管理員 Email"
+              value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼</label>
@@ -59,6 +59,12 @@ export default function AdminLoginPage() {
           <button type="submit" disabled={loading} className="w-full btn-primary py-3">
             {loading ? '登入中...' : '管理員登入'}
           </button>
+
+          <div className="text-right">
+            <Link href="/forgot-password?admin=1" className="text-xs text-gray-400 hover:text-gray-600">
+              忘記密碼？
+            </Link>
+          </div>
         </form>
 
         <div className="mt-4 text-center">

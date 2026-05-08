@@ -22,15 +22,15 @@ const config = process.env.DB_SOCKET_PATH
       database: process.env.DB_NAME,
     };
 
-async function ensureMember(conn, name, phone, password, role) {
-  const [rows] = await conn.query('SELECT id FROM members WHERE phone = ?', [phone]);
+async function ensureMember(conn, { name, email, phone, password, role }) {
+  const [rows] = await conn.query('SELECT id FROM members WHERE email = ?', [email]);
   if (rows.length > 0) return null;
   const hash = bcrypt.hashSync(password, 10);
   await conn.query(
-    'INSERT INTO members (name, phone, password, role) VALUES (?, ?, ?, ?)',
-    [name, phone, hash, role]
+    'INSERT INTO members (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)',
+    [name, email, phone || null, hash, role]
   );
-  return phone;
+  return email;
 }
 
 const events = [
@@ -101,22 +101,22 @@ const events = [
   }
   const conn = await mysql.createConnection(config);
   try {
-    if (await ensureMember(conn, '管理員', '0900000000', 'admin1234', 'admin')) {
-      console.log('✅ 管理員帳號建立: 0900000000 / admin1234');
+    if (await ensureMember(conn, { name: '管理員', email: 'admin@example.com', phone: '0900000000', password: 'admin1234', role: 'admin' })) {
+      console.log('✅ 管理員帳號建立: admin@example.com / admin1234');
     } else {
       console.log('ℹ️  管理員帳號已存在');
     }
 
     const demoMembers = [
-      { name: '王師兄', phone: '0911111111' },
-      { name: '李師姐', phone: '0922222222' },
-      { name: '張師兄', phone: '0933333333' },
-      { name: '陳師姐', phone: '0944444444' },
-      { name: '林師兄', phone: '0955555555' },
+      { name: '王師兄', email: 'wang@example.com', phone: '0911111111' },
+      { name: '李師姐', email: 'lee@example.com', phone: '0922222222' },
+      { name: '張師兄', email: 'chang@example.com', phone: '0933333333' },
+      { name: '陳師姐', email: 'chen@example.com', phone: '0944444444' },
+      { name: '林師兄', email: 'lin@example.com', phone: '0955555555' },
     ];
     for (const m of demoMembers) {
-      if (await ensureMember(conn, m.name, m.phone, 'member123', 'member')) {
-        console.log(`✅ 師兄姐帳號: ${m.name} / ${m.phone} / member123`);
+      if (await ensureMember(conn, { ...m, password: 'member123', role: 'member' })) {
+        console.log(`✅ 師兄姐帳號: ${m.name} / ${m.email} / member123`);
       }
     }
 

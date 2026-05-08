@@ -5,23 +5,24 @@ import { createSessionResponse } from '@/lib/auth';
 
 export async function POST(request) {
   try {
-    const { phone, password } = await request.json();
-    if (!phone || !password) {
-      return NextResponse.json({ error: '請填寫電話及密碼' }, { status: 400 });
+    const { email, password } = await request.json();
+    if (!email || !password) {
+      return NextResponse.json({ error: '請填寫 Email 及密碼' }, { status: 400 });
     }
 
-    const member = await db.prepare('SELECT * FROM members WHERE phone = ? AND role = ?').get(phone, 'member');
+    const member = await db.prepare('SELECT * FROM members WHERE email = ? AND role = ?')
+      .get(email.trim().toLowerCase(), 'member');
     if (!member) {
-      return NextResponse.json({ error: '電話號碼或密碼錯誤' }, { status: 401 });
+      return NextResponse.json({ error: 'Email 或密碼錯誤' }, { status: 401 });
     }
 
     const valid = await bcrypt.compare(password, member.password);
     if (!valid) {
-      return NextResponse.json({ error: '電話號碼或密碼錯誤' }, { status: 401 });
+      return NextResponse.json({ error: 'Email 或密碼錯誤' }, { status: 401 });
     }
 
     return createSessionResponse(
-      { sub: member.id, name: member.name, phone: member.phone, role: 'member' },
+      { sub: member.id, name: member.name, email: member.email, role: 'member' },
       { success: true, name: member.name, role: 'member' },
       false
     );

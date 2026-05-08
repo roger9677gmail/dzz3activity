@@ -54,14 +54,14 @@ export default function RegisterPage() {
               value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">電話號碼 *</label>
-            <input type="tel" required className="input-field" placeholder="作為登入帳號使用"
-              value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
+            <input type="email" required autoComplete="email" className="input-field" placeholder="作為登入帳號使用"
+              value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email（選填）</label>
-            <input type="email" className="input-field" placeholder="選填"
-              value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">電話號碼（選填）</label>
+            <input type="tel" className="input-field" placeholder="選填，方便聯絡"
+              value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼 *（至少6碼）</label>
