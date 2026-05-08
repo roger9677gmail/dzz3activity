@@ -65,7 +65,28 @@ export const APP_VERSION = 'v26.05.08.01';
 - DB user：`dbadmin`（密碼存在 Secret Manager `db-password`）
 - Cloud Run service：`dzz3activity`（asia-east1）
 - SMTP（Gmail）寄件帳號透過 `_SMTP_USER` / `_SMTP_FROM` substitution、密碼在 Secret Manager `smtp-password`
+- Cloud Build trigger：`dzz3activity-deploy`（push 到 master 自動 build → deploy）
 - Migration 是 idempotent 的：可重複跑，已套用的 ALTER 會 skip。
+
+### 主要資料表
+
+| 表 | 重點欄位 |
+|---|---|
+| `members` | id, name, email (UNIQUE NOT NULL), phone, password, role (member/admin), location_id (FK→locations), address |
+| `events` | id, name, start_date, end_date, registration_deadline, status, banner_color |
+| `event_items` | event_id, name, price, max_quantity, requires_name, requires_content, sort_order |
+| `registrations` | event_id, member_id, total_amount, payment_status, receipt_number, receipt_title, payment_date, notes |
+| `registration_items` | registration_id, event_item_id, quantity, names (JSON), contents (JSON), subtotal |
+| `locations` | id, name (UNIQUE), sort_order, active — 道場主檔 (admin 可管理) |
+| `password_reset_codes` | member_id, code_hash, expires_at, used_at, attempts |
+
+### 報表 (Excel 匯出)
+
+`/api/reports?format=xlsx`（admin only）：
+- 用 `exceljs` 產出 .xlsx
+- 11 欄：報名日期、功德主(陽上)、超度內容、金額、項目、收據編號、收據抬頭、連絡人、電話、地址、道場
+- **Fan-out 邏輯**：每個 `registration_item` 依 `quantity` 展開成多列，金額 = `subtotal / quantity`（單價）
+- 對齊既有 EXCEL「中元普渡法會」格式，可直接接續使用
 
 ### 部署指令範本
 

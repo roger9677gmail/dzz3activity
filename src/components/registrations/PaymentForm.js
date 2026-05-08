@@ -5,6 +5,7 @@ export default function PaymentForm({ registration, onSuccess }) {
   const [form, setForm] = useState({
     payment_status: registration.payment_status || 'unpaid',
     receipt_number: registration.receipt_number || '',
+    receipt_title: registration.receipt_title || '',
     payment_date: registration.payment_date || '',
     payment_notes: registration.payment_notes || '',
   });
@@ -56,6 +57,16 @@ export default function PaymentForm({ registration, onSuccess }) {
               placeholder="輸入收據號碼"
               value={form.receipt_number}
               onChange={(e) => setForm((p) => ({ ...p, receipt_number: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">收據抬頭</label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder={`預設：${registration.member_name || ''}`}
+              value={form.receipt_title}
+              onChange={(e) => setForm((p) => ({ ...p, receipt_title: e.target.value }))}
             />
           </div>
           <div>

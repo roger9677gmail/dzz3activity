@@ -1,86 +1,148 @@
 import { NextResponse } from 'next/server';
+import ExcelJS from 'exceljs';
 import db from '@/lib/db';
 import { withAdminAuth } from '@/lib/middleware';
 
-export const GET = withAdminAuth(async (request) => {
-  const { searchParams } = new URL(request.url);
-  const format = searchParams.get('format') || 'json';
-  const eventId = searchParams.get('eventId');
-  const paymentStatus = searchParams.get('payment_status');
+export const dynamic = 'force-dynamic';
 
+const HEADERS = [
+  '報名日期',
+  '功德主(陽上)',
+  '超度內容',
+  '金額',
+  '項目',
+  '收據編號',
+  '收據抬頭',
+  '連絡人',
+  '電話',
+  '地址',
+  '道場',
+];
+
+function safeParse(val) {
+  if (!val) return [];
+  try {
+    const v = JSON.parse(val);
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const s = (d instanceof Date) ? d.toISOString() : String(d);
+  return s.slice(0, 10);
+}
+
+async function loadRows({ eventId, paymentStatus, status }) {
   let query = `
-    SELECT
-      r.id as 報名編號,
-      m.name as 姓名,
-      m.phone as 電話,
-      m.email as Email,
-      e.name as 活動名稱,
-      r.status as 報名狀態,
-      r.total_amount as 金額,
-      r.payment_status as 繳款狀態,
-      r.receipt_number as 收據號碼,
-      r.payment_date as 繳款日期,
-      r.payment_notes as 繳款備註,
-      r.notes as 報名備註,
-      r.created_at as 報名時間
+    SELECT r.id, r.event_id, r.created_at, r.payment_status, r.status,
+           r.receipt_number, r.receipt_title, r.notes,
+           m.name AS member_name, m.phone AS member_phone, m.address AS member_address,
+           l.name AS location_name,
+           e.name AS event_name
     FROM registrations r
     JOIN members m ON m.id = r.member_id
     JOIN events e ON e.id = r.event_id
+    LEFT JOIN locations l ON l.id = m.location_id
     WHERE 1=1
   `;
   const params = [];
-
   if (eventId) { query += ' AND r.event_id = ?'; params.push(eventId); }
   if (paymentStatus) { query += ' AND r.payment_status = ?'; params.push(paymentStatus); }
-  query += ' ORDER BY e.name, m.name';
+  if (status) { query += ' AND r.status = ?'; params.push(status); }
+  query += ' ORDER BY e.name, r.created_at, m.name, r.id';
 
-  const rows = await db.prepare(query).all(...params);
+  const regs = await db.prepare(query).all(...params);
 
-  // Add items detail
-  const enriched = [];
-  for (const row of rows) {
+  const out = [];
+  for (const r of regs) {
     const items = await db.prepare(`
-      SELECT ei.name as 項目, ri.quantity as 數量, ri.subtotal as 小計, ri.names as 功德主姓名, ri.contents as 超渡內容
+      SELECT ri.quantity, ri.names, ri.contents, ri.subtotal, ei.name AS item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id = ?
-    `).all(row['報名編號']);
+      ORDER BY ri.id
+    `).all(r.id);
 
-    const safeParse = (val) => {
-      if (!val) return [];
-      try { return JSON.parse(val); } catch { return []; }
-    };
+    for (const it of items) {
+      const namesArr = safeParse(it.names);
+      const contentsArr = safeParse(it.contents);
+      const qty = it.quantity || 1;
+      const unit = qty > 0 ? Math.round((it.subtotal || 0) / qty) : (it.subtotal || 0);
+      for (let i = 0; i < qty; i++) {
+        out.push({
+          報名日期: fmtDate(r.created_at),
+          '功德主(陽上)': namesArr[i] || '',
+          超度內容: contentsArr[i] || '',
+          金額: unit,
+          項目: it.item_name,
+          收據編號: r.receipt_number || '',
+          收據抬頭: r.receipt_title || r.member_name,
+          連絡人: r.member_name,
+          電話: r.member_phone || '',
+          地址: r.member_address || '',
+          道場: r.location_name || '',
+        });
+      }
+    }
+  }
+  return out;
+}
 
-    enriched.push({
-      ...row,
-      報名項目: items
-        .map((i) => `${i['項目']}x${i['數量']}(${safeParse(i['功德主姓名']).join(',')})`)
-        .join('|'),
-      超渡內容: items
-        .map((i) => {
-          const cs = safeParse(i['超渡內容']).filter((c) => c && c.trim());
-          return cs.length > 0 ? `${i['項目']}:${cs.join('；')}` : '';
-        })
-        .filter(Boolean)
-        .join('|'),
-    });
+async function buildXlsx(rows) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = '大自在山活動報名系統';
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet('報名明細', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+
+  ws.columns = [
+    { header: HEADERS[0], key: '報名日期', width: 12 },
+    { header: HEADERS[1], key: '功德主(陽上)', width: 18 },
+    { header: HEADERS[2], key: '超度內容', width: 30 },
+    { header: HEADERS[3], key: '金額', width: 10 },
+    { header: HEADERS[4], key: '項目', width: 12 },
+    { header: HEADERS[5], key: '收據編號', width: 20 },
+    { header: HEADERS[6], key: '收據抬頭', width: 18 },
+    { header: HEADERS[7], key: '連絡人', width: 12 },
+    { header: HEADERS[8], key: '電話', width: 14 },
+    { header: HEADERS[9], key: '地址', width: 30 },
+    { header: HEADERS[10], key: '道場', width: 18 },
+  ];
+
+  ws.getRow(1).font = { bold: true };
+  ws.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  for (const r of rows) ws.addRow(r);
+
+  ws.getColumn('金額').alignment = { horizontal: 'right' };
+  ws.getColumn('金額').numFmt = '#,##0';
+
+  return await wb.xlsx.writeBuffer();
+}
+
+export const GET = withAdminAuth(async (request) => {
+  const { searchParams } = new URL(request.url);
+  const format = searchParams.get('format') || 'xlsx';
+  const eventId = searchParams.get('eventId');
+  const paymentStatus = searchParams.get('payment_status');
+  const status = searchParams.get('status');
+
+  const rows = await loadRows({ eventId, paymentStatus, status });
+
+  if (format === 'json') {
+    return NextResponse.json(rows);
   }
 
   if (format === 'csv') {
-    if (enriched.length === 0) {
-      return new NextResponse('無資料', {
-        headers: { 'Content-Type': 'text/csv; charset=utf-8' },
-      });
+    if (rows.length === 0) {
+      return new NextResponse('無資料', { headers: { 'Content-Type': 'text/csv; charset=utf-8' } });
     }
-    const headers = Object.keys(enriched[0]);
     const csvRows = [
-      '\uFEFF' + headers.join(','), // BOM for Excel UTF-8
-      ...enriched.map((row) =>
-        headers.map((h) => {
-          const val = String(row[h] ?? '').replace(/"/g, '""');
-          return `"${val}"`;
-        }).join(',')
-      ),
+      '﻿' + HEADERS.join(','),
+      ...rows.map((r) => HEADERS.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')),
     ];
     return new NextResponse(csvRows.join('\r\n'), {
       headers: {
@@ -90,5 +152,13 @@ export const GET = withAdminAuth(async (request) => {
     });
   }
 
-  return NextResponse.json(enriched);
+  // default: xlsx
+  const buf = await buildXlsx(rows);
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  return new NextResponse(buf, {
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="report-${ts}.xlsx"`,
+    },
+  });
 });

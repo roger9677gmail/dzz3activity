@@ -5,7 +5,7 @@ import { createSessionResponse } from '@/lib/auth';
 
 export async function POST(request) {
   try {
-    const { name, email, phone, password } = await request.json();
+    const { name, email, phone, password, location_id, address } = await request.json();
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: '姓名、Email 及密碼為必填' }, { status: 400 });
@@ -18,6 +18,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email 格式不正確' }, { status: 400 });
     }
     const phoneVal = phone ? String(phone).trim() : null;
+    const addressVal = address ? String(address).trim() : null;
+    const locationVal = location_id ? parseInt(location_id) : null;
+    if (location_id && Number.isNaN(locationVal)) {
+      return NextResponse.json({ error: '無效的道場' }, { status: 400 });
+    }
 
     const existingEmail = await db.prepare('SELECT id FROM members WHERE email = ?').get(normalizedEmail);
     if (existingEmail) {
@@ -32,8 +37,8 @@ export async function POST(request) {
 
     const hash = await bcrypt.hash(password, 10);
     const result = await db
-      .prepare('INSERT INTO members (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)')
-      .run(name, normalizedEmail, phoneVal, hash, 'member');
+      .prepare('INSERT INTO members (name, email, phone, location_id, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(name, normalizedEmail, phoneVal, locationVal, addressVal, hash, 'member');
 
     return createSessionResponse(
       { sub: result.lastInsertRowid, name, email: normalizedEmail, role: 'member' },

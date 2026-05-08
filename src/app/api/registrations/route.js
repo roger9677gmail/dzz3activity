@@ -49,7 +49,7 @@ export const GET = withAdminAuth(async (request) => {
 
 export const POST = withAuth(async (request) => {
   try {
-    const { eventId, items, notes } = await request.json();
+    const { eventId, items, notes, receipt_title } = await request.json();
 
     const event = await db.prepare("SELECT * FROM events WHERE id = ? AND status = 'active'").get(eventId);
     if (!event) return NextResponse.json({ error: '活動不存在或已截止報名' }, { status: 400 });
@@ -72,10 +72,11 @@ export const POST = withAuth(async (request) => {
         resolvedItems.push({ ...item, subtotal });
       }
 
+      const titleVal = receipt_title ? String(receipt_title).trim().slice(0, 100) : null;
       const reg = await tx.prepare(`
-        INSERT INTO registrations (event_id, member_id, total_amount, notes)
-        VALUES (?, ?, ?, ?)
-      `).run(eventId, memberId, total, notes || null);
+        INSERT INTO registrations (event_id, member_id, total_amount, notes, receipt_title)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(eventId, memberId, total, notes || null, titleVal);
 
       const newRegId = reg.lastInsertRowid;
       for (const item of resolvedItems) {

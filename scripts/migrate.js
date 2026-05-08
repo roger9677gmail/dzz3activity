@@ -115,6 +115,14 @@ CREATE TABLE IF NOT EXISTS password_reset_codes (
   CONSTRAINT fk_prc_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS locations (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(50)  NOT NULL UNIQUE,
+  sort_order  INT          NOT NULL DEFAULT 0,
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   member_id   INT UNSIGNED NOT NULL,
@@ -212,6 +220,63 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         } else {
           throw err;
         }
+      }
+    }
+
+    // Locations + receipt_title + member.address/location_id (idempotent)
+    console.log('— Locations & contact info migration —');
+    const LOC_ALTERS = [
+      ["ADD members.location_id",
+        "ALTER TABLE members ADD COLUMN location_id INT UNSIGNED AFTER phone"],
+      ["ADD members.address",
+        "ALTER TABLE members ADD COLUMN address VARCHAR(255) AFTER location_id"],
+      ["ADD registrations.receipt_title",
+        "ALTER TABLE registrations ADD COLUMN receipt_title VARCHAR(100) AFTER receipt_number"],
+    ];
+    for (const [label, sql] of LOC_ALTERS) {
+      try {
+        await conn.query(sql);
+        console.log('✅ Applied:', label);
+      } catch (err) {
+        if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+          console.log('ℹ️  Skipped (already applied):', label);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    // FK: members.location_id → locations.id (idempotent — catch dup constraint)
+    try {
+      await conn.query(`
+        ALTER TABLE members
+        ADD CONSTRAINT fk_members_location
+        FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
+      `);
+      console.log('✅ Applied: FK members.location_id → locations.id');
+    } catch (err) {
+      if (err && (err.code === 'ER_FK_DUP_NAME' || err.code === 'ER_DUP_KEYNAME' || /Duplicate (?:foreign key|key)/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (FK exists): fk_members_location');
+      } else {
+        console.log('ℹ️  Skipped (likely exists): fk_members_location -', err.code || err.message);
+      }
+    }
+
+    // Seed default locations (idempotent — UNIQUE on name protects).
+    const DEFAULT_LOCATIONS = [
+      ['明心禪苑(永和)', 1],
+      ['靜心禪苑(新竹)', 2],
+      ['台中禪林', 3],
+    ];
+    for (const [name, sort] of DEFAULT_LOCATIONS) {
+      const [r] = await conn.query(
+        `INSERT IGNORE INTO locations (name, sort_order) VALUES (?, ?)`,
+        [name, sort]
+      );
+      if (r.affectedRows > 0) {
+        console.log(`✅ Seeded location: ${name}`);
+      } else {
+        console.log(`ℹ️  Location exists: ${name}`);
       }
     }
   } finally {

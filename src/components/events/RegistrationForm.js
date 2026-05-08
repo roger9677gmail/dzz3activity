@@ -9,6 +9,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
   const [names, setNames] = useState({});
   const [contents, setContents] = useState({});
   const [notes, setNotes] = useState('');
+  const [receiptTitle, setReceiptTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -101,7 +102,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
       const res = await fetch('/api/registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: event.id, items, notes }),
+        body: JSON.stringify({ eventId: event.id, items, notes, receipt_title: receiptTitle }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -201,15 +202,28 @@ export default function RegistrationForm({ event, existingRegistration }) {
         </div>
       </div>
 
-      <div className="card p-4">
-        <label className="block font-medium text-sm mb-1.5">備註（選填）</label>
-        <textarea
-          className="input-field resize-none"
-          rows={3}
-          placeholder="如有特殊需求請填寫..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
+      <div className="card p-4 space-y-3">
+        <div>
+          <label className="block font-medium text-sm mb-1.5">收據抬頭（選填）</label>
+          <input
+            type="text"
+            maxLength={100}
+            className="input-field"
+            placeholder="不填預設用您的姓名；可填公司、捐贈者等"
+            value={receiptTitle}
+            onChange={(e) => setReceiptTitle(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block font-medium text-sm mb-1.5">備註（選填）</label>
+          <textarea
+            className="input-field resize-none"
+            rows={3}
+            placeholder="如有特殊需求請填寫..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
       </div>
 
       {error && (

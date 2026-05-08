@@ -1,13 +1,18 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirmPassword: '', location_id: '', address: '' });
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/locations').then((r) => r.json()).then((d) => setLocations(d.locations || [])).catch(() => {});
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,7 +28,14 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, phone: form.phone, email: form.email, password: form.password }),
+        body: JSON.stringify({
+          name: form.name,
+          phone: form.phone,
+          email: form.email,
+          password: form.password,
+          location_id: form.location_id || null,
+          address: form.address || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -62,6 +74,20 @@ export default function RegisterPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">電話號碼（選填）</label>
             <input type="tel" className="input-field" placeholder="選填，方便聯絡"
               value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">所屬道場（選填）</label>
+            <select className="input-field"
+              value={form.location_id}
+              onChange={(e) => setForm((p) => ({ ...p, location_id: e.target.value }))}>
+              <option value="">— 請選擇 —</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">地址（選填）</label>
+            <input type="text" className="input-field" placeholder="收據寄送或聯絡用"
+              value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼 *（至少6碼）</label>
