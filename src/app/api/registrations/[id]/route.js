@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withAuth, withAdminAuth } from '@/lib/middleware';
 
 export const GET = withAdminAuth(async (request, { params }) => {
   const reg = await db.prepare(`
@@ -31,4 +31,92 @@ export const PUT = withAdminAuth(async (request, { params }) => {
     WHERE id=?
   `).run(status, notes || null, params.id);
   return NextResponse.json({ success: true });
+});
+
+// Member-facing edit: replace items / notes / receipt_title on an unpaid registration.
+export const PATCH = withAuth(async (request, { params }) => {
+  try {
+    const { items, notes, receipt_title } = await request.json();
+    const memberId = request.session.sub;
+
+    const reg = await db.prepare('SELECT * FROM registrations WHERE id = ?').get(params.id);
+    if (!reg) return NextResponse.json({ error: '報名記錄不存在' }, { status: 404 });
+    if (Number(reg.member_id) !== Number(memberId)) {
+      return NextResponse.json({ error: '無權限修改此報名' }, { status: 403 });
+    }
+    if (reg.payment_status === 'paid') {
+      return NextResponse.json({ error: '已繳款的報名無法修改' }, { status: 409 });
+    }
+
+    const event = await db.prepare("SELECT * FROM events WHERE id = ? AND status = 'active'").get(reg.event_id);
+    if (!event) return NextResponse.json({ error: '活動已結束或關閉' }, { status: 400 });
+    if (new Date(event.registration_deadline) < new Date()) {
+      return NextResponse.json({ error: '報名截止日期已過' }, { status: 400 });
+    }
+    if (!items || items.length === 0) {
+      return NextResponse.json({ error: '請至少選擇一個報名項目' }, { status: 400 });
+    }
+
+    await db.transaction(async (tx) => {
+      let total = 0;
+      const resolvedItems = [];
+      const giftAllowance = {};
+      for (const item of items) {
+        if (item.is_gift) continue;
+        const eventItem = await tx.prepare('SELECT * FROM event_items WHERE id = ? AND event_id = ?').get(item.eventItemId, reg.event_id);
+        if (!eventItem) throw new Error(`項目不存在: ${item.eventItemId}`);
+        let subtotal;
+        let qty = item.quantity;
+        if (eventItem.allow_custom_price) {
+          qty = 1;
+          const unit = parseInt(item.unit_price);
+          if (!Number.isFinite(unit) || unit <= 0) throw new Error(`「${eventItem.name}」金額未填寫`);
+          if (eventItem.price > 0 && unit < eventItem.price) {
+            throw new Error(`「${eventItem.name}」最低金額為 ${eventItem.price} 元`);
+          }
+          subtotal = unit;
+        } else {
+          subtotal = eventItem.price * item.quantity;
+        }
+        total += subtotal;
+        resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0 });
+        if (eventItem.gift_event_item_id && eventItem.gift_quantity > 0) {
+          giftAllowance[eventItem.gift_event_item_id] =
+            (giftAllowance[eventItem.gift_event_item_id] || 0) + qty * eventItem.gift_quantity;
+        }
+      }
+      for (const item of items) {
+        if (!item.is_gift) continue;
+        const eventItem = await tx.prepare('SELECT * FROM event_items WHERE id = ? AND event_id = ?').get(item.eventItemId, reg.event_id);
+        if (!eventItem) throw new Error(`贈送項目不存在: ${item.eventItemId}`);
+        const allowed = giftAllowance[item.eventItemId] || 0;
+        if (item.quantity > allowed) {
+          throw new Error(`贈送「${eventItem.name}」數量超過上限`);
+        }
+        giftAllowance[item.eventItemId] = allowed - item.quantity;
+        resolvedItems.push({ ...item, subtotal: 0, is_gift: 1 });
+      }
+
+      await tx.prepare('DELETE FROM registration_items WHERE registration_id = ?').run(params.id);
+      for (const item of resolvedItems) {
+        await tx.prepare(`
+          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, contents, subtotal, is_gift)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(params.id, item.eventItemId, item.quantity,
+               JSON.stringify(item.names || []), JSON.stringify(item.contents || []),
+               item.subtotal, item.is_gift);
+      }
+
+      const titleVal = receipt_title ? String(receipt_title).trim().slice(0, 100) : null;
+      await tx.prepare(`
+        UPDATE registrations SET total_amount=?, notes=?, receipt_title=?, updated_at=NOW()
+        WHERE id=?
+      `).run(total, notes || null, titleVal, params.id);
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('PATCH /registrations/[id] failed:', err);
+    return NextResponse.json({ error: err.message || '伺服器錯誤' }, { status: 500 });
+  }
 });

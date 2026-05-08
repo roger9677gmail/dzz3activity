@@ -15,16 +15,26 @@ export default async function EventDetailPage({ params }) {
   event.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
 
   const existingRegistration = await db.prepare(`
-    SELECT r.*, GROUP_CONCAT(CONCAT(ei.name, 'x', ri.quantity) SEPARATOR ', ') as items_summary
-    FROM registrations r
-    LEFT JOIN registration_items ri ON ri.registration_id = r.id
-    LEFT JOIN event_items ei ON ei.id = ri.event_item_id
-    WHERE r.event_id = ? AND r.member_id = ?
-    GROUP BY r.id
+    SELECT * FROM registrations WHERE event_id = ? AND member_id = ?
   `).get(params.eventId, session.sub);
 
+  if (existingRegistration) {
+    existingRegistration.items = await db.prepare(`
+      SELECT ri.*, ei.name as item_name, ei.allow_custom_price, ei.gift_event_item_id, ei.gift_quantity
+      FROM registration_items ri
+      JOIN event_items ei ON ei.id = ri.event_item_id
+      WHERE ri.registration_id = ?
+      ORDER BY ri.is_gift, ri.id
+    `).all(existingRegistration.id);
+    existingRegistration.items_summary = existingRegistration.items
+      .filter((ri) => !ri.is_gift)
+      .map((ri) => `${ri.item_name}x${ri.quantity}`)
+      .join(', ');
+  }
+
+  const isPaid = existingRegistration?.payment_status === 'paid';
   const deadlinePassed = isDeadlinePassed(event.registration_deadline);
-  const canRegister = event.status === 'active' && !deadlinePassed && !existingRegistration;
+  const canRegister = event.status === 'active' && !deadlinePassed && !isPaid;
 
   return (
     <div>
@@ -70,22 +80,35 @@ export default async function EventDetailPage({ params }) {
           </div>
         )}
 
-        {/* Already registered */}
-        {existingRegistration && (
+        {/* Paid registration is read-only; show confirmation. */}
+        {existingRegistration && isPaid && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4">
             <div className="flex items-center gap-2 text-green-700 font-bold mb-2">✅ 您已完成報名</div>
             <div className="text-sm text-green-700 space-y-1">
               <div>項目：{existingRegistration.items_summary || '—'}</div>
               <div>金額：{formatMoney(existingRegistration.total_amount)}</div>
-              <div>繳款狀態：{existingRegistration.payment_status === 'paid' ? '✅ 已繳款' : '⏳ 待繳款'}</div>
+              <div>繳款狀態：✅ 已繳款</div>
               {existingRegistration.receipt_number && <div>收據號碼：{existingRegistration.receipt_number}</div>}
               {existingRegistration.notes && <div>備註：{existingRegistration.notes}</div>}
             </div>
           </div>
         )}
 
-        {/* Registration Form */}
-        {canRegister && <RegistrationForm event={event} />}
+        {/* Unpaid registration — banner + edit-mode form. */}
+        {existingRegistration && !isPaid && canRegister && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+            <div className="font-bold mb-1">⏳ 您已報名但尚未繳款</div>
+            <div>可在下方修改報名項目；繳款後將無法再修改。</div>
+          </div>
+        )}
+
+        {/* Registration / edit form */}
+        {canRegister && (
+          <RegistrationForm
+            event={event}
+            existingRegistration={existingRegistration && !isPaid ? existingRegistration : null}
+          />
+        )}
 
         {!canRegister && !existingRegistration && (
           <div className="text-center py-6 text-gray-400">
