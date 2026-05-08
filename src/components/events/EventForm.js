@@ -43,7 +43,7 @@ export default function EventForm({ event = null }) {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { _uid: newUid(), name: '', description: '', price: 0, requires_name: true, requires_content: false, gift_quantity: 0, gift_uid: '' }]);
+    setItems((prev) => [...prev, { _uid: newUid(), name: '', description: '', price: 0, allow_custom_price: false, requires_name: true, requires_content: false, gift_quantity: 0, gift_uid: '' }]);
   }
 
   function removeItem(idx) {
@@ -259,10 +259,17 @@ export default function EventForm({ event = null }) {
               <input type="text" className="input-field text-sm" placeholder="項目說明（選填）"
                 value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
               <div>
-                <label className="text-xs text-gray-500">金額（元）</label>
+                <label className="text-xs text-gray-500">
+                  {item.allow_custom_price ? '最低金額（元，0 = 不限）' : '金額（元）'}
+                </label>
                 <input type="number" className="input-field text-sm" min={0}
                   value={item.price} onChange={(e) => updateItem(idx, 'price', parseInt(e.target.value) || 0)} />
               </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={!!item.allow_custom_price}
+                  onChange={(e) => updateItem(idx, 'allow_custom_price', e.target.checked)} />
+                金額由報名者自填（隨喜功德）
+              </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={item.requires_name}
                   onChange={(e) => updateItem(idx, 'requires_name', e.target.checked)} />

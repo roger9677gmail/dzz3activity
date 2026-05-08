@@ -70,12 +70,27 @@ export const POST = withAuth(async (request) => {
         if (item.is_gift) continue;
         const eventItem = await tx.prepare('SELECT * FROM event_items WHERE id = ? AND event_id = ?').get(item.eventItemId, eventId);
         if (!eventItem) throw new Error(`項目不存在: ${item.eventItemId}`);
-        const subtotal = eventItem.price * item.quantity;
+        let subtotal;
+        let qty = item.quantity;
+        if (eventItem.allow_custom_price) {
+          // Custom (隨喜) item: trust unit_price after server-side min check, force qty=1.
+          qty = 1;
+          const unit = parseInt(item.unit_price);
+          if (!Number.isFinite(unit) || unit <= 0) {
+            throw new Error(`「${eventItem.name}」金額未填寫`);
+          }
+          if (eventItem.price > 0 && unit < eventItem.price) {
+            throw new Error(`「${eventItem.name}」最低金額為 ${eventItem.price} 元`);
+          }
+          subtotal = unit;
+        } else {
+          subtotal = eventItem.price * item.quantity;
+        }
         total += subtotal;
-        resolvedItems.push({ ...item, subtotal, is_gift: 0 });
+        resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0 });
         if (eventItem.gift_event_item_id && eventItem.gift_quantity > 0) {
           giftAllowance[eventItem.gift_event_item_id] =
-            (giftAllowance[eventItem.gift_event_item_id] || 0) + item.quantity * eventItem.gift_quantity;
+            (giftAllowance[eventItem.gift_event_item_id] || 0) + qty * eventItem.gift_quantity;
         }
       }
       // Second pass: gift items. Verify quota; subtotal forced to 0.

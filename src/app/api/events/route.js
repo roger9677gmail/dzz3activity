@@ -49,9 +49,10 @@ export const POST = withAdminAuth(async (request) => {
         const uidToId = {};
         for (const [i, item] of items.entries()) {
           const r = await tx.prepare(`
-            INSERT INTO event_items (event_id, name, description, price, requires_name, requires_content, sort_order, gift_quantity)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO event_items (event_id, name, description, price, allow_custom_price, requires_name, requires_content, sort_order, gift_quantity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(newId, item.name, item.description || null, item.price || 0,
+                 item.allow_custom_price ? 1 : 0,
                  item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i,
                  Number.isFinite(item.gift_quantity) ? Math.max(0, parseInt(item.gift_quantity)) : 0);
           if (item._uid) uidToId[item._uid] = r.lastInsertRowid;
