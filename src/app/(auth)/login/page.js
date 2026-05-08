@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { APP_NAME, APP_VERSION } from '@/lib/version';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function LoginPage() {
       {/* Top banner */}
       <div className="bg-temple-red px-6 py-8 text-center">
         <div className="text-4xl mb-2">⛩️</div>
-        <h1 className="text-white text-xl font-bold">佛堂法會報名系統</h1>
+        <h1 className="text-white text-xl font-bold">{APP_NAME}</h1>
         <p className="text-red-200 text-sm mt-1">師兄姐專屬服務平台</p>
       </div>
 
@@ -99,6 +100,10 @@ export default function LoginPage() {
           <Link href="/admin/login" className="text-xs text-gray-400 hover:text-gray-600">
             管理員入口
           </Link>
+        </div>
+
+        <div className="mt-8 mb-4 text-center">
+          <p className="text-[10px] text-gray-300">{APP_VERSION}</p>
         </div>
       </div>
     </div>

@@ -1,13 +1,14 @@
 import './globals.css';
+import { APP_NAME, APP_SHORT_NAME } from '@/lib/version';
 
 export const metadata = {
-  title: '佛堂法會報名系統',
-  description: '佛堂法會活動報名與管理',
+  title: APP_NAME,
+  description: '大自在山活動報名與管理',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '法會報名',
+    title: APP_SHORT_NAME,
   },
   formatDetection: { telephone: false },
 };
@@ -23,7 +24,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="zh-TW">
       <head>
-        <meta name="application-name" content="法會報名" />
+        <meta name="application-name" content={APP_SHORT_NAME} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />

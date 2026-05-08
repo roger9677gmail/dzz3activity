@@ -65,7 +65,7 @@ export default function ProfilePage() {
         <div className="card p-4">
           <h3 className="font-medium text-sm text-gray-700 mb-2">關於本系統</h3>
           <p className="text-xs text-gray-400 leading-relaxed">
-            佛堂法會報名系統讓師兄姐可以便利地報名各項法會活動，查看報名紀錄，並接收活動提醒通知。
+            大自在山活動報名系統讓師兄姐可以便利地報名各項活動，查看報名紀錄，並接收活動提醒通知。
           </p>
         </div>
 

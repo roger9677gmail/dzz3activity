@@ -41,7 +41,7 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-temple-cream flex flex-col">
       <div className="bg-temple-red px-6 py-6 text-center">
         <div className="text-3xl mb-1">⛩️</div>
-        <h1 className="text-white text-lg font-bold">佛堂法會報名系統</h1>
+        <h1 className="text-white text-lg font-bold">大自在山活動報名系統</h1>
       </div>
 
       <div className="flex-1 px-5 pt-6 pb-8">

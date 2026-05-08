@@ -1,7 +1,7 @@
 {
-  "name": "佛堂法會報名系統",
-  "short_name": "法會報名",
-  "description": "佛堂法會活動報名與管理系統",
+  "name": "大自在山活動報名系統",
+  "short_name": "大自在山活動",
+  "description": "大自在山活動報名與管理系統",
   "start_url": "/events",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -25,9 +25,9 @@
   ],
   "shortcuts": [
     {
-      "name": "法會活動",
+      "name": "活動列表",
       "short_name": "活動",
-      "description": "查看法會活動",
+      "description": "查看大自在山活動",
       "url": "/events",
       "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     },

@@ -226,7 +226,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
         <button type="submit" disabled={loading || Object.keys(selectedItems).length === 0} className="w-full btn-primary py-3">
           {loading ? '報名中...' : '確認報名'}
         </button>
-        <p className="text-xs text-gray-400 text-center mt-2">繳款方式請洽佛堂服務台</p>
+        <p className="text-xs text-gray-400 text-center mt-2">繳款方式請洽大自在山服務台</p>
       </div>
     </form>
   );

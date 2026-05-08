@@ -27,7 +27,7 @@ export default function AdminSidebar() {
   return (
     <aside className="w-56 bg-temple-red-dark min-h-screen flex flex-col shrink-0">
       <div className="p-4 border-b border-red-900">
-        <div className="text-white font-bold text-base leading-tight">⛩️ 佛堂管理系統</div>
+        <div className="text-white font-bold text-base leading-tight">⛩️ 大自在山管理系統</div>
         <div className="text-red-200 text-xs mt-1">後台管理</div>
       </div>
 
