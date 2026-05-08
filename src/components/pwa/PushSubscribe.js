@@ -8,6 +8,24 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
+function arrayBufferToBase64(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
+
+function arrayBufferToBase64Url(buf) {
+  return arrayBufferToBase64(buf).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function syncSubscription(sub) {
+  const p256dh = arrayBufferToBase64(sub.getKey('p256dh'));
+  const auth = arrayBufferToBase64(sub.getKey('auth'));
+  await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint: sub.endpoint, p256dh, auth }),
+  });
+}
+
 export default function PushSubscribe() {
   const [status, setStatus] = useState('loading'); // loading | unsupported | subscribed | unsubscribed
   const [loading, setLoading] = useState(false);
@@ -20,11 +38,50 @@ export default function PushSubscribe() {
     checkSubscription();
   }, []);
 
+  // Detects stale subscriptions (signed with an old VAPID key after a rotation)
+  // and silently re-subscribes so the server-side push_subscriptions table
+  // stays in sync with what the browser actually has.
   async function checkSubscription() {
     try {
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      setStatus(sub ? 'subscribed' : 'unsubscribed');
+      let sub = await reg.pushManager.getSubscription();
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+      if (sub && vapidKey) {
+        const subKey = sub.options?.applicationServerKey;
+        if (subKey) {
+          const subKeyB64 = arrayBufferToBase64Url(subKey);
+          if (subKeyB64 !== vapidKey) {
+            // Stale — was signed with an older VAPID public key. Drop it.
+            try { await sub.unsubscribe(); } catch {}
+            sub = null;
+          }
+        }
+        if (sub && Notification.permission !== 'granted') {
+          // Permission was revoked at the OS level; the browser sub is unusable.
+          try { await sub.unsubscribe(); } catch {}
+          sub = null;
+        }
+      }
+
+      if (!sub && Notification.permission === 'granted' && vapidKey) {
+        // We have permission but no valid subscription — re-create silently.
+        try {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+          });
+        } catch {
+          sub = null;
+        }
+      }
+
+      if (sub) {
+        try { await syncSubscription(sub); } catch {}
+        setStatus('subscribed');
+      } else {
+        setStatus('unsubscribed');
+      }
     } catch {
       setStatus('unsubscribed');
     }
