@@ -47,9 +47,9 @@ export default async function AdminRegistrationsPage({ searchParams }) {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">報名管理</h1>
-        <a href={`/api/reports?format=csv${eventId ? `&eventId=${eventId}` : ''}${paymentStatus ? `&payment_status=${paymentStatus}` : ''}`}
+        <a href={`/api/reports?format=xlsx${eventId ? `&eventId=${eventId}` : ''}${paymentStatus ? `&payment_status=${paymentStatus}` : ''}`}
           className="btn-secondary text-sm px-4 py-2">
-          📄 匯出CSV
+          📥 匯出 Excel
         </a>
       </div>
 
