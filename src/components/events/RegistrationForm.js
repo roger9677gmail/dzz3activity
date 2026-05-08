@@ -8,6 +8,8 @@ export default function RegistrationForm({ event, existingRegistration }) {
   const [selectedItems, setSelectedItems] = useState({});
   const [names, setNames] = useState({});
   const [contents, setContents] = useState({});
+  // Custom (隨喜) amounts keyed by event_item id; only used when item.allow_custom_price.
+  const [customPrices, setCustomPrices] = useState({});
   // Gift slots are keyed by the parent event_item id; arrays sized parent.qty * parent.gift_quantity.
   const [giftNames, setGiftNames] = useState({});
   const [giftContents, setGiftContents] = useState({});
@@ -17,15 +19,22 @@ export default function RegistrationForm({ event, existingRegistration }) {
   const [error, setError] = useState('');
 
   const itemById = (id) => event.items.find((i) => i.id === parseInt(id));
-  // Gifts don't add to the price. Only sum non-gift quantities.
+  // Gifts don't add to the price. Custom-price items use the user-entered amount.
   const total = Object.entries(selectedItems).reduce((sum, [itemId, qty]) => {
     const item = itemById(itemId);
-    return sum + (item ? item.price * qty : 0);
+    if (!item) return sum;
+    if (item.allow_custom_price) {
+      const v = parseInt(customPrices[itemId]);
+      return sum + (Number.isFinite(v) ? v : 0);
+    }
+    return sum + item.price * qty;
   }, 0);
 
   function updateQty(itemId, qty) {
     const item = itemById(itemId);
     const giftQty = item && item.gift_quantity > 0 && item.gift_event_item_id ? item.gift_quantity : 0;
+    // Custom-price items are always single-row; coerce qty to 0 or 1.
+    if (item?.allow_custom_price) qty = qty > 0 ? 1 : 0;
     if (qty === 0) {
       const next = { ...selectedItems };
       delete next[itemId];
@@ -42,6 +51,9 @@ export default function RegistrationForm({ event, existingRegistration }) {
       const nextGC = { ...giftContents };
       delete nextGC[itemId];
       setGiftContents(nextGC);
+      const nextCP = { ...customPrices };
+      delete nextCP[itemId];
+      setCustomPrices(nextCP);
     } else {
       setSelectedItems((prev) => ({ ...prev, [itemId]: qty }));
       setNames((prev) => {
@@ -83,6 +95,10 @@ export default function RegistrationForm({ event, existingRegistration }) {
     });
   }
 
+  function updateCustomPrice(itemId, val) {
+    setCustomPrices((prev) => ({ ...prev, [itemId]: val }));
+  }
+
   function updateName(itemId, idx, val) {
     setNames((prev) => {
       const current = [...(prev[itemId] || [])];
@@ -103,21 +119,40 @@ export default function RegistrationForm({ event, existingRegistration }) {
     e.preventDefault();
     setError('');
 
-    const items = Object.entries(selectedItems).map(([itemId, qty]) => ({
-      eventItemId: parseInt(itemId),
-      quantity: qty,
-      names: names[itemId] || [],
-      contents: contents[itemId] || [],
-    }));
+    const items = Object.entries(selectedItems).map(([itemId, qty]) => {
+      const ei = itemById(itemId);
+      const out = {
+        eventItemId: parseInt(itemId),
+        quantity: ei?.allow_custom_price ? 1 : qty,
+        names: names[itemId] || [],
+        contents: contents[itemId] || [],
+      };
+      if (ei?.allow_custom_price) {
+        const v = parseInt(customPrices[itemId]);
+        out.unit_price = Number.isFinite(v) ? v : 0;
+      }
+      return out;
+    });
 
     if (items.length === 0) {
       setError('請至少選擇一個報名項目');
       return;
     }
 
-    // Validate required names / contents on regular items.
+    // Validate required names / contents on regular items + custom-price min.
     for (const item of items) {
       const eventItem = itemById(item.eventItemId);
+      if (eventItem?.allow_custom_price) {
+        const v = item.unit_price;
+        if (!Number.isFinite(v) || v <= 0) {
+          setError(`請填寫「${eventItem.name}」的金額`);
+          return;
+        }
+        if (eventItem.price > 0 && v < eventItem.price) {
+          setError(`「${eventItem.name}」最低金額為 ${eventItem.price} 元`);
+          return;
+        }
+      }
       if (eventItem?.requires_name) {
         const emptyNames = item.names.filter((n) => !n.trim());
         if (emptyNames.length > 0) {
@@ -214,26 +249,59 @@ export default function RegistrationForm({ event, existingRegistration }) {
                   <div>
                     <div className="font-medium text-sm">{item.name}</div>
                     {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
-                    <div className="text-temple-gold text-sm font-medium">{formatMoney(item.price)}</div>
+                    <div className="text-temple-gold text-sm font-medium">
+                      {item.allow_custom_price
+                        ? (item.price > 0 ? `隨喜功德（最低 ${formatMoney(item.price)}）` : '隨喜功德')
+                        : formatMoney(item.price)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  {item.allow_custom_price ? (
                     <button
                       type="button"
-                      onClick={() => updateQty(item.id, Math.max(0, qty - 1))}
-                      className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 active:bg-gray-100"
+                      onClick={() => updateQty(item.id, qty > 0 ? 0 : 1)}
+                      className={`px-3 h-8 rounded-full text-xs font-medium border transition-colors ${
+                        qty > 0
+                          ? 'border-temple-red bg-temple-red text-white'
+                          : 'border-gray-300 text-gray-600'
+                      }`}
                     >
-                      −
+                      {qty > 0 ? '已選擇' : '選擇'}
                     </button>
-                    <span className="w-6 text-center font-medium">{qty}</span>
-                    <button
-                      type="button"
-                      onClick={() => updateQty(item.id, Math.min(99, qty + 1))}
-                      className="w-8 h-8 rounded-full border border-temple-red text-temple-red flex items-center justify-center active:bg-red-50"
-                    >
-                      +
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.id, Math.max(0, qty - 1))}
+                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 active:bg-gray-100"
+                      >
+                        −
+                      </button>
+                      <span className="w-6 text-center font-medium">{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.id, Math.min(99, qty + 1))}
+                        className="w-8 h-8 rounded-full border border-temple-red text-temple-red flex items-center justify-center active:bg-red-50"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {qty > 0 && item.allow_custom_price ? (
+                  <div className="mt-2">
+                    <label className="block text-xs text-gray-500 mb-1">金額（元）</label>
+                    <input
+                      type="number"
+                      className="input-field text-sm"
+                      min={item.price || 0}
+                      placeholder={item.price > 0 ? `最低 ${item.price}` : '請輸入金額'}
+                      value={customPrices[item.id] ?? ''}
+                      onChange={(e) => updateCustomPrice(item.id, e.target.value)}
+                      required
+                    />
+                  </div>
+                ) : null}
 
                 {qty > 0 && item.requires_name ? (
                   <div className="mt-2 space-y-1.5">

@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS event_items (
   name             VARCHAR(255) NOT NULL,
   description      TEXT,
   price            INT          NOT NULL DEFAULT 0,
+  allow_custom_price TINYINT(1) NOT NULL DEFAULT 0,
   requires_name    TINYINT(1)   NOT NULL DEFAULT 1,
   requires_content TINYINT(1)   NOT NULL DEFAULT 0,
   sort_order       INT          NOT NULL DEFAULT 0,
@@ -162,6 +163,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         "ALTER TABLE event_items ADD COLUMN gift_quantity INT NOT NULL DEFAULT 0 AFTER gift_event_item_id"],
       ["ADD registration_items.is_gift",
         "ALTER TABLE registration_items ADD COLUMN is_gift TINYINT(1) NOT NULL DEFAULT 0 AFTER subtotal"],
+      ["ADD event_items.allow_custom_price",
+        "ALTER TABLE event_items ADD COLUMN allow_custom_price TINYINT(1) NOT NULL DEFAULT 0 AFTER price"],
     ];
     for (const [label, sql] of ALTERS) {
       try {
