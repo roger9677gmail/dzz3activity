@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const DEFAULT_COLORS = ['#8B1A1A', '#1A4A8B', '#1A6B2A', '#7A1A8B', '#8B5E1A'];
@@ -25,6 +25,9 @@ export default function EventForm({ event = null }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const dragSrcRef = useRef(null);
 
   function updateItem(idx, field, val) {
     setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: val } : item)));
@@ -36,6 +39,52 @@ export default function EventForm({ event = null }) {
 
   function removeItem(idx) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function moveItem(from, to) {
+    if (from === to || from < 0 || to < 0) return;
+    setItems((prev) => {
+      if (from >= prev.length || to >= prev.length) return prev;
+      const next = prev.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  function handleDragStart(idx) {
+    return (e) => {
+      dragSrcRef.current = idx;
+      setDragIndex(idx);
+      e.dataTransfer.effectAllowed = 'move';
+      // Firefox needs data set on the transfer to fire drag events.
+      try { e.dataTransfer.setData('text/plain', String(idx)); } catch {}
+    };
+  }
+
+  function handleDragOver(idx) {
+    return (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (dragOverIndex !== idx) setDragOverIndex(idx);
+    };
+  }
+
+  function handleDrop(idx) {
+    return (e) => {
+      e.preventDefault();
+      const from = dragSrcRef.current;
+      if (from != null && from !== idx) moveItem(from, idx);
+      dragSrcRef.current = null;
+      setDragIndex(null);
+      setDragOverIndex(null);
+    };
+  }
+
+  function handleDragEnd() {
+    dragSrcRef.current = null;
+    setDragIndex(null);
+    setDragOverIndex(null);
   }
 
   async function handleSubmit(e) {
@@ -152,12 +201,49 @@ export default function EventForm({ event = null }) {
 
         <div className="space-y-4">
           {items.map((item, idx) => (
-            <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
+            <div
+              key={idx}
+              draggable
+              onDragStart={handleDragStart(idx)}
+              onDragOver={handleDragOver(idx)}
+              onDrop={handleDrop(idx)}
+              onDragEnd={handleDragEnd}
+              className={`border rounded-lg p-3 space-y-2 transition-all ${
+                dragIndex === idx ? 'opacity-40' : ''
+              } ${
+                dragOverIndex === idx && dragIndex !== idx
+                  ? 'border-temple-red border-2'
+                  : 'border-gray-200'
+              }`}
+            >
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-500">項目 {idx + 1}</span>
-                {items.length > 1 && (
-                  <button type="button" onClick={() => removeItem(idx)} className="text-red-500 text-sm">移除</button>
-                )}
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-gray-400 cursor-move select-none text-base leading-none"
+                    title="拖移以調整次序"
+                    aria-label="拖移以調整次序"
+                  >⋮⋮</span>
+                  <span className="text-sm font-medium text-gray-500">項目 {idx + 1}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => moveItem(idx, idx - 1)}
+                    disabled={idx === 0}
+                    className="text-gray-500 text-sm disabled:opacity-30"
+                    aria-label="上移"
+                  >↑</button>
+                  <button
+                    type="button"
+                    onClick={() => moveItem(idx, idx + 1)}
+                    disabled={idx === items.length - 1}
+                    className="text-gray-500 text-sm disabled:opacity-30"
+                    aria-label="下移"
+                  >↓</button>
+                  {items.length > 1 && (
+                    <button type="button" onClick={() => removeItem(idx)} className="text-red-500 text-sm">移除</button>
+                  )}
+                </div>
               </div>
               <input type="text" required className="input-field text-sm" placeholder="項目名稱（如：光明燈）"
                 value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)} />
