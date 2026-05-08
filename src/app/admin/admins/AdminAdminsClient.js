@@ -8,6 +8,11 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwForm, setPwForm] = useState({ old_password: '', new_password: '', confirm_password: '' });
+  const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwInfo, setPwInfo] = useState('');
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -44,29 +49,117 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
     router.refresh();
   }
 
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setPwError('');
+    setPwInfo('');
+    if (pwForm.new_password !== pwForm.confirm_password) {
+      setPwError('新密碼兩次輸入不一致');
+      return;
+    }
+    if (pwForm.new_password.length < 6) {
+      setPwError('新密碼至少需 6 碼');
+      return;
+    }
+    setPwSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/admins/${currentAdminId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          old_password: pwForm.old_password,
+          new_password: pwForm.new_password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPwError(data.error || '修改失敗');
+      } else {
+        setPwInfo('密碼已更新');
+        setPwForm({ old_password: '', new_password: '', confirm_password: '' });
+        setTimeout(() => { setPwInfo(''); setPwOpen(false); }, 1500);
+      }
+    } catch {
+      setPwError('網路錯誤，請稍後再試');
+    }
+    setPwSubmitting(false);
+  }
+
   return (
     <div>
       <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100 mb-4">
-        {admins.map((a) => (
-          <div key={a.id} className="px-4 py-3 flex items-center justify-between">
-            <div>
-              <div className="font-medium text-gray-800">
-                {a.name}
-                {a.id === currentAdminId && (
-                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-temple-red text-white">您</span>
-                )}
+        {admins.map((a) => {
+          const isMe = a.id === currentAdminId;
+          return (
+            <div key={a.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium text-gray-800">
+                    {a.name}
+                    {isMe && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-temple-red text-white">您</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 break-all">{a.email}{a.phone ? ` ・ ${a.phone}` : ''}</div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {isMe && (
+                    <button
+                      onClick={() => { setPwOpen((v) => !v); setPwError(''); setPwInfo(''); }}
+                      className="text-sm text-temple-red"
+                    >
+                      {pwOpen ? '取消' : '修改密碼'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(a)}
+                    disabled={isMe}
+                    className="text-sm text-red-500 disabled:text-gray-300"
+                  >
+                    刪除
+                  </button>
+                </div>
               </div>
-              <div className="text-xs text-gray-500">{a.email}{a.phone ? ` ・ ${a.phone}` : ''}</div>
+
+              {isMe && pwOpen && (
+                <form onSubmit={handleChangePassword} className="mt-3 space-y-2 bg-gray-50 rounded-lg p-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">目前密碼</label>
+                    <input
+                      type="password" required autoComplete="current-password"
+                      className="input-field text-sm"
+                      value={pwForm.old_password}
+                      onChange={(e) => setPwForm((p) => ({ ...p, old_password: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">新密碼（至少 6 碼）</label>
+                    <input
+                      type="password" required minLength={6} autoComplete="new-password"
+                      className="input-field text-sm"
+                      value={pwForm.new_password}
+                      onChange={(e) => setPwForm((p) => ({ ...p, new_password: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">再次輸入新密碼</label>
+                    <input
+                      type="password" required autoComplete="new-password"
+                      className="input-field text-sm"
+                      value={pwForm.confirm_password}
+                      onChange={(e) => setPwForm((p) => ({ ...p, confirm_password: e.target.value }))}
+                    />
+                  </div>
+                  {pwError && <div className="text-sm text-red-600">{pwError}</div>}
+                  {pwInfo && <div className="text-sm text-green-700">{pwInfo}</div>}
+                  <button type="submit" disabled={pwSubmitting} className="btn-primary text-sm w-full">
+                    {pwSubmitting ? '更新中…' : '更新密碼'}
+                  </button>
+                </form>
+              )}
             </div>
-            <button
-              onClick={() => handleDelete(a)}
-              disabled={a.id === currentAdminId}
-              className="text-sm text-red-500 disabled:text-gray-300"
-            >
-              刪除
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {!showForm ? (
