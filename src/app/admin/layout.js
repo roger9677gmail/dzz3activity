@@ -7,9 +7,9 @@ export default async function AdminLayout({ children }) {
 
   // Allow access to admin login page without auth
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen md:flex">
       {session && <AdminSidebar />}
-      <main className={`flex-1 bg-gray-50 ${!session ? 'w-full' : ''}`}>{children}</main>
+      <main className={`flex-1 bg-gray-50 min-h-screen ${!session ? 'w-full' : ''}`}>{children}</main>
     </div>
   );
 }
