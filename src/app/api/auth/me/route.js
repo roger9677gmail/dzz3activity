@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 
 const ME_QUERY = `
-  SELECT m.id, m.name, m.phone, m.email, m.role, m.created_at,
+  SELECT m.id, m.name, m.phone, m.email, m.role, m.avatar, m.created_at,
          m.location_id, m.address,
          l.name AS location_name
   FROM members m
@@ -25,7 +25,7 @@ export async function PUT(request) {
   if (!session) return NextResponse.json({ error: '請先登入' }, { status: 401 });
 
   try {
-    const { name, phone, location_id, address } = await request.json();
+    const { name, phone, location_id, address, avatar } = await request.json();
     const sets = [];
     const args = [];
 
@@ -54,6 +54,20 @@ export async function PUT(request) {
         return NextResponse.json({ error: '地址過長' }, { status: 400 });
       }
       sets.push('address = ?');
+      args.push(v);
+    }
+    if (avatar !== undefined) {
+      const v = avatar === null || avatar === '' ? null : String(avatar);
+      if (v) {
+        if (!/^data:image\/(png|jpe?g|webp);base64,/.test(v)) {
+          return NextResponse.json({ error: '頭像格式不支援' }, { status: 400 });
+        }
+        // Cap at ~500 KB after base64 (≈ 350 KB raw); the client should resize first.
+        if (v.length > 500 * 1024) {
+          return NextResponse.json({ error: '頭像檔案過大，請選較小的圖片' }, { status: 413 });
+        }
+      }
+      sets.push('avatar = ?');
       args.push(v);
     }
 

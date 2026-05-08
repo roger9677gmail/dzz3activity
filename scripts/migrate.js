@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS members (
   email       VARCHAR(255) NOT NULL,
   password    VARCHAR(255) NOT NULL,
   role        VARCHAR(20)  NOT NULL DEFAULT 'member',
+  avatar      MEDIUMTEXT,
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_members_email (email),
@@ -165,6 +166,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         "ALTER TABLE registration_items ADD COLUMN is_gift TINYINT(1) NOT NULL DEFAULT 0 AFTER subtotal"],
       ["ADD event_items.allow_custom_price",
         "ALTER TABLE event_items ADD COLUMN allow_custom_price TINYINT(1) NOT NULL DEFAULT 0 AFTER price"],
+      ["ADD members.avatar",
+        "ALTER TABLE members ADD COLUMN avatar MEDIUMTEXT AFTER role"],
     ];
     for (const [label, sql] of ALTERS) {
       try {
