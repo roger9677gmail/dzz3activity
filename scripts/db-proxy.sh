@@ -44,9 +44,24 @@ if ! gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/nu
 fi
 
 # 2) Application Default Credentials must exist.
-ADC_PATH="${GOOGLE_APPLICATION_CREDENTIALS:-$HOME/.config/gcloud/application_default_credentials.json}"
-if [[ ! -f "$ADC_PATH" ]]; then
-  err "Application Default Credentials not found at $ADC_PATH"
+#    Discovery order: $GOOGLE_APPLICATION_CREDENTIALS → standard ~/.config path
+#    → search /tmp + ~/.config (Cloud Shell stashes ADC under /tmp/tmp.XXXX/).
+ADC_PATH=""
+if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" && -f "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
+  ADC_PATH="$GOOGLE_APPLICATION_CREDENTIALS"
+elif [[ -f "$HOME/.config/gcloud/application_default_credentials.json" ]]; then
+  ADC_PATH="$HOME/.config/gcloud/application_default_credentials.json"
+else
+  ADC_PATH="$(find /tmp "$HOME/.config" -name application_default_credentials.json 2>/dev/null | head -n 1 || true)"
+fi
+if [[ -z "$ADC_PATH" || ! -f "$ADC_PATH" ]]; then
+  err "Application Default Credentials not found."
+  err "Run: gcloud auth application-default login"
+  exit 1
+fi
+# Sanity-check the creds actually mint a token (catches expired/revoked ADC).
+if ! gcloud auth application-default print-access-token >/dev/null 2>&1; then
+  err "ADC at $ADC_PATH cannot mint an access token (expired or revoked)."
   err "Run: gcloud auth application-default login"
   exit 1
 fi
