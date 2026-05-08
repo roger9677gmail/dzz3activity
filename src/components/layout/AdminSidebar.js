@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { APP_VERSION } from '@/lib/version';
 
 const navItems = [
   { href: '/admin', label: '總覽', exact: true, icon: '📊' },
@@ -80,7 +81,7 @@ export default function AdminSidebar() {
         <div className="p-4 border-b border-red-900 flex items-start justify-between gap-2">
           <div>
             <div className="text-white font-bold text-base leading-tight">⛩️ 大自在山管理系統</div>
-            <div className="text-red-200 text-xs mt-1">後台管理</div>
+            <div className="text-red-200 text-xs mt-1">後台管理 ・ {APP_VERSION}</div>
           </div>
           <button
             type="button"
