@@ -262,8 +262,12 @@ export default function EventForm({ event = null }) {
                 <label className="text-xs text-gray-500">
                   {item.allow_custom_price ? '最低金額（元，0 = 不限）' : '金額（元）'}
                 </label>
-                <input type="number" className="input-field text-sm" min={0}
-                  value={item.price} onChange={(e) => updateItem(idx, 'price', parseInt(e.target.value) || 0)} />
+                <input type="number" inputMode="numeric" className="input-field text-sm" min={0}
+                  value={item.price === '' || item.price == null ? '' : item.price}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    updateItem(idx, 'price', v === '' ? '' : (parseInt(v, 10) || 0));
+                  }} />
               </div>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={!!item.allow_custom_price}
@@ -306,11 +310,15 @@ export default function EventForm({ event = null }) {
                     <label className="text-xs text-gray-500">數量</label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       className="input-field text-sm"
                       min={0}
                       max={20}
-                      value={item.gift_quantity || 0}
-                      onChange={(e) => updateItem(idx, 'gift_quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                      value={item.gift_quantity === '' || item.gift_quantity == null ? '' : item.gift_quantity}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        updateItem(idx, 'gift_quantity', v === '' ? '' : Math.max(0, parseInt(v, 10) || 0));
+                      }}
                       disabled={!item.gift_uid}
                     />
                   </div>
