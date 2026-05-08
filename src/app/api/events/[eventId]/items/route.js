@@ -20,27 +20,65 @@ export const POST = withAdminAuth(async (request, { params }) => {
 });
 
 export const PUT = withAdminAuth(async (request, { params }) => {
-  // Bulk update items for an event (replace all)
-  const { items } = await request.json();
-  const eventId = params.eventId;
-  const list = items || [];
+  // Bulk update items for an event — upsert by _uid so FK references from
+  // registration_items survive (a plain DELETE+INSERT would be blocked by FK
+  // whenever any registration exists, silently failing the update).
+  try {
+    const { items } = await request.json();
+    const eventId = params.eventId;
+    const list = items || [];
 
-  await db.transaction(async (tx) => {
-    // Clear gift FK first so DELETE doesn't trip on self-reference, then drop & re-insert.
+    await db.transaction(async (tx) => {
+    // Drop gift FKs for this event up-front; we'll re-apply at the end after
+    // ids are known, and this also keeps DELETEs below from tripping the
+    // self-FK when removing items pointed to by other items.
     await tx.prepare('UPDATE event_items SET gift_event_item_id = NULL WHERE event_id = ?').run(eventId);
-    await tx.prepare('DELETE FROM event_items WHERE event_id = ?').run(eventId);
-    // Two-pass insert so gift_event_item_id can reference newly-inserted ids.
+
+    const existing = await tx.prepare('SELECT id FROM event_items WHERE event_id = ?').all(eventId);
+    const existingIds = new Set(existing.map((r) => Number(r.id)));
+    const keepIds = new Set();
     const uidToId = {};
+
     for (const [i, item] of list.entries()) {
-      const r = await tx.prepare(`
-        INSERT INTO event_items (event_id, name, description, price, allow_custom_price, requires_name, requires_content, sort_order, gift_quantity)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(eventId, item.name, item.description || null, item.price || 0,
-             item.allow_custom_price ? 1 : 0,
-             item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i,
-             Number.isFinite(item.gift_quantity) ? Math.max(0, parseInt(item.gift_quantity)) : 0);
-      if (item._uid) uidToId[item._uid] = r.lastInsertRowid;
+      const giftQty = Number.isFinite(item.gift_quantity) ? Math.max(0, parseInt(item.gift_quantity)) : 0;
+      const allowCp = item.allow_custom_price ? 1 : 0;
+      const reqName = item.requires_name ? 1 : 0;
+      const reqContent = item.requires_content ? 1 : 0;
+
+      // _uid format: "db<id>" for items already in the DB, "c<n>" for new ones
+      // added in this edit session. Trust db<id> only if it actually exists for
+      // this event; otherwise fall through to INSERT.
+      const m = typeof item._uid === 'string' ? item._uid.match(/^db(\d+)$/) : null;
+      const matchId = m ? Number(m[1]) : null;
+
+      if (matchId && existingIds.has(matchId)) {
+        await tx.prepare(`
+          UPDATE event_items
+          SET name=?, description=?, price=?, allow_custom_price=?,
+              requires_name=?, requires_content=?, sort_order=?, gift_quantity=?
+          WHERE id=? AND event_id=?
+        `).run(item.name, item.description || null, item.price || 0, allowCp,
+               reqName, reqContent, i, giftQty, matchId, eventId);
+        keepIds.add(matchId);
+        if (item._uid) uidToId[item._uid] = matchId;
+      } else {
+        const r = await tx.prepare(`
+          INSERT INTO event_items (event_id, name, description, price, allow_custom_price, requires_name, requires_content, sort_order, gift_quantity)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(eventId, item.name, item.description || null, item.price || 0, allowCp,
+               reqName, reqContent, i, giftQty);
+        const newId = Number(r.lastInsertRowid);
+        keepIds.add(newId);
+        if (item._uid) uidToId[item._uid] = newId;
+      }
     }
+
+    for (const id of existingIds) {
+      if (!keepIds.has(id)) {
+        await tx.prepare('DELETE FROM event_items WHERE id = ? AND event_id = ?').run(id, eventId);
+      }
+    }
+
     for (const item of list) {
       const qty = Number.isFinite(item.gift_quantity) ? parseInt(item.gift_quantity) : 0;
       if (qty > 0 && item.gift_uid && item._uid && uidToId[item.gift_uid] && uidToId[item._uid]) {
@@ -50,5 +88,15 @@ export const PUT = withAdminAuth(async (request, { params }) => {
     }
   });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('PUT /events/[eventId]/items failed:', err);
+    if (err && (err.code === 'ER_ROW_IS_REFERENCED_2' || /foreign key constraint/i.test(err.message || ''))) {
+      return NextResponse.json(
+        { error: '無法刪除已有報名的項目；請保留該項目或先取消對應報名' },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: err.message || '伺服器錯誤' }, { status: 500 });
+  }
 });

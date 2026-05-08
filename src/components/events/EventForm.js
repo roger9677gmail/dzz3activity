@@ -121,12 +121,19 @@ export default function EventForm({ event = null }) {
         setError(data.error || '操作失敗');
       } else {
         if (isEdit) {
-          // Update items separately
-          await fetch(`/api/events/${event.id}/items`, {
+          // Update items separately. Surface failures so a silent FK violation
+          // doesn't leave the admin thinking the price/隨喜功德 changes saved.
+          const itemsRes = await fetch(`/api/events/${event.id}/items`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items }),
           });
+          if (!itemsRes.ok) {
+            const itemsData = await itemsRes.json().catch(() => ({}));
+            setError(itemsData.error || '報名項目更新失敗');
+            setLoading(false);
+            return;
+          }
         }
         router.push('/admin/events');
         router.refresh();
