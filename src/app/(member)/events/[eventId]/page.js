@@ -73,7 +73,7 @@ export default async function EventDetailPage({ params }) {
                     <span className="text-sm font-medium">{item.name}</span>
                     {item.description && <span className="text-xs text-gray-400 ml-1">（{item.description}）</span>}
                   </div>
-                  <span className="text-temple-gold text-sm font-medium">{formatMoney(item.price)}</span>
+                  <span className="text-temple-gold text-sm font-medium whitespace-nowrap shrink-0 ml-3">{formatMoney(item.price)}</span>
                 </div>
               ))}
             </div>
