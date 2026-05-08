@@ -3,18 +3,73 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatMoney } from '@/lib/utils';
 
+function safeParseArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  try {
+    const p = JSON.parse(v);
+    return Array.isArray(p) ? p : [];
+  } catch { return []; }
+}
+
+// Reconstruct form state from a saved registration so the user can edit it.
+function buildInitialFromRegistration(reg, eventItems) {
+  const init = { selectedItems: {}, names: {}, contents: {}, customPrices: {}, giftNames: {}, giftContents: {} };
+  if (!reg || !Array.isArray(reg.items)) return init;
+  for (const ri of reg.items) {
+    const ei = eventItems.find((e) => Number(e.id) === Number(ri.event_item_id));
+    if (!ei) continue;
+    const ns = safeParseArray(ri.names);
+    const cs = safeParseArray(ri.contents);
+    if (ri.is_gift) {
+      // Find the parent item that gifts to this event_item.
+      const parent = eventItems.find((e) => Number(e.gift_event_item_id) === Number(ri.event_item_id) && (e.gift_quantity || 0) > 0);
+      if (!parent) continue;
+      init.giftNames[parent.id] = (init.giftNames[parent.id] || []).concat(ns);
+      init.giftContents[parent.id] = (init.giftContents[parent.id] || []).concat(cs);
+      continue;
+    }
+    if (ei.allow_custom_price) {
+      // Custom-price was stored as one row per unit (qty=1, subtotal = unit price).
+      // We may also have legacy rows with qty>1 and a single subtotal (split unit = subtotal/qty).
+      const qty = ri.quantity || 1;
+      const unit = qty > 0 ? Math.round((ri.subtotal || 0) / qty) : (ri.subtotal || 0);
+      init.selectedItems[ri.event_item_id] = (init.selectedItems[ri.event_item_id] || 0) + qty;
+      const cpArr = init.customPrices[ri.event_item_id] || [];
+      const nArr = init.names[ri.event_item_id] || [];
+      const cArr = init.contents[ri.event_item_id] || [];
+      for (let i = 0; i < qty; i++) {
+        cpArr.push(String(unit));
+        nArr.push(ns[i] || '');
+        cArr.push(cs[i] || '');
+      }
+      init.customPrices[ri.event_item_id] = cpArr;
+      init.names[ri.event_item_id] = nArr;
+      init.contents[ri.event_item_id] = cArr;
+    } else {
+      init.selectedItems[ri.event_item_id] = ri.quantity;
+      init.names[ri.event_item_id] = ns;
+      init.contents[ri.event_item_id] = cs;
+    }
+  }
+  return init;
+}
+
 export default function RegistrationForm({ event, existingRegistration }) {
   const router = useRouter();
-  const [selectedItems, setSelectedItems] = useState({});
-  const [names, setNames] = useState({});
-  const [contents, setContents] = useState({});
+  const isEditMode = !!(existingRegistration && existingRegistration.payment_status !== 'paid' && Array.isArray(existingRegistration.items));
+  const initial = isEditMode ? buildInitialFromRegistration(existingRegistration, event.items) : null;
+
+  const [selectedItems, setSelectedItems] = useState(initial?.selectedItems || {});
+  const [names, setNames] = useState(initial?.names || {});
+  const [contents, setContents] = useState(initial?.contents || {});
   // Per-unit raw amounts (string) for items with allow_custom_price; array sized to match qty.
-  const [customPrices, setCustomPrices] = useState({});
+  const [customPrices, setCustomPrices] = useState(initial?.customPrices || {});
   // Gift slots are keyed by the parent event_item id; arrays sized parent.qty * parent.gift_quantity.
-  const [giftNames, setGiftNames] = useState({});
-  const [giftContents, setGiftContents] = useState({});
-  const [notes, setNotes] = useState('');
-  const [receiptTitle, setReceiptTitle] = useState('');
+  const [giftNames, setGiftNames] = useState(initial?.giftNames || {});
+  const [giftContents, setGiftContents] = useState(initial?.giftContents || {});
+  const [notes, setNotes] = useState(isEditMode ? (existingRegistration.notes || '') : '');
+  const [receiptTitle, setReceiptTitle] = useState(isEditMode ? (existingRegistration.receipt_title || '') : '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -229,16 +284,24 @@ export default function RegistrationForm({ event, existingRegistration }) {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/registrations', {
-        method: 'POST',
+      const url = isEditMode
+        ? `/api/registrations/${existingRegistration.id}`
+        : '/api/registrations';
+      const method = isEditMode ? 'PATCH' : 'POST';
+      const body = isEditMode
+        ? { items, notes, receipt_title: receiptTitle }
+        : { eventId: event.id, items, notes, receipt_title: receiptTitle };
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: event.id, items, notes, receipt_title: receiptTitle }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || '報名失敗，請稍後再試');
+        setError(data.error || (isEditMode ? '修改失敗，請稍後再試' : '報名失敗，請稍後再試'));
       } else {
         router.push(`/history?registered=${event.id}`);
+        router.refresh();
       }
     } catch {
       setError('網路錯誤，請稍後再試');
@@ -246,14 +309,14 @@ export default function RegistrationForm({ event, existingRegistration }) {
     setLoading(false);
   }
 
-  if (existingRegistration) {
+  // Paid registrations are read-only; the page handles this case but keep a
+  // safety net here in case someone passes a paid registration to the form.
+  if (existingRegistration && existingRegistration.payment_status === 'paid') {
     return (
       <div className="card p-4 text-center">
         <div className="text-2xl mb-2">✅</div>
         <div className="font-bold text-temple-dark">您已完成報名</div>
-        <div className="text-sm text-gray-500 mt-1">
-          繳款狀態：{existingRegistration.payment_status === 'paid' ? '✅ 已繳款' : '⏳ 待繳款'}
-        </div>
+        <div className="text-sm text-gray-500 mt-1">繳款狀態：✅ 已繳款</div>
         {existingRegistration.receipt_number && (
           <div className="text-sm text-gray-500">收據號碼：{existingRegistration.receipt_number}</div>
         )}
@@ -264,7 +327,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="card p-4">
-        <h3 className="font-bold text-temple-dark mb-3">選擇報名項目</h3>
+        <h3 className="font-bold text-temple-dark mb-3">{isEditMode ? '修改報名項目' : '選擇報名項目'}</h3>
         <div className="space-y-4">
           {event.items.map((item) => {
             const qty = selectedItems[item.id] || 0;
@@ -431,7 +494,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
           <span className="text-xl font-bold text-temple-red">{formatMoney(total)}</span>
         </div>
         <button type="submit" disabled={loading || Object.keys(selectedItems).length === 0} className="w-full btn-primary py-3">
-          {loading ? '報名中...' : '確認報名'}
+          {loading ? (isEditMode ? '儲存中...' : '報名中...') : (isEditMode ? '儲存修改' : '確認報名')}
         </button>
         <p className="text-xs text-gray-400 text-center mt-2">繳款方式請洽大自在山服務台</p>
       </div>
