@@ -1,5 +1,11 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# NEXT_PUBLIC_* env vars must be present at `next build` time so they get
+# inlined into the client bundle. Cloud Build passes this via --build-arg.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
+
 COPY package*.json ./
 RUN npm ci
 COPY . .
