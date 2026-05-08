@@ -12,13 +12,13 @@ export async function GET(request, { params }) {
 
 export const PUT = withAdminAuth(async (request, { params }) => {
   try {
-    const { name, description, start_date, end_date, registration_deadline, location, status, max_capacity, banner_color } = await request.json();
+    const { name, description, start_date, end_date, registration_deadline, location, status, banner_color } = await request.json();
 
     await db.prepare(`
       UPDATE events SET name=?, description=?, start_date=?, end_date=?, registration_deadline=?,
-        location=?, status=?, max_capacity=?, banner_color=?, updated_at=NOW()
+        location=?, status=?, banner_color=?, updated_at=NOW()
       WHERE id=?
-    `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status, max_capacity || null, banner_color || '#8B1A1A', params.eventId);
+    `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status, banner_color || '#8B1A1A', params.eventId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

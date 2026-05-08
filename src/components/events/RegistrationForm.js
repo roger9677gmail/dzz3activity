@@ -157,7 +157,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
                     <span className="w-6 text-center font-medium">{qty}</span>
                     <button
                       type="button"
-                      onClick={() => updateQty(item.id, Math.min(item.max_quantity || 99, qty + 1))}
+                      onClick={() => updateQty(item.id, Math.min(99, qty + 1))}
                       className="w-8 h-8 rounded-full border border-temple-red text-temple-red flex items-center justify-center active:bg-red-50"
                     >
                       +

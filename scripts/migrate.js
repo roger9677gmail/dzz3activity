@@ -46,7 +46,6 @@ CREATE TABLE IF NOT EXISTS events (
   registration_deadline   DATE         NOT NULL,
   location                VARCHAR(255),
   status                  VARCHAR(20)  NOT NULL DEFAULT 'active',
-  max_capacity            INT,
   banner_color            VARCHAR(20)  DEFAULT '#8B1A1A',
   created_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -58,7 +57,6 @@ CREATE TABLE IF NOT EXISTS event_items (
   name             VARCHAR(255) NOT NULL,
   description      TEXT,
   price            INT          NOT NULL DEFAULT 0,
-  max_quantity     INT          DEFAULT 5,
   requires_name    TINYINT(1)   NOT NULL DEFAULT 1,
   requires_content TINYINT(1)   NOT NULL DEFAULT 0,
   sort_order       INT          NOT NULL DEFAULT 0,
@@ -277,6 +275,25 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         console.log(`✅ Seeded location: ${name}`);
       } else {
         console.log(`ℹ️  Location exists: ${name}`);
+      }
+    }
+
+    // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).
+    console.log('— Dropping deprecated columns —');
+    const DROPS = [
+      ["events.max_capacity",  "ALTER TABLE events DROP COLUMN max_capacity"],
+      ["event_items.max_quantity", "ALTER TABLE event_items DROP COLUMN max_quantity"],
+    ];
+    for (const [label, sql] of DROPS) {
+      try {
+        await conn.query(sql);
+        console.log('✅ Dropped:', label);
+      } catch (err) {
+        if (err && (err.code === 'ER_CANT_DROP_FIELD_OR_KEY' || /check that column.*exists/i.test(err.message || ''))) {
+          console.log('ℹ️  Skipped (already dropped):', label);
+        } else {
+          throw err;
+        }
       }
     }
   } finally {

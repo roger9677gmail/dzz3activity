@@ -8,13 +8,13 @@ export async function GET(request, { params }) {
 }
 
 export const POST = withAdminAuth(async (request, { params }) => {
-  const { name, description, price, max_quantity, requires_name, requires_content, sort_order } = await request.json();
+  const { name, description, price, requires_name, requires_content, sort_order } = await request.json();
   if (!name) return NextResponse.json({ error: '項目名稱為必填' }, { status: 400 });
 
   const result = await db.prepare(`
-    INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, requires_content, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(params.eventId, name, description || null, price || 0, max_quantity || 5, requires_name ? 1 : 0, requires_content ? 1 : 0, sort_order || 0);
+    INSERT INTO event_items (event_id, name, description, price, requires_name, requires_content, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(params.eventId, name, description || null, price || 0, requires_name ? 1 : 0, requires_content ? 1 : 0, sort_order || 0);
 
   return NextResponse.json({ success: true, id: result.lastInsertRowid });
 });
@@ -29,9 +29,9 @@ export const PUT = withAdminAuth(async (request, { params }) => {
     await tx.prepare('DELETE FROM event_items WHERE event_id = ?').run(eventId);
     for (const [i, item] of list.entries()) {
       await tx.prepare(`
-        INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, requires_content, sort_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(eventId, item.name, item.description || null, item.price || 0, item.max_quantity || 5, item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i);
+        INSERT INTO event_items (event_id, name, description, price, requires_name, requires_content, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(eventId, item.name, item.description || null, item.price || 0, item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i);
     }
   });
 

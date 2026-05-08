@@ -16,12 +16,11 @@ export default function EventForm({ event = null }) {
     registration_deadline: event?.registration_deadline || '',
     location: event?.location || '',
     status: event?.status || 'active',
-    max_capacity: event?.max_capacity || '',
     banner_color: event?.banner_color || '#8B1A1A',
   });
 
   const [items, setItems] = useState(
-    event?.items || [{ name: '', description: '', price: 0, max_quantity: 5, requires_name: true, requires_content: false }]
+    event?.items || [{ name: '', description: '', price: 0, requires_name: true, requires_content: false }]
   );
 
   const [loading, setLoading] = useState(false);
@@ -32,7 +31,7 @@ export default function EventForm({ event = null }) {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { name: '', description: '', price: 0, max_quantity: 5, requires_name: true, requires_content: false }]);
+    setItems((prev) => [...prev, { name: '', description: '', price: 0, requires_name: true, requires_content: false }]);
   }
 
   function removeItem(idx) {
@@ -123,20 +122,13 @@ export default function EventForm({ event = null }) {
             value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">狀態</label>
-            <select className="input-field" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
-              <option value="active">報名中</option>
-              <option value="draft">草稿</option>
-              <option value="closed">已截止</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">人數上限</label>
-            <input type="number" className="input-field" placeholder="無限制"
-              value={form.max_capacity} onChange={(e) => setForm((p) => ({ ...p, max_capacity: e.target.value }))} />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">狀態</label>
+          <select className="input-field" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
+            <option value="active">報名中</option>
+            <option value="draft">草稿</option>
+            <option value="closed">已截止</option>
+          </select>
         </div>
 
         <div>
@@ -171,17 +163,10 @@ export default function EventForm({ event = null }) {
                 value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)} />
               <input type="text" className="input-field text-sm" placeholder="項目說明（選填）"
                 value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-500">金額（元）</label>
-                  <input type="number" className="input-field text-sm" min={0}
-                    value={item.price} onChange={(e) => updateItem(idx, 'price', parseInt(e.target.value) || 0)} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">最多數量</label>
-                  <input type="number" className="input-field text-sm" min={1}
-                    value={item.max_quantity} onChange={(e) => updateItem(idx, 'max_quantity', parseInt(e.target.value) || 1)} />
-                </div>
+              <div>
+                <label className="text-xs text-gray-500">金額（元）</label>
+                <input type="number" className="input-field text-sm" min={0}
+                  value={item.price} onChange={(e) => updateItem(idx, 'price', parseInt(e.target.value) || 0)} />
               </div>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={item.requires_name}

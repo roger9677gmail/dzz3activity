@@ -134,8 +134,8 @@ const events = [
       const eventId = r.insertId;
       for (const [i, item] of ev.items.entries()) {
         await conn.query(
-          `INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, sort_order)
-           VALUES (?, ?, ?, ?, 5, ?, ?)`,
+          `INSERT INTO event_items (event_id, name, description, price, requires_name, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           [eventId, item.name, item.description, item.price, item.requires_name ? 1 : 0, i]
         );
       }

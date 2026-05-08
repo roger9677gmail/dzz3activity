@@ -30,7 +30,7 @@ export async function GET(request) {
 
 export const POST = withAdminAuth(async (request) => {
   try {
-    const { name, description, start_date, end_date, registration_deadline, location, status, max_capacity, banner_color, items } = await request.json();
+    const { name, description, start_date, end_date, registration_deadline, location, status, banner_color, items } = await request.json();
 
     if (!name || !start_date || !end_date || !registration_deadline) {
       return NextResponse.json({ error: '活動名稱、日期及報名截止日為必填' }, { status: 400 });
@@ -38,18 +38,18 @@ export const POST = withAdminAuth(async (request) => {
 
     const eventId = await db.transaction(async (tx) => {
       const result = await tx.prepare(`
-        INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, max_capacity, banner_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status || 'active', max_capacity || null, banner_color || '#8B1A1A');
+        INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, banner_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status || 'active', banner_color || '#8B1A1A');
 
       const newId = result.lastInsertRowid;
 
       if (items && Array.isArray(items)) {
         for (const [i, item] of items.entries()) {
           await tx.prepare(`
-            INSERT INTO event_items (event_id, name, description, price, max_quantity, requires_name, requires_content, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(newId, item.name, item.description || null, item.price || 0, item.max_quantity || 5, item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i);
+            INSERT INTO event_items (event_id, name, description, price, requires_name, requires_content, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(newId, item.name, item.description || null, item.price || 0, item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i);
         }
       }
       return newId;
