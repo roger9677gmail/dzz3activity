@@ -383,34 +383,31 @@ export default function RegistrationForm({ event, existingRegistration }) {
                   </div>
                 ) : null}
 
-                {qty > 0 && item.requires_name ? (
-                  <div className="mt-2 space-y-1.5">
+                {qty > 0 && (item.requires_name || item.requires_content) ? (
+                  <div className="mt-2 space-y-2">
                     {Array.from({ length: qty }).map((_, idx) => (
-                      <input
-                        key={idx}
-                        type="text"
-                        className="input-field text-sm"
-                        placeholder={`第${idx + 1}位功德主(陽上)姓名`}
-                        value={(names[item.id] || [])[idx] || ''}
-                        onChange={(e) => updateName(item.id, idx, e.target.value)}
-                        required
-                      />
-                    ))}
-                  </div>
-                ) : null}
-
-                {qty > 0 && item.requires_content ? (
-                  <div className="mt-2 space-y-1.5">
-                    {Array.from({ length: qty }).map((_, idx) => (
-                      <textarea
-                        key={idx}
-                        className="input-field text-sm resize-none"
-                        rows={2}
-                        placeholder={`第${idx + 1}位超渡內容（如：歷代祖先、冤親債主等）`}
-                        value={(contents[item.id] || [])[idx] || ''}
-                        onChange={(e) => updateContent(item.id, idx, e.target.value)}
-                        required
-                      />
+                      <div key={idx} className="space-y-1.5">
+                        {item.requires_name && (
+                          <input
+                            type="text"
+                            className="input-field text-sm"
+                            placeholder={`第${idx + 1}位功德主(陽上)姓名`}
+                            value={(names[item.id] || [])[idx] || ''}
+                            onChange={(e) => updateName(item.id, idx, e.target.value)}
+                            required
+                          />
+                        )}
+                        {item.requires_content && (
+                          <textarea
+                            className="input-field text-sm resize-none"
+                            rows={2}
+                            placeholder={`第${idx + 1}位超渡內容（如：歷代祖先、冤親債主等）`}
+                            value={(contents[item.id] || [])[idx] || ''}
+                            onChange={(e) => updateContent(item.id, idx, e.target.value)}
+                            required
+                          />
+                        )}
+                      </div>
                     ))}
                   </div>
                 ) : null}
