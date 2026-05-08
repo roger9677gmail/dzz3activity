@@ -71,7 +71,8 @@ export default function AdminSidebar() {
       <aside
         className={`
           bg-temple-red-dark flex flex-col w-56 shrink-0
-          fixed md:static top-0 left-0 h-screen md:h-auto md:min-h-screen z-50
+          fixed md:static top-0 left-0 z-50 overflow-y-auto
+          h-[100dvh] md:h-auto md:min-h-screen
           transform transition-transform duration-200
           ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
         `}
@@ -89,7 +90,7 @@ export default function AdminSidebar() {
           >✕</button>
         </div>
 
-        <nav className="flex-1 py-2 overflow-y-auto">
+        <nav className="flex-1 py-2">
           {navItems.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             return (
@@ -110,7 +111,10 @@ export default function AdminSidebar() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-red-900">
+        <div
+          className="p-4 border-t border-red-900"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
           <button
             onClick={handleLogout}
             disabled={loggingOut}
