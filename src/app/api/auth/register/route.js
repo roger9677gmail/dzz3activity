@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { createSessionResponse } from '@/lib/auth';
+import { verifyAndConsume } from '@/lib/email-verify';
 
 export async function POST(request) {
   try {
-    const { name, email, phone, password, location_id, address } = await request.json();
+    const { name, email, phone, password, location_id, address, code } = await request.json();
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: '姓名、Email 及密碼為必填' }, { status: 400 });
+    }
+    if (!code) {
+      return NextResponse.json({ error: '請輸入 Email 驗證碼' }, { status: 400 });
     }
     if (password.length < 6) {
       return NextResponse.json({ error: '密碼至少需6碼' }, { status: 400 });
@@ -33,6 +37,17 @@ export async function POST(request) {
       if (existingPhone) {
         return NextResponse.json({ error: '此電話號碼已被其他帳號使用' }, { status: 409 });
       }
+    }
+
+    const verify = await verifyAndConsume(normalizedEmail, String(code).trim());
+    if (!verify.ok) {
+      const msg = {
+        NO_CODE: '請先點「發送驗證碼」並至 Email 收信',
+        EXPIRED: '驗證碼已過期，請重新發送',
+        TOO_MANY_ATTEMPTS: '驗證碼錯誤次數過多，請重新發送',
+        INVALID: `驗證碼錯誤${verify.attemptsLeft != null ? `（剩 ${verify.attemptsLeft} 次）` : ''}`,
+      }[verify.reason] || '驗證碼錯誤';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
     const hash = await bcrypt.hash(password, 10);

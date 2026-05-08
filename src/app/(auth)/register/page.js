@@ -5,21 +5,66 @@ import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirmPassword: '', location_id: '', address: '' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', confirmPassword: '', location_id: '', address: '', code: '' });
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [resendIn, setResendIn] = useState(0); // seconds remaining before next resend allowed
+  const [info, setInfo] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetch('/api/locations').then((r) => r.json()).then((d) => setLocations(d.locations || [])).catch(() => {});
   }, []);
 
+  // Resend cooldown countdown.
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  async function handleSendCode() {
+    setError('');
+    setInfo('');
+    const email = form.email.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setError('請先填正確的 Email');
+      return;
+    }
+    setSendingCode(true);
+    try {
+      const res = await fetch('/api/auth/register/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '發送驗證碼失敗');
+      } else {
+        setCodeSent(true);
+        setInfo('驗證碼已寄出，請至信箱查收（15 分鐘內有效）');
+        setResendIn(60);
+      }
+    } catch {
+      setError('網路錯誤，請稍後再試');
+    }
+    setSendingCode(false);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setInfo('');
 
     if (form.password !== form.confirmPassword) {
       setError('兩次密碼輸入不一致');
+      return;
+    }
+    if (!form.code.trim()) {
+      setError('請輸入 Email 驗證碼');
       return;
     }
 
@@ -35,6 +80,7 @@ export default function RegisterPage() {
           password: form.password,
           location_id: form.location_id || null,
           address: form.address || null,
+          code: form.code.trim(),
         }),
       });
       const data = await res.json();
@@ -48,6 +94,13 @@ export default function RegisterPage() {
     }
     setLoading(false);
   }
+
+  const sendDisabled = sendingCode || resendIn > 0;
+  const sendLabel = sendingCode
+    ? '發送中…'
+    : resendIn > 0
+      ? `重新發送（${resendIn}s）`
+      : codeSent ? '重新發送驗證碼' : '發送驗證碼';
 
   return (
     <div className="min-h-screen bg-temple-cream flex flex-col">
@@ -67,8 +120,35 @@ export default function RegisterPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
-            <input type="email" required autoComplete="email" className="input-field" placeholder="作為登入帳號使用"
-              value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+            <div className="flex gap-2">
+              <input type="email" required autoComplete="email" className="input-field flex-1" placeholder="作為登入帳號使用"
+                value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={sendDisabled}
+                className="shrink-0 px-3 text-sm rounded-lg border border-temple-red text-temple-red font-medium disabled:opacity-50 disabled:border-gray-300 disabled:text-gray-400"
+              >
+                {sendLabel}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email 驗證碼 *</label>
+            <input
+              type="text"
+              required
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              className="input-field tracking-[0.4em]"
+              placeholder="請輸入 6 位數驗證碼"
+              value={form.code}
+              onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              先點右上的「發送驗證碼」，至 Email 收信後在這裡輸入。
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">電話號碼（選填）</label>
@@ -100,6 +180,9 @@ export default function RegisterPage() {
               value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
           </div>
 
+          {info && (
+            <div className="bg-amber-50 text-amber-800 text-sm px-4 py-3 rounded-lg border border-amber-200">{info}</div>
+          )}
           {error && (
             <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>
           )}

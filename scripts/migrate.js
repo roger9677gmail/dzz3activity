@@ -139,6 +139,18 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   INDEX idx_push_member (member_id),
   CONSTRAINT fk_push_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email       VARCHAR(255) NOT NULL,
+  code_hash   VARCHAR(255) NOT NULL,
+  expires_at  DATETIME     NOT NULL,
+  used_at     DATETIME,
+  attempts    INT          NOT NULL DEFAULT 0,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ev_email (email),
+  INDEX idx_ev_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {
