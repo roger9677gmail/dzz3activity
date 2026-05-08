@@ -65,8 +65,34 @@ export const APP_VERSION = 'v26.05.08.01';
 - DB user：`dbadmin`（密碼存在 Secret Manager `db-password`）
 - Cloud Run service：`dzz3activity`（asia-east1）
 - SMTP（Gmail）寄件帳號透過 `_SMTP_USER` / `_SMTP_FROM` substitution、密碼在 Secret Manager `smtp-password`
+- Web Push VAPID：公鑰 `vapid-public`、私鑰 `vapid-private`（兩個都在 Secret Manager；公鑰在 build 階段 `--build-arg` 烤進 client bundle，並同時注入 runtime env）
 - Cloud Build trigger：`dzz3activity-deploy`（push 到 master 自動 build → deploy）
 - Migration 是 idempotent 的：可重複跑，已套用的 ALTER 會 skip。
+
+### Secret Manager 一次性設定（VAPID）
+
+第一次部署或 VAPID 還沒設過時：
+
+```bash
+# 1) 產生一組新的 VAPID key pair
+npm run gen-vapid
+# 會印出 NEXT_PUBLIC_VAPID_PUBLIC_KEY=... 與 VAPID_PRIVATE_KEY=...
+
+# 2) 寫進 Secret Manager（用 printf 避免尾端換行）
+printf '%s' '<貼上公鑰>'  | gcloud secrets create vapid-public  --data-file=-
+printf '%s' '<貼上私鑰>' | gcloud secrets create vapid-private --data-file=-
+
+# 3) 授權 Cloud Build SA 與 Cloud Run runtime SA 取用
+PROJECT_NUM=$(gcloud projects describe "$(gcloud config get-value project)" --format='value(projectNumber)')
+for SA in "$PROJECT_NUM@cloudbuild.gserviceaccount.com" "$PROJECT_NUM-compute@developer.gserviceaccount.com"; do
+  for SECRET in vapid-public vapid-private; do
+    gcloud secrets add-iam-policy-binding "$SECRET" \
+      --member="serviceAccount:$SA" --role=roles/secretmanager.secretAccessor
+  done
+done
+```
+
+之後每次 `gcloud builds submit` / push 到 master 觸發的 deploy 都會自動把 VAPID 帶入，client bundle 與 server runtime 都拿得到，不需要再手動設。
 
 ### 主要資料表
 

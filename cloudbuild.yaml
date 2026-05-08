@@ -6,12 +6,15 @@
 #   _CLOUDSQL_INSTANCE  full instance connection name, e.g. PROJECT:REGION:INSTANCE
 #   _DB_NAME            MySQL database name
 #   _DB_USER            MySQL user
-# Secret Manager:
-#   db-password         the DB password (must already exist; granted to Cloud Build SA)
-#   smtp-password       Gmail App Password for outbound mail (must already exist)
+# Secret Manager (must already exist; granted to Cloud Build + Cloud Run SAs):
+#   db-password         the DB password
+#   smtp-password       Gmail App Password for outbound mail
+#   vapid-public        Web Push VAPID public key (NEXT_PUBLIC_VAPID_PUBLIC_KEY)
+#   vapid-private       Web Push VAPID private key
 # Substitutions you can override:
 #   _SMTP_USER          Gmail address used as the SMTP login / default sender
 #   _SMTP_FROM          Display "From" header (defaults to _SMTP_USER if blank)
+#   _VAPID_EMAIL        contact email used in mailto: subject of push messages
 
 substitutions:
   _SERVICE_NAME: dzz3activity
@@ -22,20 +25,32 @@ substitutions:
   _DB_USER: dbadmin
   _SMTP_USER: ''
   _SMTP_FROM: ''
+  _VAPID_EMAIL: ''
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/vapid-public/versions/latest
+      env: VAPID_PUBLIC
 
 options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
+  # NEXT_PUBLIC_VAPID_PUBLIC_KEY must be present at `next build` time so it gets
+  # inlined into the client bundle. Pass it via --build-arg from Secret Manager.
   - id: build
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    secretEnv: ['VAPID_PUBLIC']
     args:
-      - build
-      - -t
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}
-      - -t
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:latest
-      - .
+      - -c
+      - |
+        set -euo pipefail
+        docker build \
+          --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="$$VAPID_PUBLIC" \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA} \
+          -t ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:latest \
+          .
 
   - id: push
     name: gcr.io/cloud-builders/docker
@@ -56,8 +71,8 @@ steps:
       - --platform=managed
       - --allow-unauthenticated
       - --add-cloudsql-instances=${_CLOUDSQL_INSTANCE}
-      - --set-env-vars=DB_SOCKET_PATH=/cloudsql/${_CLOUDSQL_INSTANCE},DB_USER=${_DB_USER},DB_NAME=${_DB_NAME},SMTP_USER=${_SMTP_USER},SMTP_FROM=${_SMTP_FROM}
-      - --set-secrets=DB_PASSWORD=db-password:latest,SMTP_PASSWORD=smtp-password:latest
+      - --set-env-vars=DB_SOCKET_PATH=/cloudsql/${_CLOUDSQL_INSTANCE},DB_USER=${_DB_USER},DB_NAME=${_DB_NAME},SMTP_USER=${_SMTP_USER},SMTP_FROM=${_SMTP_FROM},VAPID_EMAIL=${_VAPID_EMAIL}
+      - --set-secrets=DB_PASSWORD=db-password:latest,SMTP_PASSWORD=smtp-password:latest,VAPID_PRIVATE_KEY=vapid-private:latest,NEXT_PUBLIC_VAPID_PUBLIC_KEY=vapid-public:latest
 
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}
