@@ -57,24 +57,27 @@ async function loadRows({ eventId, paymentStatus, status }) {
   const out = [];
   for (const r of regs) {
     const items = await db.prepare(`
-      SELECT ri.quantity, ri.names, ri.contents, ri.subtotal, ei.name AS item_name
+      SELECT ri.quantity, ri.names, ri.contents, ri.subtotal, ri.is_gift, ei.name AS item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id = ?
-      ORDER BY ri.id
+      ORDER BY ri.is_gift, ri.id
     `).all(r.id);
 
+    let giftCounter = 0;
     for (const it of items) {
       const namesArr = safeParse(it.names);
       const contentsArr = safeParse(it.contents);
       const qty = it.quantity || 1;
       const unit = qty > 0 ? Math.round((it.subtotal || 0) / qty) : (it.subtotal || 0);
       for (let i = 0; i < qty; i++) {
+        const isGift = !!it.is_gift;
+        if (isGift) giftCounter += 1;
         out.push({
           報名日期: fmtDate(r.created_at),
           '功德主(陽上)': namesArr[i] || '',
           超度內容: contentsArr[i] || '',
-          金額: unit,
+          金額: isGift ? `贈${giftCounter}` : unit,
           項目: it.item_name,
           收據編號: r.receipt_number || '',
           收據抬頭: r.receipt_title || r.member_name,

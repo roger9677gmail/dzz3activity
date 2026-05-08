@@ -19,9 +19,18 @@ export default function EventForm({ event = null }) {
     banner_color: event?.banner_color || '#8B1A1A',
   });
 
-  const [items, setItems] = useState(
-    event?.items || [{ name: '', description: '', price: 0, requires_name: true, requires_content: false }]
-  );
+  // Stable per-item uid so gift target references survive reordering and edit/save round-trips.
+  const uidCounter = useRef(0);
+  function newUid() { uidCounter.current += 1; return `c${uidCounter.current}`; }
+  const initialItems = (event?.items || [{ name: '', description: '', price: 0, requires_name: true, requires_content: false }])
+    .map((it) => ({
+      _uid: it.id ? `db${it.id}` : newUid(),
+      ...it,
+      gift_quantity: it.gift_quantity || 0,
+      // Translate existing gift_event_item_id (DB id) to gift_uid (db<id>) so the dropdown can match.
+      gift_uid: it.gift_event_item_id ? `db${it.gift_event_item_id}` : '',
+    }));
+  const [items, setItems] = useState(initialItems);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +43,7 @@ export default function EventForm({ event = null }) {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { name: '', description: '', price: 0, requires_name: true, requires_content: false }]);
+    setItems((prev) => [...prev, { _uid: newUid(), name: '', description: '', price: 0, requires_name: true, requires_content: false, gift_quantity: 0, gift_uid: '' }]);
   }
 
   function removeItem(idx) {
@@ -202,7 +211,7 @@ export default function EventForm({ event = null }) {
         <div className="space-y-4">
           {items.map((item, idx) => (
             <div
-              key={idx}
+              key={item._uid || idx}
               draggable
               onDragStart={handleDragStart(idx)}
               onDragOver={handleDragOver(idx)}
@@ -264,6 +273,49 @@ export default function EventForm({ event = null }) {
                   onChange={(e) => updateItem(idx, 'requires_content', e.target.checked)} />
                 需要填寫超渡內容
               </label>
+
+              {/* Gift / 贈送設定 */}
+              <div className="pt-2 mt-2 border-t border-dashed border-gray-200 space-y-2">
+                <div className="text-xs text-gray-500">🎁 贈送設定（選填）</div>
+                <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                  <div>
+                    <label className="text-xs text-gray-500">贈送項目</label>
+                    <select
+                      className="input-field text-sm"
+                      value={item.gift_uid || ''}
+                      onChange={(e) => updateItem(idx, 'gift_uid', e.target.value)}
+                    >
+                      <option value="">無</option>
+                      {items.map((other, oi) => (
+                        oi !== idx && other._uid ? (
+                          <option key={other._uid} value={other._uid}>
+                            {other.name?.trim() || `項目 ${oi + 1}`}
+                          </option>
+                        ) : null
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-24">
+                    <label className="text-xs text-gray-500">數量</label>
+                    <input
+                      type="number"
+                      className="input-field text-sm"
+                      min={0}
+                      max={20}
+                      value={item.gift_quantity || 0}
+                      onChange={(e) => updateItem(idx, 'gift_quantity', Math.max(0, parseInt(e.target.value) || 0))}
+                      disabled={!item.gift_uid}
+                    />
+                  </div>
+                </div>
+                {item.gift_uid && item.gift_quantity > 0 && (
+                  <div className="text-xs text-gray-400">
+                    每報名 1 個本項目，加贈 {item.gift_quantity} 個「
+                    {items.find((o) => o._uid === item.gift_uid)?.name?.trim() || '其他項目'}
+                    」。
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

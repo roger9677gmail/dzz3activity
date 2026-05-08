@@ -8,17 +8,24 @@ export default function RegistrationForm({ event, existingRegistration }) {
   const [selectedItems, setSelectedItems] = useState({});
   const [names, setNames] = useState({});
   const [contents, setContents] = useState({});
+  // Gift slots are keyed by the parent event_item id; arrays sized parent.qty * parent.gift_quantity.
+  const [giftNames, setGiftNames] = useState({});
+  const [giftContents, setGiftContents] = useState({});
   const [notes, setNotes] = useState('');
   const [receiptTitle, setReceiptTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const itemById = (id) => event.items.find((i) => i.id === parseInt(id));
+  // Gifts don't add to the price. Only sum non-gift quantities.
   const total = Object.entries(selectedItems).reduce((sum, [itemId, qty]) => {
-    const item = event.items.find((i) => i.id === parseInt(itemId));
+    const item = itemById(itemId);
     return sum + (item ? item.price * qty : 0);
   }, 0);
 
   function updateQty(itemId, qty) {
+    const item = itemById(itemId);
+    const giftQty = item && item.gift_quantity > 0 && item.gift_event_item_id ? item.gift_quantity : 0;
     if (qty === 0) {
       const next = { ...selectedItems };
       delete next[itemId];
@@ -29,21 +36,51 @@ export default function RegistrationForm({ event, existingRegistration }) {
       const nextContents = { ...contents };
       delete nextContents[itemId];
       setContents(nextContents);
+      const nextGN = { ...giftNames };
+      delete nextGN[itemId];
+      setGiftNames(nextGN);
+      const nextGC = { ...giftContents };
+      delete nextGC[itemId];
+      setGiftContents(nextGC);
     } else {
       setSelectedItems((prev) => ({ ...prev, [itemId]: qty }));
-      // Adjust names array size
       setNames((prev) => {
         const current = prev[itemId] || [];
         const adjusted = Array.from({ length: qty }, (_, i) => current[i] || '');
         return { ...prev, [itemId]: adjusted };
       });
-      // Adjust contents array size
       setContents((prev) => {
         const current = prev[itemId] || [];
         const adjusted = Array.from({ length: qty }, (_, i) => current[i] || '');
         return { ...prev, [itemId]: adjusted };
       });
+      // Resize gift slot arrays to match qty * giftQty.
+      const giftSlots = qty * giftQty;
+      setGiftNames((prev) => {
+        const current = prev[itemId] || [];
+        return { ...prev, [itemId]: Array.from({ length: giftSlots }, (_, i) => current[i] || '') };
+      });
+      setGiftContents((prev) => {
+        const current = prev[itemId] || [];
+        return { ...prev, [itemId]: Array.from({ length: giftSlots }, (_, i) => current[i] || '') };
+      });
     }
+  }
+
+  function updateGiftName(parentId, idx, val) {
+    setGiftNames((prev) => {
+      const current = [...(prev[parentId] || [])];
+      current[idx] = val;
+      return { ...prev, [parentId]: current };
+    });
+  }
+
+  function updateGiftContent(parentId, idx, val) {
+    setGiftContents((prev) => {
+      const current = [...(prev[parentId] || [])];
+      current[idx] = val;
+      return { ...prev, [parentId]: current };
+    });
   }
 
   function updateName(itemId, idx, val) {
@@ -78,9 +115,9 @@ export default function RegistrationForm({ event, existingRegistration }) {
       return;
     }
 
-    // Validate required names / contents
+    // Validate required names / contents on regular items.
     for (const item of items) {
-      const eventItem = event.items.find((i) => i.id === item.eventItemId);
+      const eventItem = itemById(item.eventItemId);
       if (eventItem?.requires_name) {
         const emptyNames = item.names.filter((n) => !n.trim());
         if (emptyNames.length > 0) {
@@ -95,6 +132,39 @@ export default function RegistrationForm({ event, existingRegistration }) {
           return;
         }
       }
+    }
+
+    // Append gift sub-rows for any selected parent that configures a gift.
+    for (const [itemId, qty] of Object.entries(selectedItems)) {
+      const parent = itemById(itemId);
+      if (!parent || !parent.gift_event_item_id || !parent.gift_quantity) continue;
+      const gift = itemById(parent.gift_event_item_id);
+      if (!gift) continue;
+      const giftSlots = qty * parent.gift_quantity;
+      const gNames = (giftNames[itemId] || []).slice(0, giftSlots);
+      const gContents = (giftContents[itemId] || []).slice(0, giftSlots);
+      if (gift.requires_name) {
+        const empty = gNames.filter((n) => !n.trim());
+        if (empty.length > 0 || gNames.length < giftSlots) {
+          setError(`請填寫「${parent.name}」贈送之「${gift.name}」的功德主(陽上)姓名`);
+          return;
+        }
+      }
+      if (gift.requires_content) {
+        const empty = gContents.filter((c) => !c.trim());
+        if (empty.length > 0 || gContents.length < giftSlots) {
+          setError(`請填寫「${parent.name}」贈送之「${gift.name}」的超渡內容`);
+          return;
+        }
+      }
+      items.push({
+        eventItemId: parent.gift_event_item_id,
+        quantity: giftSlots,
+        names: gNames,
+        contents: gContents,
+        is_gift: true,
+        source_event_item_id: parent.id,
+      });
     }
 
     setLoading(true);
@@ -196,6 +266,44 @@ export default function RegistrationForm({ event, existingRegistration }) {
                     ))}
                   </div>
                 ) : null}
+
+                {qty > 0 && item.gift_event_item_id && item.gift_quantity > 0 ? (() => {
+                  const gift = itemById(item.gift_event_item_id);
+                  if (!gift) return null;
+                  const giftSlots = qty * item.gift_quantity;
+                  return (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                      <div className="text-xs text-amber-800 font-medium">
+                        🎁 加贈 {giftSlots} 個「{gift.name}」（免費）
+                      </div>
+                      {Array.from({ length: giftSlots }).map((_, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="text-xs text-amber-700">贈送 {idx + 1}</div>
+                          {gift.requires_name && (
+                            <input
+                              type="text"
+                              className="input-field text-sm"
+                              placeholder="功德主(陽上)姓名"
+                              value={(giftNames[item.id] || [])[idx] || ''}
+                              onChange={(e) => updateGiftName(item.id, idx, e.target.value)}
+                              required
+                            />
+                          )}
+                          {gift.requires_content && (
+                            <textarea
+                              className="input-field text-sm resize-none"
+                              rows={2}
+                              placeholder="超渡內容"
+                              value={(giftContents[item.id] || [])[idx] || ''}
+                              onChange={(e) => updateGiftContent(item.id, idx, e.target.value)}
+                              required
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })() : null}
               </div>
             );
           })}

@@ -45,11 +45,23 @@ export const POST = withAdminAuth(async (request) => {
       const newId = result.lastInsertRowid;
 
       if (items && Array.isArray(items)) {
+        // Two-pass: insert items first (no gift FK), then resolve gift_uid → newly-inserted id.
+        const uidToId = {};
         for (const [i, item] of items.entries()) {
-          await tx.prepare(`
-            INSERT INTO event_items (event_id, name, description, price, requires_name, requires_content, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).run(newId, item.name, item.description || null, item.price || 0, item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i);
+          const r = await tx.prepare(`
+            INSERT INTO event_items (event_id, name, description, price, requires_name, requires_content, sort_order, gift_quantity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(newId, item.name, item.description || null, item.price || 0,
+                 item.requires_name ? 1 : 0, item.requires_content ? 1 : 0, i,
+                 Number.isFinite(item.gift_quantity) ? Math.max(0, parseInt(item.gift_quantity)) : 0);
+          if (item._uid) uidToId[item._uid] = r.lastInsertRowid;
+        }
+        for (const item of items) {
+          const qty = Number.isFinite(item.gift_quantity) ? parseInt(item.gift_quantity) : 0;
+          if (qty > 0 && item.gift_uid && item._uid && uidToId[item.gift_uid] && uidToId[item._uid]) {
+            await tx.prepare('UPDATE event_items SET gift_event_item_id = ? WHERE id = ?')
+              .run(uidToId[item.gift_uid], uidToId[item._uid]);
+          }
         }
       }
       return newId;

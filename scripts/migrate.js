@@ -60,9 +60,13 @@ CREATE TABLE IF NOT EXISTS event_items (
   requires_name    TINYINT(1)   NOT NULL DEFAULT 1,
   requires_content TINYINT(1)   NOT NULL DEFAULT 0,
   sort_order       INT          NOT NULL DEFAULT 0,
+  gift_event_item_id INT UNSIGNED NULL,
+  gift_quantity      INT          NOT NULL DEFAULT 0,
   created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_event_items_event (event_id),
-  CONSTRAINT fk_event_items_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+  INDEX idx_event_items_gift  (gift_event_item_id),
+  CONSTRAINT fk_event_items_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_event_items_gift  FOREIGN KEY (gift_event_item_id) REFERENCES event_items(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS registrations (
@@ -94,6 +98,7 @@ CREATE TABLE IF NOT EXISTS registration_items (
   names           TEXT,
   contents        TEXT,
   subtotal        INT          NOT NULL DEFAULT 0,
+  is_gift         TINYINT(1)   NOT NULL DEFAULT 0,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_regitem_registration (registration_id),
   CONSTRAINT fk_regitem_registration FOREIGN KEY (registration_id) REFERENCES registrations(id) ON DELETE CASCADE,
@@ -151,6 +156,12 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         "ALTER TABLE event_items ADD COLUMN requires_content TINYINT(1) NOT NULL DEFAULT 0 AFTER requires_name"],
       ["ADD registration_items.contents",
         "ALTER TABLE registration_items ADD COLUMN contents TEXT AFTER names"],
+      ["ADD event_items.gift_event_item_id",
+        "ALTER TABLE event_items ADD COLUMN gift_event_item_id INT UNSIGNED NULL AFTER sort_order"],
+      ["ADD event_items.gift_quantity",
+        "ALTER TABLE event_items ADD COLUMN gift_quantity INT NOT NULL DEFAULT 0 AFTER gift_event_item_id"],
+      ["ADD registration_items.is_gift",
+        "ALTER TABLE registration_items ADD COLUMN is_gift TINYINT(1) NOT NULL DEFAULT 0 AFTER subtotal"],
     ];
     for (const [label, sql] of ALTERS) {
       try {
@@ -162,6 +173,22 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         } else {
           throw err;
         }
+      }
+    }
+
+    // Idempotent FK / index for the self-referencing gift target.
+    try {
+      await conn.query(`
+        ALTER TABLE event_items
+        ADD CONSTRAINT fk_event_items_gift
+        FOREIGN KEY (gift_event_item_id) REFERENCES event_items(id) ON DELETE SET NULL
+      `);
+      console.log('✅ Applied: FK event_items.gift_event_item_id → event_items.id');
+    } catch (err) {
+      if (err && (err.code === 'ER_FK_DUP_NAME' || err.code === 'ER_DUP_KEYNAME' || /Duplicate (?:foreign key|key)/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (FK exists): fk_event_items_gift');
+      } else {
+        console.log('ℹ️  Skipped (likely exists): fk_event_items_gift -', err.code || err.message);
       }
     }
 
