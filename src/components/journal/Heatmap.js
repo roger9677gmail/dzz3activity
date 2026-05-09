@@ -2,7 +2,9 @@
 import { useMemo } from 'react';
 import { addDays, dateRange, todayDateString } from '@/lib/practices';
 
-// 7 rows × N weeks heatmap of last `days` days for a single practice.
+// Heatmap from `startDate` (first record day for this practice) → today.
+// Cells expand to fill container width; columns share width via 1fr grid.
+//
 // Color tiers (when dailyTarget is set):
 //   無紀錄 → gray-200
 //   ≤25%  → temple-red/20
@@ -32,17 +34,17 @@ const TIER_CLASS = {
   hit: 'bg-temple-red',
 };
 
-export default function Heatmap({ days = 90, logsByDate = {}, dailyTarget = null, onCellClick }) {
+export default function Heatmap({ startDate, logsByDate = {}, dailyTarget = null, onCellClick }) {
   const today = todayDateString();
-  const start = useMemo(() => addDays(today, -(days - 1)), [today, days]);
+  const start = startDate || today;
   const range = useMemo(() => dateRange(start, today), [start, today]);
 
-  // Pad start to align on Monday for clean columns.
+  // Pad start to align on Monday for clean week columns.
   const firstDate = new Date(start + 'T00:00:00Z');
   const dow = (firstDate.getUTCDay() + 6) % 7; // 0 = Mon
   const padded = Array(dow).fill(null).concat(range);
 
-  const cols = Math.ceil(padded.length / 7);
+  const cols = Math.max(1, Math.ceil(padded.length / 7));
   const grid = Array.from({ length: cols }, (_, c) =>
     Array.from({ length: 7 }, (_, r) => padded[c * 7 + r] || null)
   );
@@ -54,8 +56,11 @@ export default function Heatmap({ days = 90, logsByDate = {}, dailyTarget = null
   }
 
   return (
-    <div className="overflow-x-auto -mx-1">
-      <div className="inline-grid gap-0.5 px-1" style={{ gridTemplateColumns: `repeat(${cols}, 12px)` }}>
+    <div>
+      <div
+        className="grid gap-0.5 w-full"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {grid.map((col, ci) => (
           <div key={ci} className="grid grid-rows-7 gap-0.5">
             {col.map((d, ri) => (
@@ -64,7 +69,7 @@ export default function Heatmap({ days = 90, logsByDate = {}, dailyTarget = null
                 type="button"
                 disabled={!d || !onCellClick}
                 onClick={() => d && onCellClick && onCellClick(d)}
-                className={`w-3 h-3 rounded-sm ${cellClass(d)} ${d && onCellClick ? 'hover:ring-1 hover:ring-temple-red' : ''}`}
+                className={`w-full aspect-square rounded-sm ${cellClass(d)} ${d && onCellClick ? 'hover:ring-1 hover:ring-temple-red' : ''}`}
                 aria-label={d ? `${d}：${logsByDate[d] != null ? logsByDate[d] : '無紀錄'}` : ''}
                 title={d ? `${d}：${logsByDate[d] != null ? logsByDate[d] : '無紀錄'}` : ''}
               />

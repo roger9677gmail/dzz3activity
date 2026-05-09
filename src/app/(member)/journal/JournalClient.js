@@ -7,8 +7,7 @@ import LogInput from '@/components/journal/LogInput';
 import { formatPracticeValue, minutesToDurationString } from '@/lib/practices';
 
 const TABS = [
-  { key: 'today', label: '今日' },
-  { key: 'past', label: '過去' },
+  { key: 'log', label: '修行日誌' },
   { key: 'public', label: '大眾分享' },
   { key: 'leaderboard', label: '排名' },
 ];
@@ -22,12 +21,22 @@ function logsByDateForPractice(rangeLogs, practiceId) {
   return out;
 }
 
+// First date this member has any record for `practiceId`. Falls back to today.
+function startDateForPractice(rangeLogs, practiceId, today) {
+  let earliest = null;
+  for (const r of rangeLogs) {
+    if (Number(r.practice_id) !== Number(practiceId)) continue;
+    if (!earliest || r.log_date < earliest) earliest = r.log_date;
+  }
+  return earliest || today;
+}
+
 export default function JournalClient({ session, subscriptions, dayLogs, rangeLogs, dayNotes, today, date, tab }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ─── Today / Past tab share the same edit UI on `date` ─────────────────
-  const editing = tab === 'today' || tab === 'past';
+  // ─── Default tab is the editing log; date selector picks any day ──────
+  const editing = tab !== 'public' && tab !== 'leaderboard';
   const isPast = date !== today;
 
   // values keyed by practice_id
@@ -53,10 +62,13 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
     setNotes(dayNotes);
   }, [date, dayLogs, dayNotes]);
 
-  function setTab(next, opts = {}) {
+  function setTab(next) {
     const params = new URLSearchParams(searchParams);
-    params.set('tab', next);
-    if (opts.date) params.set('date', opts.date); else if (next === 'today') params.delete('date');
+    if (next === 'log') {
+      params.delete('tab');
+    } else {
+      params.set('tab', next);
+    }
     router.push(`/journal?${params.toString()}`);
   }
 
@@ -64,11 +76,10 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
     const params = new URLSearchParams(searchParams);
     if (next === today) {
       params.delete('date');
-      params.set('tab', 'today');
     } else {
       params.set('date', next);
-      params.set('tab', 'past');
     }
+    params.delete('tab');
     router.push(`/journal?${params.toString()}`);
   }
 
@@ -145,7 +156,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
       {/* Tab bar */}
       <div className="px-3 pt-3 flex gap-2 overflow-x-auto">
         {TABS.map((t) => {
-          const active = tab === t.key;
+          const active = t.key === 'log' ? editing : tab === t.key;
           return (
             <button
               key={t.key}
@@ -255,12 +266,13 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
             </div>
           </div>
 
-          {/* 90-day stats heatmaps per practice */}
+          {/* Stats heatmaps per practice — from first record day → today */}
           {subscriptions.length > 0 && (
             <div className="space-y-3">
-              <h2 className="text-sm font-bold text-gray-700 px-1">近 90 天修行統計</h2>
+              <h2 className="text-sm font-bold text-gray-700 px-1">修行統計</h2>
               {subscriptions.map((p) => {
                 const lbd = logsByDateForPractice(rangeLogs, p.id);
+                const startDate = startDateForPractice(rangeLogs, p.id, today);
                 return (
                   <div key={p.id} className="card p-4">
                     <div className="flex items-baseline justify-between mb-2">
@@ -272,7 +284,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
                       )}
                     </div>
                     <Heatmap
-                      days={90}
+                      startDate={startDate}
                       logsByDate={lbd}
                       dailyTarget={p.daily_target}
                       onCellClick={(d) => setDate(d)}

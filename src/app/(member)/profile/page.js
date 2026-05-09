@@ -24,7 +24,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', location_id: '', address: '' });
+  const [form, setForm] = useState({ name: '', phone: '', location_id: '', address: '', receipt_title: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
@@ -59,6 +59,7 @@ export default function ProfilePage() {
           phone: d.user.phone || '',
           location_id: d.user.location_id || '',
           address: d.user.address || '',
+          receipt_title: d.user.receipt_title || '',
         });
       }
     });
@@ -78,6 +79,7 @@ export default function ProfilePage() {
           phone: form.phone || null,
           location_id: form.location_id || null,
           address: form.address || null,
+          receipt_title: form.receipt_title || null,
         }),
       });
       const data = await res.json();
@@ -239,6 +241,12 @@ export default function ProfilePage() {
               <span className="text-sm font-medium text-right max-w-[55%]">{user.address || <span className="text-gray-300">未填</span>}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-gray-500">收據抬頭</span>
+              <span className="text-sm font-medium text-right max-w-[55%]">
+                {user.receipt_title || <span className="text-gray-400">{user.name}<span className="text-gray-300 ml-1">（與姓名同）</span></span>}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-gray-500">加入日期</span>
               <span className="text-sm font-medium">{user.created_at?.slice(0, 10)}</span>
             </div>
@@ -279,6 +287,14 @@ export default function ProfilePage() {
               <label className="block text-xs text-gray-500 mb-1">地址</label>
               <input type="text" className="input-field text-sm" placeholder="選填"
                 value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">收據抬頭</label>
+              <input type="text" className="input-field text-sm"
+                placeholder={`留空則使用姓名（${form.name || user.name}）`}
+                value={form.receipt_title}
+                onChange={(e) => setForm((p) => ({ ...p, receipt_title: e.target.value }))} />
+              <p className="text-[11px] text-gray-400 mt-1">活動報名 Excel 匯出時使用此欄位</p>
             </div>
             {message && (
               <div className="text-sm text-red-600">{message}</div>

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS members (
   is_admin           TINYINT(1)   NOT NULL DEFAULT 0,
   admin_permissions  JSON         NULL,
   is_disabled        TINYINT(1)   NOT NULL DEFAULT 0,
+  receipt_title      VARCHAR(100) NULL,
   avatar             MEDIUMTEXT,
   created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -241,6 +242,8 @@ CREATE TABLE IF NOT EXISTS practice_notes (
         "ALTER TABLE members ADD COLUMN admin_permissions JSON NULL AFTER is_admin"],
       ["ADD members.is_disabled",
         "ALTER TABLE members ADD COLUMN is_disabled TINYINT(1) NOT NULL DEFAULT 0 AFTER admin_permissions"],
+      ["ADD members.receipt_title",
+        "ALTER TABLE members ADD COLUMN receipt_title VARCHAR(100) NULL AFTER is_disabled"],
     ];
     for (const [label, sql] of ALTERS) {
       try {

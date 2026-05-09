@@ -36,8 +36,9 @@ function fmtDate(d) {
 async function loadRows({ eventId, paymentStatus, status }) {
   let query = `
     SELECT r.id, r.event_id, r.created_at, r.payment_status, r.status,
-           r.receipt_number, r.receipt_title, r.notes,
+           r.receipt_number, r.notes,
            m.name AS member_name, m.phone AS member_phone, m.address AS member_address,
+           COALESCE(NULLIF(m.receipt_title, ''), m.name) AS member_receipt_title,
            l.name AS location_name,
            e.name AS event_name
     FROM registrations r
@@ -80,7 +81,7 @@ async function loadRows({ eventId, paymentStatus, status }) {
           金額: isGift ? `贈${giftCounter}` : unit,
           項目: it.item_name,
           收據編號: r.receipt_number || '',
-          收據抬頭: r.receipt_title || r.member_name,
+          收據抬頭: r.member_receipt_title,
           連絡人: r.member_name,
           電話: r.member_phone || '',
           地址: r.member_address || '',
