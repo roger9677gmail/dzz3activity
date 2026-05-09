@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Heatmap from '@/components/journal/Heatmap';
 import LogInput from '@/components/journal/LogInput';
 import { formatPracticeValue, minutesToDurationString } from '@/lib/practices';
@@ -54,6 +54,9 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
   const [newNotePublic, setNewNotePublic] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState('');
+
+  // Bumped after any note mutation so the all-notes list (below stats) refetches.
+  const [notesVersion, setNotesVersion] = useState(0);
 
   useEffect(() => {
     const init = {};
@@ -125,6 +128,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
         setNewNote('');
         setNewNotePublic(false);
         router.refresh();
+        setNotesVersion((v) => v + 1);
       }
     } catch {
       setNoteError('網路錯誤');
@@ -138,13 +142,19 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_public: !note.is_public }),
     });
-    if (res.ok) router.refresh();
+    if (res.ok) {
+      router.refresh();
+      setNotesVersion((v) => v + 1);
+    }
   }
 
   async function deleteNote(note) {
     if (!confirm('確定刪除這則筆記？')) return;
     const res = await fetch(`/api/me/notes/${note.id}`, { method: 'DELETE' });
-    if (res.ok) router.refresh();
+    if (res.ok) {
+      router.refresh();
+      setNotesVersion((v) => v + 1);
+    }
   }
 
   return (
@@ -294,11 +304,126 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
               })}
             </div>
           )}
+
+          {/* All my notes — paginated, newest first */}
+          <MyNotesSection
+            version={notesVersion}
+            onMutate={() => setNotesVersion((v) => v + 1)}
+          />
         </div>
       )}
 
       {tab === 'public' && <PublicNotesTab />}
       {tab === 'leaderboard' && <LeaderboardTab subscriptions={subscriptions} session={session} />}
+    </div>
+  );
+}
+
+// ── My notes (paginated, infinite-scroll) ──────────────────────────────
+function MyNotesSection({ version, onMutate }) {
+  const [notes, setNotes] = useState([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const sentinelRef = useRef(null);
+
+  // Reload from offset 0 whenever parent bumps `version` (note added/edited/deleted elsewhere).
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch('/api/me/notes?offset=0')
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const list = data.notes || [];
+        setNotes(list);
+        setOffset(list.length);
+        setHasMore(!!data.hasMore);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [version]);
+
+  async function loadMore() {
+    if (!hasMore || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/me/notes?offset=${offset}`);
+      const data = await res.json();
+      const list = data.notes || [];
+      setNotes((prev) => [...prev, ...list]);
+      setOffset((o) => o + list.length);
+      setHasMore(!!data.hasMore);
+    } catch {}
+    setLoading(false);
+  }
+
+  // Auto-load when the sentinel scrolls into view.
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) return;
+    const el = sentinelRef.current;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore(); },
+      { rootMargin: '120px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, offset, loading]);
+
+  async function togglePublic(note) {
+    const res = await fetch(`/api/me/notes/${note.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_public: !note.is_public }),
+    });
+    if (res.ok) {
+      setNotes((prev) => prev.map((n) => n.id === note.id ? { ...n, is_public: note.is_public ? 0 : 1 } : n));
+      onMutate && onMutate();
+    }
+  }
+
+  async function remove(note) {
+    if (!confirm('確定刪除這則筆記？')) return;
+    const res = await fetch(`/api/me/notes/${note.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setNotes((prev) => prev.filter((n) => n.id !== note.id));
+      onMutate && onMutate();
+    }
+  }
+
+  return (
+    <div className="card p-4 space-y-3">
+      <h2 className="text-sm font-bold text-gray-700">我的修行心得</h2>
+      <div className="space-y-2">
+        {notes.map((n) => (
+          <div key={n.id} className="bg-gray-50 rounded-lg p-3">
+            <div className="text-[11px] text-gray-400 mb-1">{n.log_date}</div>
+            <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
+            <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+              <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
+              <div className="flex gap-3">
+                <button onClick={() => togglePublic(n)} className="text-temple-red">
+                  {n.is_public ? '改為私人' : '改為公開'}
+                </button>
+                <button onClick={() => remove(n)} className="text-red-500">刪除</button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {notes.length === 0 && !loading && (
+          <div className="text-center text-xs text-gray-400 py-2">尚無筆記</div>
+        )}
+        {hasMore && (
+          <div ref={sentinelRef} className="text-center text-xs text-gray-400 py-3">
+            {loading ? '載入中…' : '滾動以載入更多'}
+          </div>
+        )}
+        {!hasMore && notes.length > 0 && (
+          <div className="text-center text-[11px] text-gray-300 py-2">— 沒有更多了 —</div>
+        )}
+      </div>
     </div>
   );
 }

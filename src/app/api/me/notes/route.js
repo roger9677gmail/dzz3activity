@@ -5,15 +5,17 @@ import { withAuth } from '@/lib/middleware';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_CONTENT = 5000;
 
-// GET list of my notes (newest first), optional ?date=YYYY-MM-DD filter.
+// GET list of my notes.
+//   ?date=YYYY-MM-DD  → all notes for that day (no pagination)
+//   ?offset=N         → paginated: 20 newest per page, with `hasMore` flag
 export const GET = withAuth(async (request) => {
   const memberId = request.session.sub;
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date');
-  let rows;
+
   if (date) {
     if (!DATE_RE.test(date)) return NextResponse.json({ error: '日期格式應為 YYYY-MM-DD' }, { status: 400 });
-    rows = await db
+    const rows = await db
       .prepare(
         `SELECT id, DATE_FORMAT(log_date, '%Y-%m-%d') AS log_date, content, is_public, created_at, updated_at
            FROM practice_notes
@@ -21,18 +23,23 @@ export const GET = withAuth(async (request) => {
           ORDER BY created_at DESC`
       )
       .all(memberId, date);
-  } else {
-    rows = await db
-      .prepare(
-        `SELECT id, DATE_FORMAT(log_date, '%Y-%m-%d') AS log_date, content, is_public, created_at, updated_at
-           FROM practice_notes
-          WHERE member_id = ?
-          ORDER BY log_date DESC, created_at DESC
-          LIMIT 200`
-      )
-      .all(memberId);
+    return NextResponse.json({ notes: rows });
   }
-  return NextResponse.json({ notes: rows });
+
+  const offset = Math.max(0, parseInt(searchParams.get('offset') || '0'));
+  const limit = 20;
+  const rows = await db
+    .prepare(
+      `SELECT id, DATE_FORMAT(log_date, '%Y-%m-%d') AS log_date, content, is_public, created_at, updated_at
+         FROM practice_notes
+        WHERE member_id = ?
+        ORDER BY log_date DESC, id DESC
+        LIMIT ${limit + 1} OFFSET ${offset}`
+    )
+    .all(memberId);
+  const hasMore = rows.length > limit;
+  const notes = hasMore ? rows.slice(0, limit) : rows;
+  return NextResponse.json({ notes, hasMore });
 });
 
 export const POST = withAuth(async (request) => {
