@@ -3,11 +3,27 @@ import db from '@/lib/db';
 import { withAdminAuth } from '@/lib/middleware';
 
 export const GET = withAdminAuth(async () => {
-  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_admin=0").get()).count;
-  const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
-  const totalRegistrations = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE status != 'cancelled'").get()).count;
-  const totalRevenue = (await db.prepare("SELECT SUM(total_amount) as sum FROM registrations WHERE payment_status='paid'").get()).sum || 0;
-  const unpaidCount = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE payment_status='unpaid' AND status != 'cancelled'").get()).count;
+  const totalMembers = (await db.prepare(
+    "SELECT COUNT(*) as count FROM members WHERE is_admin=0 AND is_disabled=0"
+  ).get()).count;
+  const totalEvents = (await db.prepare(
+    "SELECT COUNT(*) as count FROM events WHERE status='active'"
+  ).get()).count;
+  const totalRegistrations = (await db.prepare(`
+    SELECT COUNT(*) as count FROM registrations r
+    JOIN members m ON m.id = r.member_id
+    WHERE r.status != 'cancelled' AND m.is_disabled = 0
+  `).get()).count;
+  const totalRevenue = (await db.prepare(`
+    SELECT SUM(r.total_amount) as sum FROM registrations r
+    JOIN members m ON m.id = r.member_id
+    WHERE r.payment_status='paid' AND m.is_disabled = 0
+  `).get()).sum || 0;
+  const unpaidCount = (await db.prepare(`
+    SELECT COUNT(*) as count FROM registrations r
+    JOIN members m ON m.id = r.member_id
+    WHERE r.payment_status='unpaid' AND r.status != 'cancelled' AND m.is_disabled = 0
+  `).get()).count;
 
   const eventStats = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.status, e.banner_color,
@@ -15,11 +31,12 @@ export const GET = withAdminAuth(async () => {
       SUM(CASE WHEN r.payment_status='paid' THEN 1 ELSE 0 END) as paid_count,
       SUM(CASE WHEN r.payment_status='unpaid' AND r.status != 'cancelled' THEN 1 ELSE 0 END) as unpaid_count,
       SUM(r.total_amount) as total_amount,
-      (SELECT COUNT(*) FROM members WHERE is_admin=0) -
+      (SELECT COUNT(*) FROM members WHERE is_admin=0 AND is_disabled=0) -
         COUNT(CASE WHEN r.status != 'cancelled' THEN 1 END) as unregistered_count
     FROM events e
     LEFT JOIN registrations r ON r.event_id = e.id
-    WHERE e.status = 'active'
+    LEFT JOIN members m ON m.id = r.member_id
+    WHERE e.status = 'active' AND (m.id IS NULL OR m.is_disabled = 0)
     GROUP BY e.id
     ORDER BY e.start_date
   `).all();

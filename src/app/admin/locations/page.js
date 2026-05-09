@@ -11,7 +11,7 @@ export default async function AdminLocationsPage() {
 
   const locations = await db.prepare(`
     SELECT l.id, l.name, l.sort_order, l.active, l.created_at,
-      (SELECT COUNT(*) FROM members m WHERE m.location_id = l.id) AS member_count
+      (SELECT COUNT(*) FROM members m WHERE m.location_id = l.id AND m.is_disabled = 0) AS member_count
     FROM locations l
     ORDER BY l.sort_order, l.id
   `).all();

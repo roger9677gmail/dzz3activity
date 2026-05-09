@@ -12,14 +12,19 @@ export const POST = withPermission('notifications:send', async (request) => {
 
     let subscriptions;
     if (eventId) {
-      // Only send to members registered for this event
+      // Only send to active members registered for this event
       subscriptions = await db.prepare(`
         SELECT ps.* FROM push_subscriptions ps
         JOIN registrations r ON r.member_id = ps.member_id
-        WHERE r.event_id = ? AND r.status != 'cancelled'
+        JOIN members m ON m.id = ps.member_id
+        WHERE r.event_id = ? AND r.status != 'cancelled' AND m.is_disabled = 0
       `).all(eventId);
     } else {
-      subscriptions = await db.prepare('SELECT * FROM push_subscriptions').all();
+      subscriptions = await db.prepare(`
+        SELECT ps.* FROM push_subscriptions ps
+        JOIN members m ON m.id = ps.member_id
+        WHERE m.is_disabled = 0
+      `).all();
     }
 
     if (subscriptions.length === 0) {

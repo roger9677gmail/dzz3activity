@@ -14,8 +14,12 @@ export default async function AdminEventsPage() {
   // 排序：報名中 (start_date 遞增) → 草稿 (start_date 遞增) → 已截止 (start_date 遞減)
   const events = await db.prepare(`
     SELECT e.*,
-      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') AS reg_count,
-      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid') AS paid_count
+      (SELECT COUNT(*) FROM registrations r
+         JOIN members m ON m.id = r.member_id
+         WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) AS reg_count,
+      (SELECT COUNT(*) FROM registrations r
+         JOIN members m ON m.id = r.member_id
+         WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid' AND m.is_disabled = 0) AS paid_count
     FROM events e
     ORDER BY
       CASE e.status WHEN 'active' THEN 1 WHEN 'draft' THEN 2 WHEN 'closed' THEN 3 ELSE 4 END,
