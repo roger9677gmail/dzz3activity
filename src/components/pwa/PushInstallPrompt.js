@@ -1,19 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { urlBase64ToUint8Array, syncSubscriptionToServer } from '@/lib/push-client';
 
 const DISMISS_KEY = 'pushPromptDismissed';
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
-}
 
 function isStandalone() {
   if (typeof window === 'undefined') return false;
   if (window.matchMedia?.('(display-mode: standalone)').matches) return true;
-  // iOS Safari pre-PWA flag
   if (window.navigator.standalone === true) return true;
   return false;
 }
@@ -30,7 +23,7 @@ export default function PushInstallPrompt() {
     if (typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
     if (!isStandalone()) return;
-    if (Notification.permission !== 'default') return; // already granted or denied
+    if (Notification.permission !== 'default') return;
     if (localStorage.getItem(DISMISS_KEY) === '1') return;
 
     let cancelled = false;
@@ -39,12 +32,9 @@ export default function PushInstallPrompt() {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
         if (!cancelled && !sub) {
-          // Slight delay so it doesn't fight initial paint.
           setTimeout(() => { if (!cancelled) setShow(true); }, 600);
         }
-      } catch {
-        // ignore — fall through (we just won't prompt)
-      }
+      } catch {}
     })();
     return () => { cancelled = true; };
   }, []);
@@ -80,13 +70,7 @@ export default function PushInstallPrompt() {
           applicationServerKey: urlBase64ToUint8Array(vapidKey),
         });
       }
-      const p256dh = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh'))));
-      const auth = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth'))));
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: sub.endpoint, p256dh, auth }),
-      });
+      await syncSubscriptionToServer(sub);
       try { localStorage.setItem(DISMISS_KEY, '1'); } catch {}
       setShow(false);
     } catch (err) {

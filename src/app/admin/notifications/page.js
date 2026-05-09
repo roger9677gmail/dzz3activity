@@ -9,7 +9,16 @@ export default async function AdminNotificationsPage() {
   const session = await getSession(true);
   if (!session) redirect('/admin/login');
 
-  const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
+  const events = await db.prepare(`
+    SELECT e.id, e.name,
+      (SELECT COUNT(DISTINCT ps.member_id)
+       FROM push_subscriptions ps
+       JOIN registrations r ON r.member_id = ps.member_id
+       WHERE r.event_id = e.id AND r.status != 'cancelled') AS sub_count
+    FROM events e
+    WHERE e.status = 'active'
+    ORDER BY e.start_date
+  `).all();
   const subCount = (await db.prepare('SELECT COUNT(*) as count FROM push_subscriptions').get()).count;
 
   return (

@@ -74,7 +74,7 @@ export default function NotificationsClient({ events, subCount }) {
             onChange={(e) => setForm((p) => ({ ...p, eventId: e.target.value }))}>
             <option value="">全體師兄姐（{subCount} 人）</option>
             {events.map((ev) => (
-              <option key={ev.id} value={ev.id}>{ev.name} 已報名者</option>
+              <option key={ev.id} value={ev.id}>{ev.name} 已報名者（{ev.sub_count || 0} 人）</option>
             ))}
           </select>
         </div>
@@ -85,14 +85,24 @@ export default function NotificationsClient({ events, subCount }) {
           </div>
         )}
 
-        <button type="submit" disabled={loading || subCount === 0}
-          className="w-full btn-primary py-3 disabled:opacity-50">
-          {loading ? '傳送中...' : `🔔 發送推播通知${form.eventId ? '' : `（${subCount}人）`}`}
-        </button>
-
-        {subCount === 0 && (
-          <p className="text-xs text-gray-400 text-center">目前沒有師兄姐開啟推播通知</p>
-        )}
+        {(() => {
+          const targetCount = form.eventId
+            ? (events.find((ev) => String(ev.id) === String(form.eventId))?.sub_count || 0)
+            : subCount;
+          return (
+            <>
+              <button type="submit" disabled={loading || targetCount === 0}
+                className="w-full btn-primary py-3 disabled:opacity-50">
+                {loading ? '傳送中...' : `🔔 發送推播通知（${targetCount}人）`}
+              </button>
+              {targetCount === 0 && (
+                <p className="text-xs text-gray-400 text-center">
+                  {form.eventId ? '此活動已報名者尚無人開啟推播通知' : '目前沒有師兄姐開啟推播通知'}
+                </p>
+              )}
+            </>
+          );
+        })()}
       </form>
     </div>
   );
