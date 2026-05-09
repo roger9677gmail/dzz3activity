@@ -153,6 +153,58 @@ CREATE TABLE IF NOT EXISTS email_verifications (
   INDEX idx_ev_email (email),
   INDEX idx_ev_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practices (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL UNIQUE,
+  type        VARCHAR(20)  NOT NULL DEFAULT 'count',
+  unit_label  VARCHAR(20)  NOT NULL DEFAULT '次',
+  sort_order  INT          NOT NULL DEFAULT 0,
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_practices (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id     INT UNSIGNED NOT NULL,
+  practice_id   INT UNSIGNED NOT NULL,
+  daily_target  INT NULL,
+  active        TINYINT(1) NOT NULL DEFAULT 1,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_member_practice (member_id, practice_id),
+  INDEX idx_mp_member (member_id),
+  CONSTRAINT fk_mp_member   FOREIGN KEY (member_id)   REFERENCES members(id)   ON DELETE CASCADE,
+  CONSTRAINT fk_mp_practice FOREIGN KEY (practice_id) REFERENCES practices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_logs (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  practice_id INT UNSIGNED NOT NULL,
+  log_date    DATE NOT NULL,
+  value       INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_log_unique (member_id, practice_id, log_date),
+  INDEX idx_log_member_date (member_id, log_date),
+  INDEX idx_log_practice_date (practice_id, log_date),
+  CONSTRAINT fk_log_member   FOREIGN KEY (member_id)   REFERENCES members(id)   ON DELETE CASCADE,
+  CONSTRAINT fk_log_practice FOREIGN KEY (practice_id) REFERENCES practices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_notes (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  log_date    DATE NOT NULL,
+  content     TEXT NOT NULL,
+  is_public   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_note_member (member_id, log_date),
+  INDEX idx_note_public (is_public, created_at),
+  CONSTRAINT fk_note_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {

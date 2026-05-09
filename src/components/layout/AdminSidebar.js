@@ -10,6 +10,7 @@ const navItems = [
   { href: '/admin/registrations', label: '報名管理', icon: '📋', perm: 'registrations:manage' },
   { href: '/admin/members', label: '師兄姐管理', icon: '👥', perm: 'members:manage' },
   { href: '/admin/locations', label: '道場管理', icon: '🏯', perm: 'locations:manage' },
+  { href: '/admin/practices', label: '功課項目', icon: '📿', perm: 'practices:manage' },
   { href: '/admin/admins', label: '管理員設定', icon: '🛡️', perm: 'admins:manage' },
   { href: '/admin/reports', label: '報表匯出', icon: '📄', perm: 'reports:view' },
   { href: '/admin/notifications', label: '推播通知', icon: '🔔', perm: 'notifications:send' },

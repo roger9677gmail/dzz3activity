@@ -11,6 +11,7 @@ const PERMISSION_OPTIONS = [
   { key: 'admins:manage', label: '管理員設定（含權限指派）' },
   { key: 'reports:view', label: '報表匯出' },
   { key: 'notifications:send', label: '推播通知' },
+  { key: 'practices:manage', label: '功課項目管理' },
 ];
 
 function summarize(perms) {

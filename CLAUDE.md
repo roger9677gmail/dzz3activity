@@ -104,6 +104,10 @@ done
 | `registration_items` | registration_id, event_item_id, quantity, names (JSON), contents (JSON), subtotal |
 | `locations` | id, name (UNIQUE), sort_order, active — 道場主檔 (admin 可管理) |
 | `password_reset_codes` | member_id, code_hash, expires_at, used_at, attempts |
+| `practices` | id, name (UNIQUE), type (count\|duration), unit_label, sort_order, active — 功課主檔 |
+| `member_practices` | member_id, practice_id (UNIQUE pair), daily_target, active — 師兄姐訂閱 |
+| `practice_logs` | member_id, practice_id, log_date, value (UNIQUE 三聯) — 每日紀錄；count 為次數、duration 為分鐘 |
+| `practice_notes` | member_id, log_date, content, is_public — 修行筆記 |
 
 ### 後台權限模型
 
@@ -113,10 +117,18 @@ done
 - 細權限存在 `members.admin_permissions` JSON 陣列。`['*']` 代表全部權限；其餘可組合：
   - `events:manage`、`registrations:manage`、`members:manage`、`locations:manage`
   - `admins:manage`（含指派/撤銷管理員與權限）
-  - `reports:view`、`notifications:send`
+  - `reports:view`、`notifications:send`、`practices:manage`
 - API：用 `withPermission('xxx:yyy', handler)` 或 `withAdminAuth(handler)` 包裝。
 - UI：`AdminSidebar` 依當前 session 的 `permissions` 過濾選單；無權的頁面會 server-side redirect 回 `/admin`。
 - 撤銷管理員不會刪除師兄姐帳號，只是 `is_admin=0` 並清空 `admin_permissions`，報名紀錄全部保留。
+
+### 修行日誌
+
+- `/journal` 是師兄姐底部 nav 的第三項（取代舊「活動提醒」）。tab：今日 / 過去 / 大眾分享 / 排名。`/journal/settings` 訂閱常修功課與每日目標。
+- 「法會活動推播通知」開關搬到 `/profile`。
+- 功課主檔由 `practices:manage` 管理員在 `/admin/practices` 維護；type=count 存次數、type=duration 存分鐘。
+- 排名指標：近 90 天 `SUM(value)` per member；可切「全體 / 同道場」。
+- `practice_notes.is_public=1` 才會出現在大眾分享 feed (`/api/notes/public`)，作者可隨時切換私人/公開。
 
 ### 報表 (Excel 匯出)
 

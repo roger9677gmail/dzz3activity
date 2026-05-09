@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { APP_VERSION } from '@/lib/version';
+import PushSubscribe from '@/components/pwa/PushSubscribe';
 
 // Resize an image File to at most maxSize on the longest side, return a JPEG data URL.
 async function resizeImage(file, maxSize = 400, quality = 0.85) {
@@ -265,6 +266,9 @@ export default function ProfilePage() {
         {message && !editing && (
           <div className="text-sm text-green-700 text-center">{message}</div>
         )}
+
+        {/* Push notification opt-in */}
+        <PushSubscribe />
 
         {/* App info */}
         <div className="card p-4">
