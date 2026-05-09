@@ -5,7 +5,7 @@ import PushInstallPrompt from '@/components/pwa/PushInstallPrompt';
 import BadgeClearer from '@/components/pwa/BadgeClearer';
 
 export default async function MemberLayout({ children }) {
-  const session = await getSession(false);
+  const session = await getSession();
   if (!session) redirect('/login');
 
   return (

@@ -1,25 +1,30 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import NotificationsClient from './NotificationsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminNotificationsPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'notifications:send')) redirect('/admin');
 
   const events = await db.prepare(`
     SELECT e.id, e.name,
       (SELECT COUNT(DISTINCT ps.member_id)
        FROM push_subscriptions ps
        JOIN registrations r ON r.member_id = ps.member_id
-       WHERE r.event_id = e.id AND r.status != 'cancelled') AS sub_count
+       JOIN members m ON m.id = ps.member_id
+       WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) AS sub_count
     FROM events e
     WHERE e.status = 'active'
     ORDER BY e.start_date
   `).all();
-  const subCount = (await db.prepare('SELECT COUNT(*) as count FROM push_subscriptions').get()).count;
+  const subCount = (await db.prepare(`
+    SELECT COUNT(*) as count FROM push_subscriptions ps
+    JOIN members m ON m.id = ps.member_id
+    WHERE m.is_disabled = 0
+  `).get()).count;
 
   return (
     <div className="p-6">

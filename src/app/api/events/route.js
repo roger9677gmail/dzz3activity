@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -8,7 +8,9 @@ export async function GET(request) {
 
   let query = `
     SELECT e.*,
-      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') as reg_count
+      (SELECT COUNT(*) FROM registrations r
+         JOIN members m ON m.id = r.member_id
+         WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) as reg_count
     FROM events e
   `;
   const params = [];
@@ -28,7 +30,7 @@ export async function GET(request) {
   return NextResponse.json(events);
 }
 
-export const POST = withAdminAuth(async (request) => {
+export const POST = withPermission('events:manage', async (request) => {
   try {
     const { name, description, start_date, end_date, registration_deadline, location, status, banner_color, items } = await request.json();
 

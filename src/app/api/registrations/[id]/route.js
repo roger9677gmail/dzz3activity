@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAuth, withAdminAuth } from '@/lib/middleware';
+import { withAuth, withPermission } from '@/lib/middleware';
 
-export const GET = withAdminAuth(async (request, { params }) => {
+export const GET = withPermission('registrations:manage', async (request, { params }) => {
   const reg = await db.prepare(`
     SELECT r.*, m.name as member_name, m.phone as member_phone, m.email as member_email,
            e.name as event_name, e.start_date, e.end_date
@@ -24,7 +24,7 @@ export const GET = withAdminAuth(async (request, { params }) => {
   return NextResponse.json(reg);
 });
 
-export const PUT = withAdminAuth(async (request, { params }) => {
+export const PUT = withPermission('registrations:manage', async (request, { params }) => {
   const { status, notes } = await request.json();
   await db.prepare(`
     UPDATE registrations SET status=?, notes=?, updated_at=NOW()

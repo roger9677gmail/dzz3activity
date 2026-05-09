@@ -6,7 +6,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function HistoryPage() {
-  const session = await getSession(false);
+  const session = await getSession();
 
   const registrations = await db.prepare(`
     SELECT r.*, e.name as event_name, e.start_date, e.end_date, e.banner_color

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAuth, withAdminAuth } from '@/lib/middleware';
+import { withAuth, withPermission } from '@/lib/middleware';
 
-export const GET = withAdminAuth(async (request) => {
+export const GET = withPermission('registrations:manage', async (request) => {
   const { searchParams } = new URL(request.url);
   const eventId = searchParams.get('eventId');
   const paymentStatus = searchParams.get('payment_status');

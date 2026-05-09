@@ -1,26 +1,32 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import Link from 'next/link';
+import AdminMembersClient from './AdminMembersClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminMembersPage({ searchParams }) {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'members:manage')) redirect('/admin');
 
   const eventId = searchParams.eventId || '';
   const mode = searchParams.mode || 'all'; // 'all' | 'unregistered'
   const search = searchParams.search || '';
+  const showDisabled = searchParams.disabled === '1';
 
   const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
+  const locations = await db.prepare('SELECT id, name FROM locations WHERE active=1 ORDER BY sort_order, id').all();
 
   let members;
   if (mode === 'unregistered' && eventId) {
     members = await db.prepare(`
-      SELECT m.id, m.name, m.phone, m.email, m.created_at
+      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.created_at,
+             l.name AS location_name
       FROM members m
-      WHERE m.role = 'member'
+      LEFT JOIN locations l ON l.id = m.location_id
+      WHERE m.is_admin = 0
+        AND m.is_disabled = 0
         AND m.id NOT IN (
           SELECT r.member_id FROM registrations r
           WHERE r.event_id = ? AND r.status != 'cancelled'
@@ -29,11 +35,15 @@ export default async function AdminMembersPage({ searchParams }) {
       ORDER BY m.name
     `).all(...[eventId, ...(search ? [`%${search}%`, `%${search}%`] : [])]);
   } else {
+    const disabledFilter = showDisabled ? '' : 'AND m.is_disabled = 0';
     members = await db.prepare(`
-      SELECT m.id, m.name, m.phone, m.email, m.created_at,
+      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.created_at,
+             l.name AS location_name,
         (SELECT COUNT(*) FROM registrations r WHERE r.member_id = m.id AND r.status != 'cancelled') as reg_count
       FROM members m
-      WHERE m.role = 'member'
+      LEFT JOIN locations l ON l.id = m.location_id
+      WHERE m.is_admin = 0
+        ${disabledFilter}
         ${search ? "AND (m.name LIKE ? OR m.phone LIKE ?)" : ""}
       ORDER BY m.name
     `).all(...(search ? [`%${search}%`, `%${search}%`] : []));
@@ -48,15 +58,21 @@ export default async function AdminMembersPage({ searchParams }) {
 
       {/* Filters */}
       <div className="bg-white rounded-xl p-4 shadow-sm mb-4 space-y-3">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="?mode=all"
-            className={`text-sm px-3 py-1.5 rounded-lg font-medium ${mode === 'all' ? 'bg-temple-red text-white' : 'bg-gray-100 text-gray-600'}`}>
+            className={`text-sm px-3 py-1.5 rounded-lg font-medium ${mode === 'all' && !showDisabled ? 'bg-temple-red text-white' : 'bg-gray-100 text-gray-600'}`}>
             全部師兄姐
           </Link>
           <Link href="?mode=unregistered"
             className={`text-sm px-3 py-1.5 rounded-lg font-medium ${mode === 'unregistered' ? 'bg-temple-red text-white' : 'bg-gray-100 text-gray-600'}`}>
             未報名名單
           </Link>
+          {mode === 'all' && (
+            <Link href="?mode=all&disabled=1"
+              className={`text-sm px-3 py-1.5 rounded-lg font-medium ${showDisabled ? 'bg-temple-red text-white' : 'bg-gray-100 text-gray-600'}`}>
+              含已停用
+            </Link>
+          )}
         </div>
 
         {mode === 'unregistered' && (
@@ -75,11 +91,21 @@ export default async function AdminMembersPage({ searchParams }) {
           </div>
         )}
 
-        <form>
+        <form className="flex gap-2">
           <input type="hidden" name="mode" value={mode} />
           {eventId && <input type="hidden" name="eventId" value={eventId} />}
-          <input type="text" name="search" defaultValue={search} className="input-field text-sm"
+          {showDisabled && <input type="hidden" name="disabled" value="1" />}
+          <input type="text" name="search" defaultValue={search} className="input-field text-sm flex-1"
             placeholder="搜尋姓名或電話..." />
+          <button type="submit" className="btn-primary text-sm whitespace-nowrap">🔍 搜尋</button>
+          {search && (
+            <Link
+              href={`?mode=${mode}${eventId ? `&eventId=${eventId}` : ''}${showDisabled ? '&disabled=1' : ''}`}
+              className="btn-secondary text-sm whitespace-nowrap"
+            >
+              清除
+            </Link>
+          )}
         </form>
       </div>
 
@@ -89,28 +115,12 @@ export default async function AdminMembersPage({ searchParams }) {
         </div>
       )}
 
-      {/* Members list */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        {members.length === 0 && (
-          <div className="p-8 text-center text-gray-400">
-            {mode === 'unregistered' ? '所有師兄姐均已報名此活動 🎉' : '無師兄姐資料'}
-          </div>
-        )}
-        <div className="divide-y divide-gray-100">
-          {members.map((m, idx) => (
-            <div key={m.id} className="px-4 py-3 flex items-center justify-between">
-              <div>
-                <span className="text-sm text-gray-400 mr-2">{idx + 1}.</span>
-                <span className="font-medium text-gray-800">{m.name}</span>
-                <div className="text-sm text-gray-500">{m.phone}{m.email ? ` ・ ${m.email}` : ''}</div>
-              </div>
-              {mode === 'all' && 'reg_count' in m && (
-                <span className="text-xs text-gray-400">{m.reg_count} 次報名</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <AdminMembersClient
+        members={members}
+        locations={locations}
+        canEdit={mode === 'all'}
+        emptyMessage={mode === 'unregistered' ? '所有師兄姐均已報名此活動 🎉' : '無師兄姐資料'}
+      />
     </div>
   );
 }

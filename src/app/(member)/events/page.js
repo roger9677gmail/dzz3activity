@@ -5,11 +5,13 @@ import EventCard from '@/components/events/EventCard';
 export const dynamic = 'force-dynamic';
 
 export default async function EventsPage() {
-  const session = await getSession(false);
+  const session = await getSession();
 
   const events = await db.prepare(`
     SELECT e.*,
-      (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status != 'cancelled') as reg_count
+      (SELECT COUNT(*) FROM registrations r
+         JOIN members m ON m.id = r.member_id
+         WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) as reg_count
     FROM events e
     WHERE e.status IN ('active', 'closed')
     ORDER BY e.start_date DESC

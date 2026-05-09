@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
-export const GET = withAdminAuth(async (request) => {
+export const GET = withPermission('members:manage', async (request) => {
   const { searchParams } = new URL(request.url);
   const eventId = searchParams.get('eventId');
 
@@ -13,7 +13,7 @@ export const GET = withAdminAuth(async (request) => {
   const members = await db.prepare(`
     SELECT m.id, m.name, m.phone, m.email, m.created_at
     FROM members m
-    WHERE m.role = 'member'
+    WHERE m.is_admin = 0
       AND m.id NOT IN (
         SELECT r.member_id FROM registrations r
         WHERE r.event_id = ? AND r.status != 'cancelled'

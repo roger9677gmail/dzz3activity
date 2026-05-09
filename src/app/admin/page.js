@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatMoney } from '@/lib/utils';
@@ -7,14 +6,25 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
 
-  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE role='member'").get()).count;
+  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_admin=0 AND is_disabled=0").get()).count;
   const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
-  const totalRegistrations = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE status != 'cancelled'").get()).count;
-  const totalRevenue = (await db.prepare("SELECT SUM(total_amount) as sum FROM registrations WHERE payment_status='paid'").get()).sum || 0;
-  const unpaidCount = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE payment_status='unpaid' AND status != 'cancelled'").get()).count;
+  const totalRegistrations = (await db.prepare(`
+    SELECT COUNT(*) as count FROM registrations r
+    JOIN members m ON m.id = r.member_id
+    WHERE r.status != 'cancelled' AND m.is_disabled = 0
+  `).get()).count;
+  const totalRevenue = (await db.prepare(`
+    SELECT SUM(r.total_amount) as sum FROM registrations r
+    JOIN members m ON m.id = r.member_id
+    WHERE r.payment_status='paid' AND m.is_disabled = 0
+  `).get()).sum || 0;
+  const unpaidCount = (await db.prepare(`
+    SELECT COUNT(*) as count FROM registrations r
+    JOIN members m ON m.id = r.member_id
+    WHERE r.payment_status='unpaid' AND r.status != 'cancelled' AND m.is_disabled = 0
+  `).get()).count;
 
   const eventStats = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.status, e.banner_color,
@@ -24,7 +34,8 @@ export default async function AdminDashboard() {
       SUM(r.total_amount) as total_amount
     FROM events e
     LEFT JOIN registrations r ON r.event_id = e.id AND r.status != 'cancelled'
-    WHERE e.status = 'active'
+    LEFT JOIN members m ON m.id = r.member_id
+    WHERE e.status = 'active' AND (m.id IS NULL OR m.is_disabled = 0)
     GROUP BY e.id
     ORDER BY e.start_date
   `).all();

@@ -1,17 +1,17 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import AdminLocationsClient from './AdminLocationsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminLocationsPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'locations:manage')) redirect('/admin');
 
   const locations = await db.prepare(`
     SELECT l.id, l.name, l.sort_order, l.active, l.created_at,
-      (SELECT COUNT(*) FROM members m WHERE m.location_id = l.id) AS member_count
+      (SELECT COUNT(*) FROM members m WHERE m.location_id = l.id AND m.is_disabled = 0) AS member_count
     FROM locations l
     ORDER BY l.sort_order, l.id
   `).all();

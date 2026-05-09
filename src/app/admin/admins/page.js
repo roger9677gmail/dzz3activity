@@ -1,17 +1,18 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission, parsePermissions } from '@/lib/auth';
 import db from '@/lib/db';
 import AdminAdminsClient from './AdminAdminsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminsPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'admins:manage')) redirect('/admin');
 
-  const admins = await db.prepare(
-    "SELECT id, name, email, phone, created_at FROM members WHERE role = 'admin' ORDER BY created_at"
+  const rows = await db.prepare(
+    'SELECT id, name, email, phone, admin_permissions, created_at FROM members WHERE is_admin = 1 ORDER BY created_at'
   ).all();
+  const admins = rows.map((a) => ({ ...a, admin_permissions: parsePermissions(a.admin_permissions) }));
 
   return (
     <div className="p-6">

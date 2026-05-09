@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
-export const GET = withAdminAuth(async () => {
+export const GET = withPermission('locations:manage', async () => {
   const locations = await db.prepare(
     'SELECT id, name, sort_order, active, created_at FROM locations ORDER BY sort_order, id'
   ).all();
   return NextResponse.json({ locations });
 });
 
-export const POST = withAdminAuth(async (request) => {
+export const POST = withPermission('locations:manage', async (request) => {
   try {
     const { name, sort_order } = await request.json();
     const trimmed = String(name || '').trim();

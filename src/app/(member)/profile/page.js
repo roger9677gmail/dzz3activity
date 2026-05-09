@@ -1,7 +1,9 @@
 'use client';
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { APP_VERSION } from '@/lib/version';
+import PushSubscribe from '@/components/pwa/PushSubscribe';
 
 // Resize an image File to at most maxSize on the longest side, return a JPEG data URL.
 async function resizeImage(file, maxSize = 400, quality = 0.85) {
@@ -22,20 +24,42 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ phone: '', location_id: '', address: '' });
+  const [form, setForm] = useState({ name: '', phone: '', location_id: '', address: '', receipt_title: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  async function handleForceUpdate() {
+    if (!confirm('將清除 App 快取並重新載入，確定？')) return;
+    setUpdating(true);
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    // Cache-busting query keeps iOS Safari / PWA from serving stale HTML.
+    window.location.replace(`/profile?_=${Date.now()}`);
+  }
 
   useEffect(() => {
     fetch('/api/auth/me').then((r) => r.json()).then((d) => {
       if (d.user) {
         setUser(d.user);
         setForm({
+          name: d.user.name || '',
           phone: d.user.phone || '',
           location_id: d.user.location_id || '',
           address: d.user.address || '',
+          receipt_title: d.user.receipt_title || '',
         });
       }
     });
@@ -51,9 +75,11 @@ export default function ProfilePage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name: form.name,
           phone: form.phone || null,
           location_id: form.location_id || null,
           address: form.address || null,
+          receipt_title: form.receipt_title || null,
         }),
       });
       const data = await res.json();
@@ -183,8 +209,17 @@ export default function ProfilePage() {
             </button>
           )}
           <h2 className="text-xl font-bold text-temple-dark">{user.name}</h2>
-          <span className="text-sm text-gray-500 mt-1">師兄姐</span>
+          <span className="text-sm text-gray-500 mt-1">{user.is_admin ? '管理員' : '師兄姐'}</span>
         </div>
+
+        {user.is_admin ? (
+          <Link
+            href="/admin"
+            className="block w-full btn-primary text-center text-sm"
+          >
+            🛡️ 進入後台
+          </Link>
+        ) : null}
 
         {/* User info — view or edit */}
         {!editing ? (
@@ -206,6 +241,12 @@ export default function ProfilePage() {
               <span className="text-sm font-medium text-right max-w-[55%]">{user.address || <span className="text-gray-300">未填</span>}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-gray-500">收據抬頭</span>
+              <span className="text-sm font-medium text-right max-w-[55%]">
+                {user.receipt_title || <span className="text-gray-400">{user.name}<span className="text-gray-300 ml-1">（與姓名同）</span></span>}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-gray-500">加入日期</span>
               <span className="text-sm font-medium">{user.created_at?.slice(0, 10)}</span>
             </div>
@@ -216,6 +257,13 @@ export default function ProfilePage() {
           </div>
         ) : (
           <form onSubmit={handleSave} className="card p-4 space-y-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">姓名 *</label>
+              <input
+                type="text" required className="input-field text-sm"
+                value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Email</label>
               <input type="email" disabled className="input-field text-sm bg-gray-50" value={user.email} />
@@ -240,6 +288,14 @@ export default function ProfilePage() {
               <input type="text" className="input-field text-sm" placeholder="選填"
                 value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
             </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">收據抬頭</label>
+              <input type="text" className="input-field text-sm"
+                placeholder={`留空則使用姓名（${form.name || user.name}）`}
+                value={form.receipt_title}
+                onChange={(e) => setForm((p) => ({ ...p, receipt_title: e.target.value }))} />
+              <p className="text-[11px] text-gray-400 mt-1">活動報名 Excel 匯出時使用此欄位</p>
+            </div>
             {message && (
               <div className="text-sm text-red-600">{message}</div>
             )}
@@ -256,13 +312,26 @@ export default function ProfilePage() {
           <div className="text-sm text-green-700 text-center">{message}</div>
         )}
 
+        {/* Push notification opt-in */}
+        <PushSubscribe />
+
         {/* App info */}
         <div className="card p-4">
           <h3 className="font-medium text-sm text-gray-700 mb-2">關於本系統</h3>
           <p className="text-xs text-gray-400 leading-relaxed">
             大自在山活動報名系統讓師兄姐可以便利地報名各項活動，查看報名紀錄，並接收活動提醒通知。
           </p>
-          <p className="text-xs text-gray-300 mt-2">版本 {APP_VERSION}</p>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-xs text-gray-300">版本 {APP_VERSION}</span>
+            <button
+              type="button"
+              onClick={handleForceUpdate}
+              disabled={updating}
+              className="text-xs text-temple-red hover:underline disabled:text-gray-300"
+            >
+              {updating ? '更新中…' : '🔄 強制更新到最新版'}
+            </button>
+          </div>
         </div>
 
         <button

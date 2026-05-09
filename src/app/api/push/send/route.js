@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 import { broadcastPush } from '@/lib/push';
 
-export const POST = withAdminAuth(async (request) => {
+export const POST = withPermission('notifications:send', async (request) => {
   try {
     const { title, body, url, eventId } = await request.json();
     if (!title || !body) {
@@ -12,14 +12,19 @@ export const POST = withAdminAuth(async (request) => {
 
     let subscriptions;
     if (eventId) {
-      // Only send to members registered for this event
+      // Only send to active members registered for this event
       subscriptions = await db.prepare(`
         SELECT ps.* FROM push_subscriptions ps
         JOIN registrations r ON r.member_id = ps.member_id
-        WHERE r.event_id = ? AND r.status != 'cancelled'
+        JOIN members m ON m.id = ps.member_id
+        WHERE r.event_id = ? AND r.status != 'cancelled' AND m.is_disabled = 0
       `).all(eventId);
     } else {
-      subscriptions = await db.prepare('SELECT * FROM push_subscriptions').all();
+      subscriptions = await db.prepare(`
+        SELECT ps.* FROM push_subscriptions ps
+        JOIN members m ON m.id = ps.member_id
+        WHERE m.is_disabled = 0
+      `).all();
     }
 
     if (subscriptions.length === 0) {

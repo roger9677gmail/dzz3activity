@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
 export async function GET(request, { params }) {
   const items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(params.eventId);
   return NextResponse.json(items);
 }
 
-export const POST = withAdminAuth(async (request, { params }) => {
+export const POST = withPermission('events:manage', async (request, { params }) => {
   const { name, description, price, requires_name, requires_content, sort_order } = await request.json();
   if (!name) return NextResponse.json({ error: '項目名稱為必填' }, { status: 400 });
 
@@ -19,7 +19,7 @@ export const POST = withAdminAuth(async (request, { params }) => {
   return NextResponse.json({ success: true, id: result.lastInsertRowid });
 });
 
-export const PUT = withAdminAuth(async (request, { params }) => {
+export const PUT = withPermission('events:manage', async (request, { params }) => {
   // Bulk update items for an event — upsert by _uid so FK references from
   // registration_items survive (a plain DELETE+INSERT would be blocked by FK
   // whenever any registration exists, silently failing the update).

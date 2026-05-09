@@ -25,15 +25,19 @@ const config = process.env.DB_SOCKET_PATH
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS members (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(100) NOT NULL,
-  phone       VARCHAR(32),
-  email       VARCHAR(255) NOT NULL,
-  password    VARCHAR(255) NOT NULL,
-  role        VARCHAR(20)  NOT NULL DEFAULT 'member',
-  avatar      MEDIUMTEXT,
-  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name               VARCHAR(100) NOT NULL,
+  phone              VARCHAR(32),
+  email              VARCHAR(255) NOT NULL,
+  password           VARCHAR(255) NOT NULL,
+  role               VARCHAR(20)  NOT NULL DEFAULT 'member',
+  is_admin           TINYINT(1)   NOT NULL DEFAULT 0,
+  admin_permissions  JSON         NULL,
+  is_disabled        TINYINT(1)   NOT NULL DEFAULT 0,
+  receipt_title      VARCHAR(100) NULL,
+  avatar             MEDIUMTEXT,
+  created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_members_email (email),
   UNIQUE KEY uk_members_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -151,6 +155,58 @@ CREATE TABLE IF NOT EXISTS email_verifications (
   INDEX idx_ev_email (email),
   INDEX idx_ev_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practices (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL UNIQUE,
+  type        VARCHAR(20)  NOT NULL DEFAULT 'count',
+  unit_label  VARCHAR(20)  NOT NULL DEFAULT '次',
+  sort_order  INT          NOT NULL DEFAULT 0,
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_practices (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id     INT UNSIGNED NOT NULL,
+  practice_id   INT UNSIGNED NOT NULL,
+  daily_target  INT NULL,
+  active        TINYINT(1) NOT NULL DEFAULT 1,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_member_practice (member_id, practice_id),
+  INDEX idx_mp_member (member_id),
+  CONSTRAINT fk_mp_member   FOREIGN KEY (member_id)   REFERENCES members(id)   ON DELETE CASCADE,
+  CONSTRAINT fk_mp_practice FOREIGN KEY (practice_id) REFERENCES practices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_logs (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  practice_id INT UNSIGNED NOT NULL,
+  log_date    DATE NOT NULL,
+  value       INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_log_unique (member_id, practice_id, log_date),
+  INDEX idx_log_member_date (member_id, log_date),
+  INDEX idx_log_practice_date (practice_id, log_date),
+  CONSTRAINT fk_log_member   FOREIGN KEY (member_id)   REFERENCES members(id)   ON DELETE CASCADE,
+  CONSTRAINT fk_log_practice FOREIGN KEY (practice_id) REFERENCES practices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_notes (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  log_date    DATE NOT NULL,
+  content     TEXT NOT NULL,
+  is_public   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_note_member (member_id, log_date),
+  INDEX idx_note_public (is_public, created_at),
+  CONSTRAINT fk_note_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {
@@ -180,6 +236,14 @@ CREATE TABLE IF NOT EXISTS email_verifications (
         "ALTER TABLE event_items ADD COLUMN allow_custom_price TINYINT(1) NOT NULL DEFAULT 0 AFTER price"],
       ["ADD members.avatar",
         "ALTER TABLE members ADD COLUMN avatar MEDIUMTEXT AFTER role"],
+      ["ADD members.is_admin",
+        "ALTER TABLE members ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0 AFTER role"],
+      ["ADD members.admin_permissions",
+        "ALTER TABLE members ADD COLUMN admin_permissions JSON NULL AFTER is_admin"],
+      ["ADD members.is_disabled",
+        "ALTER TABLE members ADD COLUMN is_disabled TINYINT(1) NOT NULL DEFAULT 0 AFTER admin_permissions"],
+      ["ADD members.receipt_title",
+        "ALTER TABLE members ADD COLUMN receipt_title VARCHAR(100) NULL AFTER is_disabled"],
     ];
     for (const [label, sql] of ALTERS) {
       try {
@@ -192,6 +256,25 @@ CREATE TABLE IF NOT EXISTS email_verifications (
           throw err;
         }
       }
+    }
+
+    // Backfill is_admin / admin_permissions from legacy role column.
+    // Anyone whose role='admin' becomes a full admin with wildcard permissions.
+    try {
+      const [r] = await conn.query(
+        `UPDATE members
+            SET is_admin = 1,
+                admin_permissions = JSON_ARRAY('*')
+          WHERE role = 'admin'
+            AND (is_admin = 0 OR admin_permissions IS NULL)`
+      );
+      if (r.affectedRows > 0) {
+        console.log(`✅ Backfilled is_admin/permissions for ${r.affectedRows} legacy admin(s)`);
+      } else {
+        console.log('ℹ️  No legacy admins to backfill');
+      }
+    } catch (err) {
+      console.log('ℹ️  Skipped admin backfill -', err.code || err.message);
     }
 
     // Idempotent FK / index for the self-referencing gift target.

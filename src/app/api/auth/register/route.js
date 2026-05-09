@@ -56,9 +56,8 @@ export async function POST(request) {
       .run(name, normalizedEmail, phoneVal, locationVal, addressVal, hash, 'member');
 
     return createSessionResponse(
-      { sub: result.lastInsertRowid, name, email: normalizedEmail, role: 'member' },
-      { success: true, name, role: 'member' },
-      false
+      { sub: result.lastInsertRowid, name, email: normalizedEmail, is_admin: 0, permissions: [] },
+      { success: true, name, is_admin: 0 }
     );
   } catch (err) {
     console.error(err);

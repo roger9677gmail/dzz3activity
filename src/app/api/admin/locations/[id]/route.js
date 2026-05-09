@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
-export const PUT = withAdminAuth(async (request, { params }) => {
+export const PUT = withPermission('locations:manage', async (request, { params }) => {
   try {
     const id = parseInt(params.id);
     if (!id) return NextResponse.json({ error: '無效的 ID' }, { status: 400 });
@@ -40,7 +40,7 @@ export const PUT = withAdminAuth(async (request, { params }) => {
   }
 });
 
-export const DELETE = withAdminAuth(async (request, { params }) => {
+export const DELETE = withPermission('locations:manage', async (request, { params }) => {
   const id = parseInt(params.id);
   if (!id) return NextResponse.json({ error: '無效的 ID' }, { status: 400 });
 

@@ -8,7 +8,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function EventDetailPage({ params }) {
-  const session = await getSession(false);
+  const session = await getSession();
   const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
   if (!event) notFound();
 

@@ -3,13 +3,14 @@ import { getSession } from '@/lib/auth';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 
 export default async function AdminLayout({ children }) {
-  const session = await getSession(true);
+  const session = await getSession();
+  if (!session) redirect('/login');
+  if (!session.is_admin) redirect('/events');
 
-  // Allow access to admin login page without auth
   return (
     <div className="min-h-screen md:flex">
-      {session && <AdminSidebar />}
-      <main className={`flex-1 bg-gray-50 min-h-screen ${!session ? 'w-full' : ''}`}>{children}</main>
+      <AdminSidebar permissions={session.permissions || []} />
+      <main className="flex-1 bg-gray-50 min-h-screen">{children}</main>
     </div>
   );
 }
