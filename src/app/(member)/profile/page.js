@@ -29,6 +29,26 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  async function handleForceUpdate() {
+    if (!confirm('將清除 App 快取並重新載入，確定？')) return;
+    setUpdating(true);
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    // Cache-busting query keeps iOS Safari / PWA from serving stale HTML.
+    window.location.replace(`/profile?_=${Date.now()}`);
+  }
 
   useEffect(() => {
     fetch('/api/auth/me').then((r) => r.json()).then((d) => {
@@ -276,7 +296,17 @@ export default function ProfilePage() {
           <p className="text-xs text-gray-400 leading-relaxed">
             大自在山活動報名系統讓師兄姐可以便利地報名各項活動，查看報名紀錄，並接收活動提醒通知。
           </p>
-          <p className="text-xs text-gray-300 mt-2">版本 {APP_VERSION}</p>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-xs text-gray-300">版本 {APP_VERSION}</span>
+            <button
+              type="button"
+              onClick={handleForceUpdate}
+              disabled={updating}
+              className="text-xs text-temple-red hover:underline disabled:text-gray-300"
+            >
+              {updating ? '更新中…' : '🔄 強制更新到最新版'}
+            </button>
+          </div>
         </div>
 
         <button
