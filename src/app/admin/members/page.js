@@ -91,12 +91,21 @@ export default async function AdminMembersPage({ searchParams }) {
           </div>
         )}
 
-        <form>
+        <form className="flex gap-2">
           <input type="hidden" name="mode" value={mode} />
           {eventId && <input type="hidden" name="eventId" value={eventId} />}
           {showDisabled && <input type="hidden" name="disabled" value="1" />}
-          <input type="text" name="search" defaultValue={search} className="input-field text-sm"
+          <input type="text" name="search" defaultValue={search} className="input-field text-sm flex-1"
             placeholder="搜尋姓名或電話..." />
+          <button type="submit" className="btn-primary text-sm whitespace-nowrap">🔍 搜尋</button>
+          {search && (
+            <Link
+              href={`?mode=${mode}${eventId ? `&eventId=${eventId}` : ''}${showDisabled ? '&disabled=1' : ''}`}
+              className="btn-secondary text-sm whitespace-nowrap"
+            >
+              清除
+            </Link>
+          )}
         </form>
       </div>
 
