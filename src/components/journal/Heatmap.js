@@ -1,9 +1,10 @@
 'use client';
 import { useMemo } from 'react';
-import { addDays, dateRange, todayDateString } from '@/lib/practices';
+import { dateRange, todayDateString } from '@/lib/practices';
 
-// Heatmap from `startDate` (first record day for this practice) → today.
-// Cells expand to fill container width; columns share width via 1fr grid.
+// Sequential heatmap from `startDate` (first record day) → today.
+// Cells are fixed-size 12×12 squares laid out left-to-right and wrapping at
+// the container's right edge — no week-column structure, no leading padding.
 //
 // Color tiers (when dailyTarget is set):
 //   無紀錄 → gray-200
@@ -37,44 +38,26 @@ const TIER_CLASS = {
 export default function Heatmap({ startDate, logsByDate = {}, dailyTarget = null, onCellClick }) {
   const today = todayDateString();
   const start = startDate || today;
-  const range = useMemo(() => dateRange(start, today), [start, today]);
-
-  // Pad start to align on Monday for clean week columns.
-  const firstDate = new Date(start + 'T00:00:00Z');
-  const dow = (firstDate.getUTCDay() + 6) % 7; // 0 = Mon
-  const padded = Array(dow).fill(null).concat(range);
-
-  const cols = Math.max(1, Math.ceil(padded.length / 7));
-  const grid = Array.from({ length: cols }, (_, c) =>
-    Array.from({ length: 7 }, (_, r) => padded[c * 7 + r] || null)
-  );
+  const days = useMemo(() => dateRange(start, today), [start, today]);
 
   function cellClass(date) {
-    if (!date) return 'bg-transparent';
     const tier = classifyValue(logsByDate[date], dailyTarget);
     return TIER_CLASS[tier];
   }
 
   return (
     <div>
-      <div
-        className="grid gap-0.5 w-full"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
-        {grid.map((col, ci) => (
-          <div key={ci} className="grid grid-rows-7 gap-0.5">
-            {col.map((d, ri) => (
-              <button
-                key={ri}
-                type="button"
-                disabled={!d || !onCellClick}
-                onClick={() => d && onCellClick && onCellClick(d)}
-                className={`w-full aspect-square rounded-sm ${cellClass(d)} ${d && onCellClick ? 'hover:ring-1 hover:ring-temple-red' : ''}`}
-                aria-label={d ? `${d}：${logsByDate[d] != null ? logsByDate[d] : '無紀錄'}` : ''}
-                title={d ? `${d}：${logsByDate[d] != null ? logsByDate[d] : '無紀錄'}` : ''}
-              />
-            ))}
-          </div>
+      <div className="flex flex-wrap gap-0.5">
+        {days.map((d) => (
+          <button
+            key={d}
+            type="button"
+            disabled={!onCellClick}
+            onClick={() => onCellClick && onCellClick(d)}
+            className={`w-3 h-3 rounded-sm shrink-0 ${cellClass(d)} ${onCellClick ? 'hover:ring-1 hover:ring-temple-red' : ''}`}
+            aria-label={`${d}：${logsByDate[d] != null ? logsByDate[d] : '無紀錄'}`}
+            title={`${d}：${logsByDate[d] != null ? logsByDate[d] : '無紀錄'}`}
+          />
         ))}
       </div>
       {dailyTarget != null && dailyTarget > 0 ? (
