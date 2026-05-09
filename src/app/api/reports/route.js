@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,7 +126,7 @@ async function buildXlsx(rows) {
   return await wb.xlsx.writeBuffer();
 }
 
-export const GET = withAdminAuth(async (request) => {
+export const GET = withPermission('reports:view', async (request) => {
   const { searchParams } = new URL(request.url);
   const eventId = searchParams.get('eventId');
   const paymentStatus = searchParams.get('payment_status');

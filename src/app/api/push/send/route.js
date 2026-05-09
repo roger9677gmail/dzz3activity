@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 import { broadcastPush } from '@/lib/push';
 
-export const POST = withAdminAuth(async (request) => {
+export const POST = withPermission('notifications:send', async (request) => {
   try {
     const { title, body, url, eventId } = await request.json();
     if (!title || !body) {

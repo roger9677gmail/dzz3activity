@@ -5,7 +5,7 @@ import EventCard from '@/components/events/EventCard';
 export const dynamic = 'force-dynamic';
 
 export default async function EventsPage() {
-  const session = await getSession(false);
+  const session = await getSession();
 
   const events = await db.prepare(`
     SELECT e.*,

@@ -6,7 +6,7 @@ import PushSubscribe from '@/components/pwa/PushSubscribe';
 export const dynamic = 'force-dynamic';
 
 export default async function RemindersPage() {
-  const session = await getSession(false);
+  const session = await getSession();
 
   // Upcoming events the member registered for
   const upcomingRegistered = await db.prepare(`

@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import ReportsClient from './ReportsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminReportsPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'reports:view')) redirect('/admin');
 
   const events = await db.prepare("SELECT id, name FROM events ORDER BY start_date DESC").all();
 

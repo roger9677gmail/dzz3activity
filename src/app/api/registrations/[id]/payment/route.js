@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
-export const PUT = withAdminAuth(async (request, { params }) => {
+export const PUT = withPermission('registrations:manage', async (request, { params }) => {
   try {
     const { payment_status, receipt_number, receipt_title, payment_date, payment_notes } = await request.json();
     const titleVal = receipt_title ? String(receipt_title).trim().slice(0, 100) : null;

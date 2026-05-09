@@ -1,25 +1,30 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { APP_VERSION } from '@/lib/version';
 
 const navItems = [
   { href: '/admin', label: '總覽', exact: true, icon: '📊' },
-  { href: '/admin/events', label: '活動管理', icon: '🏛️' },
-  { href: '/admin/registrations', label: '報名管理', icon: '📋' },
-  { href: '/admin/members', label: '師兄姐管理', icon: '👥' },
-  { href: '/admin/locations', label: '道場管理', icon: '🏯' },
-  { href: '/admin/admins', label: '管理員設定', icon: '🛡️' },
-  { href: '/admin/reports', label: '報表匯出', icon: '📄' },
-  { href: '/admin/notifications', label: '推播通知', icon: '🔔' },
+  { href: '/admin/events', label: '活動管理', icon: '🏛️', perm: 'events:manage' },
+  { href: '/admin/registrations', label: '報名管理', icon: '📋', perm: 'registrations:manage' },
+  { href: '/admin/members', label: '師兄姐管理', icon: '👥', perm: 'members:manage' },
+  { href: '/admin/locations', label: '道場管理', icon: '🏯', perm: 'locations:manage' },
+  { href: '/admin/admins', label: '管理員設定', icon: '🛡️', perm: 'admins:manage' },
+  { href: '/admin/reports', label: '報表匯出', icon: '📄', perm: 'reports:view' },
+  { href: '/admin/notifications', label: '推播通知', icon: '🔔', perm: 'notifications:send' },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ permissions = [] }) {
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const visibleItems = useMemo(() => {
+    const wildcard = permissions.includes('*');
+    return navItems.filter((item) => !item.perm || wildcard || permissions.includes(item.perm));
+  }, [permissions]);
 
   // Auto-close the mobile drawer on route changes.
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -37,8 +42,8 @@ export default function AdminSidebar() {
 
   async function handleLogout() {
     setLoggingOut(true);
-    await fetch('/api/auth/admin/logout', { method: 'POST' });
-    router.push('/admin/login');
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
   }
 
   return (
@@ -92,7 +97,7 @@ export default function AdminSidebar() {
         </div>
 
         <nav className="flex-1 py-2">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             return (
               <Link
@@ -113,9 +118,15 @@ export default function AdminSidebar() {
         </nav>
 
         <div
-          className="p-4 border-t border-red-900"
+          className="p-4 border-t border-red-900 space-y-2"
           style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         >
+          <Link
+            href="/events"
+            className="block w-full text-left text-red-200 hover:text-white text-sm py-1 transition-colors"
+          >
+            🙏 回師兄姐介面
+          </Link>
           <button
             onClick={handleLogout}
             disabled={loggingOut}

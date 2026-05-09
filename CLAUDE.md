@@ -97,13 +97,26 @@ done
 
 | 表 | 重點欄位 |
 |---|---|
-| `members` | id, name, email (UNIQUE NOT NULL), phone, password, role (member/admin), location_id (FK→locations), address |
+| `members` | id, name, email (UNIQUE NOT NULL), phone, password, role (legacy), `is_admin` TINYINT, `admin_permissions` JSON, location_id (FK→locations), address |
 | `events` | id, name, start_date, end_date, registration_deadline, status, banner_color |
 | `event_items` | event_id, name, price, max_quantity, requires_name, requires_content, sort_order |
 | `registrations` | event_id, member_id, total_amount, payment_status, receipt_number, receipt_title, payment_date, notes |
 | `registration_items` | registration_id, event_item_id, quantity, names (JSON), contents (JSON), subtotal |
 | `locations` | id, name (UNIQUE), sort_order, active — 道場主檔 (admin 可管理) |
 | `password_reset_codes` | member_id, code_hash, expires_at, used_at, attempts |
+
+### 後台權限模型
+
+- 統一的登入入口：`/login`、`/api/auth/login`。後台不再有獨立登入頁。
+- session cookie 統一為 `temple_session`，內含 `is_admin` 與 `permissions` 陣列，middleware 不需要每次查 DB。
+- 任何 `is_admin=1` 的師兄姐都可以從 `/profile`「進入後台」。
+- 細權限存在 `members.admin_permissions` JSON 陣列。`['*']` 代表全部權限；其餘可組合：
+  - `events:manage`、`registrations:manage`、`members:manage`、`locations:manage`
+  - `admins:manage`（含指派/撤銷管理員與權限）
+  - `reports:view`、`notifications:send`
+- API：用 `withPermission('xxx:yyy', handler)` 或 `withAdminAuth(handler)` 包裝。
+- UI：`AdminSidebar` 依當前 session 的 `permissions` 過濾選單；無權的頁面會 server-side redirect 回 `/admin`。
+- 撤銷管理員不會刪除師兄姐帳號，只是 `is_admin=0` 並清空 `admin_permissions`，報名紀錄全部保留。
 
 ### 報表 (Excel 匯出)
 

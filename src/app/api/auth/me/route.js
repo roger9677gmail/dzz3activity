@@ -1,27 +1,32 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { getSession, parsePermissions } from '@/lib/auth';
 import db from '@/lib/db';
 
 const ME_QUERY = `
-  SELECT m.id, m.name, m.phone, m.email, m.role, m.avatar, m.created_at,
-         m.location_id, m.address,
+  SELECT m.id, m.name, m.phone, m.email, m.role, m.is_admin, m.admin_permissions,
+         m.avatar, m.created_at, m.location_id, m.address,
          l.name AS location_name
   FROM members m
   LEFT JOIN locations l ON l.id = m.location_id
   WHERE m.id = ?
 `;
 
+function shapeMember(row) {
+  if (!row) return null;
+  return { ...row, is_admin: row.is_admin ? 1 : 0, admin_permissions: parsePermissions(row.admin_permissions) };
+}
+
 export async function GET() {
-  const session = await getSession(false);
+  const session = await getSession();
   if (!session) return NextResponse.json({ user: null });
 
   const member = await db.prepare(ME_QUERY).get(session.sub);
   if (!member) return NextResponse.json({ user: null });
-  return NextResponse.json({ user: member });
+  return NextResponse.json({ user: shapeMember(member) });
 }
 
 export async function PUT(request) {
-  const session = await getSession(false);
+  const session = await getSession();
   if (!session) return NextResponse.json({ error: '請先登入' }, { status: 401 });
 
   try {
@@ -86,7 +91,7 @@ export async function PUT(request) {
     }
 
     const user = await db.prepare(ME_QUERY).get(session.sub);
-    return NextResponse.json({ success: true, user });
+    return NextResponse.json({ success: true, user: shapeMember(user) });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });

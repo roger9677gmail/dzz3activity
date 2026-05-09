@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatMoney } from '@/lib/utils';
@@ -7,10 +6,9 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
 
-  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE role='member'").get()).count;
+  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_admin=0").get()).count;
   const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
   const totalRegistrations = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE status != 'cancelled'").get()).count;
   const totalRevenue = (await db.prepare("SELECT SUM(total_amount) as sum FROM registrations WHERE payment_status='paid'").get()).sum || 0;

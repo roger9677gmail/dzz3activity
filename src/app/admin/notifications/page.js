@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import NotificationsClient from './NotificationsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminNotificationsPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'notifications:send')) redirect('/admin');
 
   const events = await db.prepare(`
     SELECT e.id, e.name,

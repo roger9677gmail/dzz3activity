@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -28,7 +28,7 @@ export async function GET(request) {
   return NextResponse.json(events);
 }
 
-export const POST = withAdminAuth(async (request) => {
+export const POST = withPermission('events:manage', async (request) => {
   try {
     const { name, description, start_date, end_date, registration_deadline, location, status, banner_color, items } = await request.json();
 

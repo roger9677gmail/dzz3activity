@@ -24,7 +24,7 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || '登入失敗');
       } else {
-        window.location.href = '/events';
+        window.location.href = data.is_admin ? '/admin' : '/events';
       }
     } catch {
       setError('網路錯誤，請稍後再試');
@@ -94,12 +94,6 @@ export default function LoginPage() {
               立即註冊
             </Link>
           </p>
-        </div>
-
-        <div className="mt-4 text-center">
-          <Link href="/admin/login" className="text-xs text-gray-400 hover:text-gray-600">
-            管理員入口
-          </Link>
         </div>
 
         <div className="mt-8 mb-4 text-center">

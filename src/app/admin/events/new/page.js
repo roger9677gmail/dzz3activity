@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import EventForm from '@/components/events/EventForm';
 
 export default async function NewEventPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'events:manage')) redirect('/admin');
 
   return (
     <div className="p-6 max-w-2xl">

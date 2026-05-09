@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
-import { createSessionResponse } from '@/lib/auth';
+import { buildSessionPayload, createSessionResponse } from '@/lib/auth';
 
 export async function POST(request) {
   try {
@@ -10,8 +10,9 @@ export async function POST(request) {
       return NextResponse.json({ error: '請填寫 Email 及密碼' }, { status: 400 });
     }
 
-    const member = await db.prepare('SELECT * FROM members WHERE email = ? AND role = ?')
-      .get(email.trim().toLowerCase(), 'member');
+    const member = await db.prepare(
+      'SELECT id, name, email, password, is_admin, admin_permissions FROM members WHERE email = ?'
+    ).get(email.trim().toLowerCase());
     if (!member) {
       return NextResponse.json({ error: 'Email 或密碼錯誤' }, { status: 401 });
     }
@@ -21,11 +22,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email 或密碼錯誤' }, { status: 401 });
     }
 
-    return createSessionResponse(
-      { sub: member.id, name: member.name, email: member.email, role: 'member' },
-      { success: true, name: member.name, role: 'member' },
-      false
-    );
+    const payload = buildSessionPayload(member);
+    return createSessionResponse(payload, {
+      success: true,
+      name: member.name,
+      is_admin: payload.is_admin,
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });

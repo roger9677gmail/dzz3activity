@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { APP_VERSION } from '@/lib/version';
@@ -183,8 +184,17 @@ export default function ProfilePage() {
             </button>
           )}
           <h2 className="text-xl font-bold text-temple-dark">{user.name}</h2>
-          <span className="text-sm text-gray-500 mt-1">師兄姐</span>
+          <span className="text-sm text-gray-500 mt-1">{user.is_admin ? '管理員' : '師兄姐'}</span>
         </div>
+
+        {user.is_admin ? (
+          <Link
+            href="/admin"
+            className="block w-full btn-primary text-center text-sm"
+          >
+            🛡️ 進入後台
+          </Link>
+        ) : null}
 
         {/* User info — view or edit */}
         {!editing ? (

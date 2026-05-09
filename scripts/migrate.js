@@ -25,15 +25,17 @@ const config = process.env.DB_SOCKET_PATH
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS members (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(100) NOT NULL,
-  phone       VARCHAR(32),
-  email       VARCHAR(255) NOT NULL,
-  password    VARCHAR(255) NOT NULL,
-  role        VARCHAR(20)  NOT NULL DEFAULT 'member',
-  avatar      MEDIUMTEXT,
-  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name               VARCHAR(100) NOT NULL,
+  phone              VARCHAR(32),
+  email              VARCHAR(255) NOT NULL,
+  password           VARCHAR(255) NOT NULL,
+  role               VARCHAR(20)  NOT NULL DEFAULT 'member',
+  is_admin           TINYINT(1)   NOT NULL DEFAULT 0,
+  admin_permissions  JSON         NULL,
+  avatar             MEDIUMTEXT,
+  created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_members_email (email),
   UNIQUE KEY uk_members_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -180,6 +182,10 @@ CREATE TABLE IF NOT EXISTS email_verifications (
         "ALTER TABLE event_items ADD COLUMN allow_custom_price TINYINT(1) NOT NULL DEFAULT 0 AFTER price"],
       ["ADD members.avatar",
         "ALTER TABLE members ADD COLUMN avatar MEDIUMTEXT AFTER role"],
+      ["ADD members.is_admin",
+        "ALTER TABLE members ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0 AFTER role"],
+      ["ADD members.admin_permissions",
+        "ALTER TABLE members ADD COLUMN admin_permissions JSON NULL AFTER is_admin"],
     ];
     for (const [label, sql] of ALTERS) {
       try {
@@ -192,6 +198,25 @@ CREATE TABLE IF NOT EXISTS email_verifications (
           throw err;
         }
       }
+    }
+
+    // Backfill is_admin / admin_permissions from legacy role column.
+    // Anyone whose role='admin' becomes a full admin with wildcard permissions.
+    try {
+      const [r] = await conn.query(
+        `UPDATE members
+            SET is_admin = 1,
+                admin_permissions = JSON_ARRAY('*')
+          WHERE role = 'admin'
+            AND (is_admin = 0 OR admin_permissions IS NULL)`
+      );
+      if (r.affectedRows > 0) {
+        console.log(`✅ Backfilled is_admin/permissions for ${r.affectedRows} legacy admin(s)`);
+      } else {
+        console.log('ℹ️  No legacy admins to backfill');
+      }
+    } catch (err) {
+      console.log('ℹ️  Skipped admin backfill -', err.code || err.message);
     }
 
     // Idempotent FK / index for the self-referencing gift target.

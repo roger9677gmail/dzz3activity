@@ -3,7 +3,7 @@ import db from '@/lib/db';
 import { withAdminAuth } from '@/lib/middleware';
 
 export const GET = withAdminAuth(async () => {
-  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE role='member'").get()).count;
+  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_admin=0").get()).count;
   const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
   const totalRegistrations = (await db.prepare("SELECT COUNT(*) as count FROM registrations WHERE status != 'cancelled'").get()).count;
   const totalRevenue = (await db.prepare("SELECT SUM(total_amount) as sum FROM registrations WHERE payment_status='paid'").get()).sum || 0;
@@ -15,7 +15,7 @@ export const GET = withAdminAuth(async () => {
       SUM(CASE WHEN r.payment_status='paid' THEN 1 ELSE 0 END) as paid_count,
       SUM(CASE WHEN r.payment_status='unpaid' AND r.status != 'cancelled' THEN 1 ELSE 0 END) as unpaid_count,
       SUM(r.total_amount) as total_amount,
-      (SELECT COUNT(*) FROM members WHERE role='member') -
+      (SELECT COUNT(*) FROM members WHERE is_admin=0) -
         COUNT(CASE WHEN r.status != 'cancelled' THEN 1 END) as unregistered_count
     FROM events e
     LEFT JOIN registrations r ON r.event_id = e.id

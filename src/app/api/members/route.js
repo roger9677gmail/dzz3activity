@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
-export const GET = withAdminAuth(async (request) => {
+export const GET = withPermission('members:manage', async (request) => {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search');
 
-  let query = "SELECT id, name, phone, email, role, created_at FROM members WHERE role = 'member'";
+  let query = "SELECT id, name, phone, email, is_admin, admin_permissions, created_at FROM members WHERE is_admin = 0";
   const params = [];
   if (search) {
     query += ' AND (name LIKE ? OR phone LIKE ?)';

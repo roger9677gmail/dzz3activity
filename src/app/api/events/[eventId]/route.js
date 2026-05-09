@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { withAdminAuth } from '@/lib/middleware';
+import { withPermission } from '@/lib/middleware';
 
 export async function GET(request, { params }) {
   const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
   return NextResponse.json(event);
 }
 
-export const PUT = withAdminAuth(async (request, { params }) => {
+export const PUT = withPermission('events:manage', async (request, { params }) => {
   try {
     const { name, description, start_date, end_date, registration_deadline, location, status, banner_color } = await request.json();
 
@@ -27,7 +27,7 @@ export const PUT = withAdminAuth(async (request, { params }) => {
   }
 });
 
-export const DELETE = withAdminAuth(async (request, { params }) => {
+export const DELETE = withPermission('events:manage', async (request, { params }) => {
   try {
     const event = await db.prepare('SELECT id FROM events WHERE id = ?').get(params.eventId);
     if (!event) return NextResponse.json({ error: '活動不存在' }, { status: 404 });

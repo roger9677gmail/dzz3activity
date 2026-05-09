@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatDate, getEventStatusLabel } from '@/lib/utils';
 import Link from 'next/link';
@@ -8,8 +8,8 @@ import DeleteEventButton from '@/components/events/DeleteEventButton';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminEventsPage() {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'events:manage')) redirect('/admin');
 
   // 排序：報名中 (start_date 遞增) → 草稿 (start_date 遞增) → 已截止 (start_date 遞減)
   const events = await db.prepare(`

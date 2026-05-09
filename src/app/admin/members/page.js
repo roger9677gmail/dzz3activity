@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminMembersPage({ searchParams }) {
-  const session = await getSession(true);
-  if (!session) redirect('/admin/login');
+  const session = await getSession();
+  if (!hasPermission(session, 'members:manage')) redirect('/admin');
 
   const eventId = searchParams.eventId || '';
   const mode = searchParams.mode || 'all'; // 'all' | 'unregistered'
@@ -20,7 +20,7 @@ export default async function AdminMembersPage({ searchParams }) {
     members = await db.prepare(`
       SELECT m.id, m.name, m.phone, m.email, m.created_at
       FROM members m
-      WHERE m.role = 'member'
+      WHERE m.is_admin = 0
         AND m.id NOT IN (
           SELECT r.member_id FROM registrations r
           WHERE r.event_id = ? AND r.status != 'cancelled'
@@ -33,7 +33,7 @@ export default async function AdminMembersPage({ searchParams }) {
       SELECT m.id, m.name, m.phone, m.email, m.created_at,
         (SELECT COUNT(*) FROM registrations r WHERE r.member_id = m.id AND r.status != 'cancelled') as reg_count
       FROM members m
-      WHERE m.role = 'member'
+      WHERE m.is_admin = 0
         ${search ? "AND (m.name LIKE ? OR m.phone LIKE ?)" : ""}
       ORDER BY m.name
     `).all(...(search ? [`%${search}%`, `%${search}%`] : []));
