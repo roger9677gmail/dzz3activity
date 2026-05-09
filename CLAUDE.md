@@ -97,7 +97,7 @@ done
 
 | 表 | 重點欄位 |
 |---|---|
-| `members` | id, name, email (UNIQUE NOT NULL), phone, password, role (legacy), `is_admin` TINYINT, `admin_permissions` JSON, location_id (FK→locations), address |
+| `members` | id, name, email (UNIQUE NOT NULL), phone, password, role (legacy), `is_admin` TINYINT, `admin_permissions` JSON, `is_disabled` TINYINT, location_id (FK→locations), address |
 | `events` | id, name, start_date, end_date, registration_deadline, status, banner_color |
 | `event_items` | event_id, name, price, max_quantity, requires_name, requires_content, sort_order |
 | `registrations` | event_id, member_id, total_amount, payment_status, receipt_number, receipt_title, payment_date, notes |

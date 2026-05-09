@@ -24,7 +24,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [locations, setLocations] = useState([]);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ phone: '', location_id: '', address: '' });
+  const [form, setForm] = useState({ name: '', phone: '', location_id: '', address: '' });
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState('');
@@ -55,6 +55,7 @@ export default function ProfilePage() {
       if (d.user) {
         setUser(d.user);
         setForm({
+          name: d.user.name || '',
           phone: d.user.phone || '',
           location_id: d.user.location_id || '',
           address: d.user.address || '',
@@ -73,6 +74,7 @@ export default function ProfilePage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name: form.name,
           phone: form.phone || null,
           location_id: form.location_id || null,
           address: form.address || null,
@@ -247,6 +249,13 @@ export default function ProfilePage() {
           </div>
         ) : (
           <form onSubmit={handleSave} className="card p-4 space-y-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">姓名 *</label>
+              <input
+                type="text" required className="input-field text-sm"
+                value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Email</label>
               <input type="email" disabled className="input-field text-sm bg-gray-50" value={user.email} />

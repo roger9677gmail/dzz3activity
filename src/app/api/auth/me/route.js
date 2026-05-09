@@ -4,7 +4,7 @@ import db from '@/lib/db';
 
 const ME_QUERY = `
   SELECT m.id, m.name, m.phone, m.email, m.role, m.is_admin, m.admin_permissions,
-         m.avatar, m.created_at, m.location_id, m.address,
+         m.is_disabled, m.avatar, m.created_at, m.location_id, m.address,
          l.name AS location_name
   FROM members m
   LEFT JOIN locations l ON l.id = m.location_id
@@ -22,6 +22,8 @@ export async function GET() {
 
   const member = await db.prepare(ME_QUERY).get(session.sub);
   if (!member) return NextResponse.json({ user: null });
+  // Suspended account: report as logged-out so the client redirects to /login.
+  if (member.is_disabled) return NextResponse.json({ user: null });
   return NextResponse.json({ user: shapeMember(member) });
 }
 
