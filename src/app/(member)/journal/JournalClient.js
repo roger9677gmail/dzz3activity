@@ -178,35 +178,10 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
             )}
           </div>
 
-          {/* Heatmaps per practice */}
-          {subscriptions.length === 0 ? (
+          {subscriptions.length === 0 && (
             <div className="card p-6 text-center text-gray-400">
               <p className="text-sm">尚未訂閱任何功課</p>
               <Link href="/journal/settings" className="text-temple-red text-sm font-medium mt-2 inline-block">前往設定 →</Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {subscriptions.map((p) => {
-                const lbd = logsByDateForPractice(rangeLogs, p.id);
-                return (
-                  <div key={p.id} className="card p-4">
-                    <div className="flex items-baseline justify-between mb-2">
-                      <div className="font-medium text-sm text-gray-800">{p.name}</div>
-                      {p.daily_target != null && p.daily_target > 0 && (
-                        <div className="text-[11px] text-gray-400">
-                          目標 {p.type === 'duration' ? minutesToDurationString(p.daily_target) : `${p.daily_target} ${p.unit_label || '次'}`}
-                        </div>
-                      )}
-                    </div>
-                    <Heatmap
-                      days={90}
-                      logsByDate={lbd}
-                      dailyTarget={p.daily_target}
-                      onCellClick={(d) => setDate(d)}
-                    />
-                  </div>
-                );
-              })}
             </div>
           )}
 
@@ -279,6 +254,34 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
               )}
             </div>
           </div>
+
+          {/* 90-day stats heatmaps per practice */}
+          {subscriptions.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold text-gray-700 px-1">近 90 天修行統計</h2>
+              {subscriptions.map((p) => {
+                const lbd = logsByDateForPractice(rangeLogs, p.id);
+                return (
+                  <div key={p.id} className="card p-4">
+                    <div className="flex items-baseline justify-between mb-2">
+                      <div className="font-medium text-sm text-gray-800">{p.name}</div>
+                      {p.daily_target != null && p.daily_target > 0 && (
+                        <div className="text-[11px] text-gray-400">
+                          目標 {p.type === 'duration' ? minutesToDurationString(p.daily_target) : `${p.daily_target} ${p.unit_label || '次'}`}
+                        </div>
+                      )}
+                    </div>
+                    <Heatmap
+                      days={90}
+                      logsByDate={lbd}
+                      dailyTarget={p.daily_target}
+                      onCellClick={(d) => setDate(d)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
