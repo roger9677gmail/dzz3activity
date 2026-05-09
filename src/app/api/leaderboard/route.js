@@ -28,7 +28,7 @@ export const GET = withAuth(async (request) => {
     locationId = me?.location_id || null;
   }
 
-  const where = ['l.practice_id = ?', 'l.log_date BETWEEN ? AND ?', 'm.is_admin = 0'];
+  const where = ['l.practice_id = ?', 'l.log_date BETWEEN ? AND ?', 'm.is_disabled = 0'];
   const args = [practiceId, from, to];
   if (scope === 'location') {
     if (!locationId) {
