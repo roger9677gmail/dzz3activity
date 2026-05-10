@@ -157,6 +157,44 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
     }
   }
 
+  // ─── Horizontal swipe to change tabs ───────────────────────────────────
+  const TAB_KEYS = ['log', 'public', 'leaderboard'];
+  const currentTabKey = editing ? 'log' : tab;
+  const tabIdx = TAB_KEYS.indexOf(currentTabKey);
+  const touchStart = useRef(null);
+
+  // Swipes that begin inside a horizontally-scrollable container should let
+  // that container handle the gesture (e.g. the practice-chip row in the
+  // leaderboard tab). Walk up the DOM looking for one.
+  function isInsideHScroll(el) {
+    while (el && el !== document.body && el.nodeType === 1) {
+      const ox = el.scrollWidth > el.clientWidth ? getComputedStyle(el).overflowX : '';
+      if (ox === 'auto' || ox === 'scroll') return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  function handleTouchStart(e) {
+    if (e.touches.length !== 1) { touchStart.current = null; return; }
+    if (isInsideHScroll(e.target)) { touchStart.current = null; return; }
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }
+
+  function handleTouchEnd(e) {
+    if (!touchStart.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.current.x;
+    const dy = t.clientY - touchStart.current.y;
+    touchStart.current = null;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax < 60) return;        // too short
+    if (ax < ay * 1.2) return;  // mostly vertical (scroll)
+    if (dx < 0 && tabIdx < TAB_KEYS.length - 1) setTab(TAB_KEYS[tabIdx + 1]);
+    else if (dx > 0 && tabIdx > 0) setTab(TAB_KEYS[tabIdx - 1]);
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -182,6 +220,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
         <Link href="/journal/settings" className="shrink-0 text-sm px-3 py-1.5 rounded-lg bg-white text-gray-600 border border-gray-200 ml-auto">⚙️ 設定</Link>
       </div>
 
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {editing && (
         <div className="p-4 space-y-4">
           {/* Date selector */}
@@ -315,6 +354,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
 
       {tab === 'public' && <PublicNotesTab />}
       {tab === 'leaderboard' && <LeaderboardTab subscriptions={subscriptions} session={session} />}
+      </div>
     </div>
   );
 }
