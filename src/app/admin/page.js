@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatMoney } from '@/lib/utils';
+import { minutesToDurationString } from '@/lib/practices';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,30 @@ export default async function AdminDashboard({ searchParams }) {
     GROUP BY e.id
     ORDER BY e.start_date
   `).all(...(locationId ? [locationId] : []));
+
+  // 修行日誌 90 天統計：每個 active practice 的總值 + 參與人數
+  const journalStats = await db.prepare(`
+    SELECT p.id, p.name, p.type, p.unit_label,
+           COALESCE(COUNT(DISTINCT pl.member_id), 0) AS participants,
+           COALESCE(SUM(pl.value), 0) AS total
+      FROM practices p
+ LEFT JOIN practice_logs pl ON pl.practice_id = p.id
+        AND pl.log_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+ LEFT JOIN members m ON m.id = pl.member_id
+     WHERE p.active = 1
+       AND (m.id IS NULL OR m.is_disabled = 0)
+       ${locationId ? 'AND (m.id IS NULL OR m.location_id = ?)' : ''}
+     GROUP BY p.id
+     ORDER BY p.sort_order, p.id
+  `).all(...(locationId ? [locationId] : []));
+  const journalParticipants = (await db.prepare(`
+    SELECT COUNT(DISTINCT pl.member_id) AS count
+      FROM practice_logs pl
+      JOIN members m ON m.id = pl.member_id
+     WHERE pl.log_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+       AND m.is_disabled = 0
+       ${locationId ? 'AND m.location_id = ?' : ''}
+  `).get(...(locationId ? [locationId] : []))).count;
 
   const stats = [
     { label: '師兄姐總數', value: totalMembers, icon: '👥', color: 'bg-blue-50 text-blue-700' },
@@ -209,14 +234,43 @@ export default async function AdminDashboard({ searchParams }) {
         ))}
       </div>
 
-      {/* Quick links */}
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <Link href="/admin/events/new" className="bg-temple-red text-white rounded-xl p-4 text-center font-medium text-sm hover:bg-temple-red-dark">
-          + 新增活動
-        </Link>
-        <Link href="/admin/reports" className="bg-white border border-gray-200 text-gray-700 rounded-xl p-4 text-center font-medium text-sm hover:bg-gray-50">
-          🔍 報名查詢
-        </Link>
+      {/* 修行日誌 90 天統計 */}
+      <h2 className="text-base font-bold text-gray-700 mt-6 mb-3">
+        近 90 天修行統計
+        <span className="ml-2 text-xs font-normal text-gray-400">
+          參與 {journalParticipants} 位
+          {selectedLocation && ` ・ ${selectedLocation.name}`}
+        </span>
+      </h2>
+      <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+        {journalStats.length === 0 && (
+          <div className="p-6 text-center text-gray-400 text-sm">尚未設定任何功課項目</div>
+        )}
+        {journalStats.map((p) => (
+          <div key={p.id} className="px-4 py-3 flex items-center gap-3">
+            <span className="text-xl shrink-0" aria-hidden="true">
+              {p.type === 'duration' ? '⏱️' : '📿'}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-800">{p.name}</div>
+              <div className="text-xs text-gray-400">
+                {p.participants > 0
+                  ? `${p.participants} 位師兄姐紀錄`
+                  : '近 90 天無人紀錄'}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-base font-bold text-temple-red">
+                {p.type === 'duration'
+                  ? minutesToDurationString(p.total || 0)
+                  : (p.total || 0).toLocaleString('zh-TW')}
+              </div>
+              <div className="text-[11px] text-gray-400">
+                {p.type === 'duration' ? '時:分' : (p.unit_label || '次')}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
