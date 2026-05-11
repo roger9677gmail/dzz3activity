@@ -3,6 +3,7 @@ import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import Link from 'next/link';
 import { parseOptions } from '@/lib/attendance';
+import { safeParseJSON } from '@/lib/utils';
 import AttendanceAdminClient from './AttendanceAdminClient';
 
 export const dynamic = 'force-dynamic';
@@ -38,19 +39,22 @@ export default async function AdminEventAttendancePage({ params }) {
         ORDER BY m.name, (a.attendee_name IS NOT NULL), a.id`
     )
     .all(eventId);
-  for (const r of attendances) {
-    const ans = await db
-      .prepare('SELECT question_id, value FROM event_attendance_answers WHERE attendance_id = ?')
-      .all(r.id);
-    const map = {};
-    for (const a of ans) {
-      let v = a.value;
-      if (typeof v === 'string') {
-        try { v = JSON.parse(v); } catch {}
-      }
-      map[a.question_id] = v;
+  for (const r of attendances) r.answers = {};
+  if (attendances.length > 0) {
+    const ids = attendances.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const allAns = await db
+      .prepare(
+        `SELECT attendance_id, question_id, value
+           FROM event_attendance_answers
+          WHERE attendance_id IN (${placeholders})`
+      )
+      .all(...ids);
+    const byAtt = new Map(attendances.map((r) => [r.id, r]));
+    for (const a of allAns) {
+      const r = byAtt.get(a.attendance_id);
+      if (r) r.answers[a.question_id] = safeParseJSON(a.value, {});
     }
-    r.answers = map;
   }
 
   return (

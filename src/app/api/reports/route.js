@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
+import { safeParseJSON } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,14 +19,6 @@ const HEADERS = [
   '地址',
   '道場',
 ];
-
-function safeParse(val) {
-  if (!val) return [];
-  try {
-    const v = JSON.parse(val);
-    return Array.isArray(v) ? v : [];
-  } catch { return []; }
-}
 
 function fmtDate(d) {
   if (!d) return '';
@@ -73,8 +66,8 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
 
     let giftCounter = 0;
     for (const it of items) {
-      const namesArr = safeParse(it.names);
-      const contentsArr = safeParse(it.contents);
+      const namesArr = safeParseJSON(it.names);
+      const contentsArr = safeParseJSON(it.contents);
       const qty = it.quantity || 1;
       const unit = qty > 0 ? Math.round((it.subtotal || 0) / qty) : (it.subtotal || 0);
       for (let i = 0; i < qty; i++) {

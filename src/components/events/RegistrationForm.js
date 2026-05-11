@@ -1,15 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, safeParseJSON } from '@/lib/utils';
 
 function safeParseArray(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) return v;
-  try {
-    const p = JSON.parse(v);
-    return Array.isArray(p) ? p : [];
-  } catch { return []; }
+  const p = safeParseJSON(v, []);
+  return Array.isArray(p) ? p : [];
 }
 
 // Reconstruct form state from a saved registration so the user can edit it.

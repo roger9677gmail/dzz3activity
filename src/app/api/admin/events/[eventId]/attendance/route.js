@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
 import { parseOptions } from '@/lib/attendance';
+import { safeParseJSON } from '@/lib/utils';
 
 export const GET = withPermission('attendance:manage', async (request, { params }) => {
   const eventId = parseInt(params.eventId);
@@ -34,19 +35,22 @@ export const GET = withPermission('attendance:manage', async (request, { params 
     )
     .all(eventId);
 
-  for (const r of rows) {
-    const ans = await db
-      .prepare('SELECT question_id, value FROM event_attendance_answers WHERE attendance_id = ?')
-      .all(r.id);
-    const map = {};
-    for (const a of ans) {
-      let v = a.value;
-      if (typeof v === 'string') {
-        try { v = JSON.parse(v); } catch {}
-      }
-      map[a.question_id] = v;
+  for (const r of rows) r.answers = {};
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const allAns = await db
+      .prepare(
+        `SELECT attendance_id, question_id, value
+           FROM event_attendance_answers
+          WHERE attendance_id IN (${placeholders})`
+      )
+      .all(...ids);
+    const byAtt = new Map(rows.map((r) => [r.id, r]));
+    for (const a of allAns) {
+      const r = byAtt.get(a.attendance_id);
+      if (r) r.answers[a.question_id] = safeParseJSON(a.value, {});
     }
-    r.answers = map;
   }
 
   return NextResponse.json({ event, questions, attendances: rows });

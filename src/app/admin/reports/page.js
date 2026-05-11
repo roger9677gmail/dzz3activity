@@ -147,12 +147,8 @@ async function loadAttendanceRows(eventId, groupIds) {
     .all(...ids);
   const byAtt = new Map();
   for (const a of ans) {
-    let v = a.value;
-    if (typeof v === 'string') {
-      try { v = JSON.parse(v); } catch {}
-    }
     if (!byAtt.has(a.attendance_id)) byAtt.set(a.attendance_id, {});
-    byAtt.get(a.attendance_id)[a.question_id] = v;
+    byAtt.get(a.attendance_id)[a.question_id] = safeParseJSON(a.value, {});
   }
   for (const r of rows) {
     r.answers_pretty = questions.map((q) => ({

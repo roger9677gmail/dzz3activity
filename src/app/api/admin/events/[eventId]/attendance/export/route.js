@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
 import { parseOptions, formatAnswer } from '@/lib/attendance';
+import { safeParseJSON } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,21 +44,23 @@ export const GET = withPermission('attendance:manage', async (request, { params 
   sql += ' ORDER BY m.name, (a.attendee_name IS NOT NULL), a.id';
   const rows = await db.prepare(sql).all(...args);
 
-  // Pre-fetch answers grouped by attendance.id
+  // Pre-fetch all answers in a single query, grouped by attendance.id.
   const answers = {};
-  for (const r of rows) {
-    const ans = await db
-      .prepare('SELECT question_id, value FROM event_attendance_answers WHERE attendance_id = ?')
-      .all(r.id);
-    const map = {};
-    for (const a of ans) {
-      let v = a.value;
-      if (typeof v === 'string') {
-        try { v = JSON.parse(v); } catch {}
-      }
-      map[a.question_id] = v;
+  for (const r of rows) answers[r.id] = {};
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const allAns = await db
+      .prepare(
+        `SELECT attendance_id, question_id, value
+           FROM event_attendance_answers
+          WHERE attendance_id IN (${placeholders})`
+      )
+      .all(...ids);
+    for (const a of allAns) {
+      if (!answers[a.attendance_id]) continue;
+      answers[a.attendance_id][a.question_id] = safeParseJSON(a.value, {});
     }
-    answers[r.id] = map;
   }
 
   // Build column layout. multi_date types fan out into one column per date.

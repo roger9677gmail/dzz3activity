@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, safeParseJSON } from '@/lib/utils';
 import PaymentForm from '@/components/registrations/PaymentForm';
 
 export default function AdminRegistrationsClient({ registrations, events, initialFilters }) {
@@ -92,8 +92,8 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                 <div className="px-4 pb-4 border-t border-gray-100 pt-3">
                   <div className="mb-3 space-y-1">
                     {reg.items.map((item) => {
-                      const names = item.names ? JSON.parse(item.names) : [];
-                      const contents = item.contents ? JSON.parse(item.contents) : [];
+                      const names = safeParseJSON(item.names);
+                      const contents = safeParseJSON(item.contents);
                       return (
                         <div key={item.id} className="text-sm">
                           <div>
