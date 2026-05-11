@@ -21,11 +21,30 @@ export default async function EventsPage() {
     ev.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
   }
 
-  // Which events has this member registered for?
-  const myRegRows = await db
-    .prepare("SELECT event_id FROM registrations WHERE member_id = ? AND status != 'cancelled'")
+  // Pull this member's registrations (one per event by the UNIQUE constraint),
+  // along with their items — so the EventCard can render a full summary inline.
+  const myRegs = await db
+    .prepare(
+      `SELECT id, event_id, status, total_amount, payment_status,
+              receipt_number, receipt_title, payment_date, notes, created_at
+         FROM registrations
+        WHERE member_id = ? AND status != 'cancelled'`
+    )
     .all(session.sub);
-  const myRegistrationIds = new Set(myRegRows.map((r) => r.event_id));
+  for (const reg of myRegs) {
+    reg.items = await db
+      .prepare(
+        `SELECT ri.id, ri.quantity, ri.names, ri.contents, ri.subtotal, ri.is_gift,
+                ei.name AS item_name
+           FROM registration_items ri
+           JOIN event_items ei ON ei.id = ri.event_item_id
+          WHERE ri.registration_id = ?
+          ORDER BY ri.is_gift, ri.id`
+      )
+      .all(reg.id);
+  }
+  const regByEventId = new Map(myRegs.map((r) => [r.event_id, r]));
+  const myRegistrationIds = new Set(myRegs.map((r) => r.event_id));
 
   const upcoming = events.filter((e) => e.status === 'active');
   const past = events.filter((e) => e.status !== 'active');
@@ -50,7 +69,7 @@ export default async function EventsPage() {
             <h2 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wide">報名中</h2>
             <div className="space-y-3">
               {upcoming.map((ev) => (
-                <EventCard key={ev.id} event={ev} isRegistered={myRegistrationIds.has(ev.id)} />
+                <EventCard key={ev.id} event={ev} isRegistered={myRegistrationIds.has(ev.id)} registration={regByEventId.get(ev.id) || null} />
               ))}
             </div>
           </section>
@@ -61,7 +80,7 @@ export default async function EventsPage() {
             <h2 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wide">已截止</h2>
             <div className="space-y-3">
               {past.map((ev) => (
-                <EventCard key={ev.id} event={ev} isRegistered={myRegistrationIds.has(ev.id)} />
+                <EventCard key={ev.id} event={ev} isRegistered={myRegistrationIds.has(ev.id)} registration={regByEventId.get(ev.id) || null} />
               ))}
             </div>
           </section>
