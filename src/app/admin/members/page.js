@@ -40,15 +40,15 @@ export default async function AdminMembersPage({ searchParams }) {
   } else {
     const disabledFilter = showDisabled ? '' : 'AND m.is_disabled = 0';
     members = await db.prepare(`
-      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.created_at,
+      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.is_admin, m.created_at,
              l.name AS location_name,
         (SELECT COUNT(*) FROM registrations r WHERE r.member_id = m.id AND r.status != 'cancelled') as reg_count
       FROM members m
       LEFT JOIN locations l ON l.id = m.location_id
-      WHERE m.is_admin = 0
+      WHERE 1=1
         ${disabledFilter}
         ${search ? "AND (m.name LIKE ? OR m.phone LIKE ?)" : ""}
-      ORDER BY m.name
+      ORDER BY m.is_admin DESC, m.name
     `).all(...(search ? [`%${search}%`, `%${search}%`] : []));
   }
 

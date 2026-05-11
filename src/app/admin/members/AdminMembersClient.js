@@ -176,6 +176,9 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-400 mr-1">{idx + 1}.</span>
                   <span className="font-medium text-gray-800">{m.name}</span>
+                  {m.is_admin ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-temple-red text-white">👑 管理員</span>
+                  ) : null}
                   {m.is_disabled ? (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">已停用</span>
                   ) : null}
@@ -204,7 +207,9 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                     <button onClick={() => startEdit(m)} className="text-blue-600">編輯</button>
                     <button
                       onClick={() => toggleDisabled(m)}
-                      className={m.is_disabled ? 'text-temple-red' : 'text-red-500'}
+                      disabled={!!m.is_admin}
+                      title={m.is_admin ? '請先到「管理員設定」撤銷後台權限再停用帳號' : ''}
+                      className={`${m.is_disabled ? 'text-temple-red' : 'text-red-500'} disabled:text-gray-300 disabled:cursor-not-allowed`}
                     >
                       {m.is_disabled ? '啟用' : '停用'}
                     </button>
