@@ -351,7 +351,7 @@ export default function EventForm({ event = null }) {
         </div>
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
+      {error && <div role="alert" aria-live="polite" className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
 
       <div className="flex gap-3">
         <button type="button" onClick={() => router.back()} className="flex-1 btn-secondary">取消</button>

@@ -192,7 +192,7 @@ export default function AdminPracticesClient({ practices }) {
               onChange={(e) => setForm((p) => ({ ...p, sort_order: e.target.value }))}
             />
           </div>
-          {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
+          {error && <div role="alert" aria-live="polite" className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
           <div className="flex gap-2">
             <button type="button" onClick={() => { setShowForm(false); setError(''); }} className="btn-secondary flex-1">取消</button>
             <button type="submit" disabled={submitting} className="btn-primary flex-1">

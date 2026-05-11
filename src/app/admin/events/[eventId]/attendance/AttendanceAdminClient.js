@@ -134,8 +134,8 @@ function QuestionsEditor({ eventId, initial }) {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 text-sm">
-                <button onClick={() => move(q, -1)} disabled={idx === 0} className="text-gray-500 disabled:text-gray-300">↑</button>
-                <button onClick={() => move(q, +1)} disabled={idx === initial.length - 1} className="text-gray-500 disabled:text-gray-300">↓</button>
+                <button onClick={() => move(q, -1)} disabled={idx === 0} aria-label="上移" className="text-gray-500 disabled:text-gray-300">↑</button>
+                <button onClick={() => move(q, +1)} disabled={idx === initial.length - 1} aria-label="下移" className="text-gray-500 disabled:text-gray-300">↓</button>
                 <button onClick={() => { setEditingId(q.id); setDraftEdit({ label: q.label, type: q.type, options: q.options, required: !!q.required, active: q.active !== 0 }); }} className="text-blue-600">編輯</button>
                 <button onClick={() => remove(q)} className="text-red-500">刪除</button>
               </div>

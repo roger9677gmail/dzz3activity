@@ -140,13 +140,17 @@ function DurationInput({ practice, value, onChange }) {
       {/* Quick presets for common meditation increments */}
       <div className="flex gap-1.5 mt-2 flex-wrap">
         <button type="button" onClick={() => bump(10)}
+          aria-label={`${practice.name} 增加 10 分鐘`}
           className="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">+10 分</button>
         <button type="button" onClick={() => bump(30)}
+          aria-label={`${practice.name} 增加 30 分鐘`}
           className="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">+30 分</button>
         <button type="button" onClick={() => bump(60)}
+          aria-label={`${practice.name} 增加 1 小時`}
           className="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">+1 時</button>
         {(hours > 0 || mins > 0) && (
           <button type="button" onClick={() => { setHours(0); setMins(0); commit(0, 0); }}
+            aria-label={`清除 ${practice.name} 紀錄`}
             className="text-[11px] px-2 py-1 rounded-full text-gray-400 hover:text-red-500 ml-auto">清除</button>
         )}
       </div>
