@@ -104,8 +104,6 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
     }
   }
 
-  const [addOpenId, setAddOpenId] = useState(null);
-
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       {members.length === 0 && (
@@ -215,58 +213,33 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                   <div className="text-xs text-gray-400">{m.location_name || ''}{m.location_name && m.address ? ' ・ ' : ''}{m.address || ''}</div>
                 )}
                 <div className="flex flex-wrap gap-1 mt-1 items-center">
-                  {(m.groups || []).map((g) => {
+                  {groups.map((g) => {
                     const isMirror = g.location_id != null;
+                    const isMember = (m.groups || []).some((mg) => mg.id === g.id);
                     const key = `${m.id}-${g.id}`;
+                    const busy = busyChipId === key;
                     return (
                       <button
                         key={g.id}
                         type="button"
-                        onClick={() => !isMirror && toggleGroupMembership(m, g.id, true)}
-                        disabled={isMirror || busyChipId === key}
-                        title={isMirror ? '道場鏡射群組依「所屬道場」自動套用' : '點擊將此師兄姐移出群組'}
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full text-white transition-opacity ${
-                          isMirror ? 'cursor-not-allowed opacity-80' : 'hover:opacity-80 cursor-pointer'
-                        } ${busyChipId === key ? 'opacity-50' : ''}`}
-                        style={{ backgroundColor: g.color || '#8B1A1A' }}
+                        onClick={() => !isMirror && toggleGroupMembership(m, g.id, isMember)}
+                        disabled={isMirror || busy}
+                        title={isMirror
+                          ? '道場鏡射群組依「所屬道場」自動套用'
+                          : (isMember ? '點擊將此師兄姐移出群組' : '點擊將此師兄姐加入群組')}
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-opacity ${
+                          isMember
+                            ? 'text-white border-transparent'
+                            : 'text-gray-600 bg-white border-gray-300 hover:bg-gray-50'
+                        } ${isMirror ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${
+                          busy ? 'opacity-50' : ''
+                        }`}
+                        style={isMember ? { backgroundColor: g.color || '#8B1A1A' } : {}}
                       >
-                        {isMirror ? `🏯 ${g.name}` : g.name} {!isMirror && '✕'}
+                        {isMirror ? `🏯 ${g.name}` : g.name}
                       </button>
                     );
                   })}
-                  {canEdit && (() => {
-                    const memberIds = new Set((m.groups || []).map((g) => g.id));
-                    const available = groups.filter((g) => !memberIds.has(g.id) && g.location_id == null);
-                    if (available.length === 0) return null;
-                    return addOpenId === m.id ? (
-                      <span className="inline-flex flex-wrap gap-1 items-center bg-gray-100 rounded-full px-1.5 py-0.5">
-                        {available.map((g) => {
-                          const key = `${m.id}-${g.id}`;
-                          return (
-                            <button
-                              key={g.id}
-                              type="button"
-                              onClick={async () => { await toggleGroupMembership(m, g.id, false); setAddOpenId(null); }}
-                              disabled={busyChipId === key}
-                              className="text-[10px] px-1.5 py-0.5 rounded-full text-white hover:opacity-80 disabled:opacity-50"
-                              style={{ backgroundColor: g.color || '#8B1A1A' }}
-                            >
-                              + {g.name}
-                            </button>
-                          );
-                        })}
-                        <button type="button" onClick={() => setAddOpenId(null)} className="text-[10px] text-gray-500 px-1">取消</button>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setAddOpenId(m.id)}
-                        className="text-[10px] px-1.5 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-500 hover:border-temple-red hover:text-temple-red"
-                      >
-                        + 加群組
-                      </button>
-                    );
-                  })()}
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0 text-sm">
