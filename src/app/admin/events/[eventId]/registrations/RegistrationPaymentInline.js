@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, safeParseJSON } from '@/lib/utils';
 import PaymentForm from '@/components/registrations/PaymentForm';
 
 export default function RegistrationPaymentInline({ reg }) {
@@ -43,7 +43,7 @@ export default function RegistrationPaymentInline({ reg }) {
           {/* Items detail */}
           <div className="mb-3 space-y-1">
             {reg.items.map((item) => {
-              const names = item.names ? JSON.parse(item.names) : [];
+              const names = safeParseJSON(item.names);
               return (
                 <div key={item.id} className="text-sm">
                   <span className="text-gray-700">{item.item_name} × {item.quantity}</span>

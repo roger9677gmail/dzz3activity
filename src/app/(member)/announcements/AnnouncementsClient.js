@@ -1,10 +1,6 @@
 'use client';
 import { useState } from 'react';
-
-function fmt(v) {
-  if (!v) return '';
-  return String(v).slice(0, 16).replace('T', ' ');
-}
+import { formatDateTime as fmt } from '@/lib/utils';
 
 export default function AnnouncementsClient({ announcements }) {
   const [openId, setOpenId] = useState(null);

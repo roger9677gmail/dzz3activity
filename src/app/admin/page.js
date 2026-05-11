@@ -25,6 +25,12 @@ export default async function AdminDashboard() {
     JOIN members m ON m.id = r.member_id
     WHERE r.payment_status='unpaid' AND r.status != 'cancelled' AND m.is_disabled = 0
   `).get()).count;
+  const attendanceCount = (await db.prepare(`
+    SELECT COUNT(*) as count FROM event_attendance a
+    JOIN members m ON m.id = a.member_id
+    JOIN events e ON e.id = a.event_id
+    WHERE m.is_disabled = 0 AND e.status = 'active'
+  `).get()).count;
 
   const eventStats = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.status, e.banner_color,
@@ -44,6 +50,7 @@ export default async function AdminDashboard() {
     { label: '師兄姐總數', value: totalMembers, icon: '👥', color: 'bg-blue-50 text-blue-700' },
     { label: '進行中活動', value: totalEvents, icon: '🏛️', color: 'bg-purple-50 text-purple-700' },
     { label: '總報名數', value: totalRegistrations, icon: '📋', color: 'bg-green-50 text-green-700' },
+    { label: '活動登記人次', value: attendanceCount, icon: '🪷', color: 'bg-pink-50 text-pink-700' },
     { label: '待繳款', value: unpaidCount, icon: '💰', color: 'bg-yellow-50 text-yellow-700' },
   ];
 
@@ -55,10 +62,10 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {stats.map((s) => (
           <div key={s.label} className={`rounded-xl p-4 ${s.color}`}>
-            <div className="text-2xl mb-1">{s.icon}</div>
+            <div className="text-2xl mb-1" aria-hidden="true">{s.icon}</div>
             <div className="text-2xl font-bold">{s.value}</div>
             <div className="text-sm opacity-75">{s.label}</div>
           </div>

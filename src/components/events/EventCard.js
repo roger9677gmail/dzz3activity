@@ -6,6 +6,7 @@ import {
   isDeadlinePassed,
   getStatusLabel,
   getPaymentStatusLabel,
+  safeParseJSON,
 } from '@/lib/utils';
 
 export default function EventCard({ event, isRegistered = false, registration = null, attendance = [] }) {
@@ -71,8 +72,8 @@ export default function EventCard({ event, isRegistered = false, registration = 
         {isRegistered && registration && registration.items?.length > 0 && (
           <div className="mt-3 space-y-1">
             {registration.items.map((item) => {
-              const names = item.names ? safeParse(item.names) : [];
-              const contents = item.contents ? safeParse(item.contents) : [];
+              const names = safeParseJSON(item.names);
+              const contents = safeParseJSON(item.contents);
               return (
                 <div key={item.id} className="text-sm">
                   <div>
@@ -171,9 +172,3 @@ export default function EventCard({ event, isRegistered = false, registration = 
   );
 }
 
-function safeParse(json) {
-  try {
-    const v = JSON.parse(json);
-    return Array.isArray(v) ? v : [];
-  } catch { return []; }
-}

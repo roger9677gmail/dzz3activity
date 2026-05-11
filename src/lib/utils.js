@@ -51,3 +51,16 @@ export function getEventStatusLabel(status) {
   };
   return map[status] || status;
 }
+
+// Parse a JSON string defensively. Returns `fallback` (default []) on any error
+// or if input is null/empty. Use anywhere we read JSON columns (names/contents,
+// attendance answers, etc.) so a single malformed row doesn't crash the page.
+export function safeParseJSON(value, fallback = []) {
+  if (value == null || value === '') return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
