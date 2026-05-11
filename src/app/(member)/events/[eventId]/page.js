@@ -61,10 +61,14 @@ export default async function EventDetailPage({ params }) {
   return (
     <div>
       <div className="page-header">
-        <div className="flex items-center gap-2">
-          <Link href="/events" className="text-red-200 text-sm">← 返回</Link>
-          <h1 className="text-lg font-bold">{event.name}</h1>
-        </div>
+        <Link
+          href="/events"
+          className="inline-flex items-center gap-1 text-sm font-medium text-white bg-black/25 hover:bg-black/40 active:bg-black/50 transition-colors rounded-full px-3 py-1.5 mb-2"
+          aria-label="返回活動列表"
+        >
+          <span aria-hidden="true">←</span> 返回
+        </Link>
+        <h1 className="text-lg font-bold">{event.name}</h1>
       </div>
 
       <div className="p-4 space-y-4">

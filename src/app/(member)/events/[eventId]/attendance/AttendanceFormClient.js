@@ -22,8 +22,14 @@ export default function AttendanceFormClient({ event, questions, entries, relati
   return (
     <div>
       <div className="page-header" style={{ backgroundColor: event.banner_color || '#8B1A1A' }}>
-        <Link href={`/events/${event.id}`} className="text-red-200 text-xs">← 回活動</Link>
-        <h1 className="text-lg font-bold mt-1">{event.name} ・ 活動登記</h1>
+        <Link
+          href={`/events/${event.id}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-white bg-black/25 hover:bg-black/40 active:bg-black/50 transition-colors rounded-full px-3 py-1.5 mb-2"
+          aria-label="返回活動詳情"
+        >
+          <span aria-hidden="true">←</span> 回活動
+        </Link>
+        <h1 className="text-lg font-bold">{event.name} ・ 活動登記</h1>
       </div>
 
       {questions.length === 0 ? (
