@@ -13,6 +13,8 @@ const KNOWN_PERMS = new Set([
   'reports:view',
   'notifications:send',
   'practices:manage',
+  'announcements:manage',
+  'groups:manage',
 ]);
 
 function sanitizePermissions(input) {

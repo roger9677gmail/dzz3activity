@@ -17,6 +17,7 @@ export default async function AdminMembersPage({ searchParams }) {
 
   const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
   const locations = await db.prepare('SELECT id, name FROM locations WHERE active=1 ORDER BY sort_order, id').all();
+  const allGroups = await db.prepare('SELECT id, name, color, sort_order FROM member_groups WHERE active=1 ORDER BY sort_order, id').all();
 
   let members;
   if (mode === 'unregistered' && eventId) {
@@ -47,6 +48,17 @@ export default async function AdminMembersPage({ searchParams }) {
         ${search ? "AND (m.name LIKE ? OR m.phone LIKE ?)" : ""}
       ORDER BY m.name
     `).all(...(search ? [`%${search}%`, `%${search}%`] : []));
+  }
+
+  // Attach group tags
+  for (const m of members) {
+    m.groups = await db.prepare(`
+      SELECT g.id, g.name, g.color
+        FROM member_group_assignments a
+        JOIN member_groups g ON g.id = a.group_id
+       WHERE a.member_id = ?
+       ORDER BY g.sort_order, g.id
+    `).all(m.id);
   }
 
   return (
@@ -118,6 +130,7 @@ export default async function AdminMembersPage({ searchParams }) {
       <AdminMembersClient
         members={members}
         locations={locations}
+        groups={allGroups}
         canEdit={mode === 'all'}
         emptyMessage={mode === 'unregistered' ? '所有師兄姐均已報名此活動 🎉' : '無師兄姐資料'}
       />

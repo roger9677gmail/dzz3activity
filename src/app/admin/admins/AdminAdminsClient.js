@@ -12,6 +12,8 @@ const PERMISSION_OPTIONS = [
   { key: 'reports:view', label: '報表匯出' },
   { key: 'notifications:send', label: '推播通知' },
   { key: 'practices:manage', label: '功課項目管理' },
+  { key: 'announcements:manage', label: '公告訊息管理' },
+  { key: 'groups:manage', label: '群組標籤管理' },
 ];
 
 function summarize(perms) {

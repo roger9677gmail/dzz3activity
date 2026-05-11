@@ -54,16 +54,44 @@ export const PATCH = withPermission('members:manage', async (request, { params }
       args.push(body.is_disabled ? 1 : 0);
     }
 
-    if (sets.length === 0) return NextResponse.json({ error: '沒有可更新的欄位' }, { status: 400 });
-    args.push(id);
+    // group_ids handled separately below.
+    const groupIds = Array.isArray(body.group_ids) ? body.group_ids : null;
 
-    try {
-      await db.prepare(`UPDATE members SET ${sets.join(', ')} WHERE id = ?`).run(...args);
-    } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY' || /Duplicate entry/i.test(err.message || '')) {
-        return NextResponse.json({ error: '此電話號碼已被其他帳號使用' }, { status: 409 });
+    if (sets.length === 0 && groupIds === null) {
+      return NextResponse.json({ error: '沒有可更新的欄位' }, { status: 400 });
+    }
+
+    if (sets.length > 0) {
+      args.push(id);
+      try {
+        await db.prepare(`UPDATE members SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+      } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY' || /Duplicate entry/i.test(err.message || '')) {
+          return NextResponse.json({ error: '此電話號碼已被其他帳號使用' }, { status: 409 });
+        }
+        throw err;
       }
-      throw err;
+    }
+
+    if (groupIds !== null) {
+      const cleanIds = [...new Set(groupIds.map((g) => parseInt(g)).filter((n) => Number.isInteger(n) && n > 0))];
+      // Validate IDs exist
+      if (cleanIds.length > 0) {
+        const placeholders = cleanIds.map(() => '?').join(',');
+        const found = await db
+          .prepare(`SELECT id FROM member_groups WHERE id IN (${placeholders})`)
+          .all(...cleanIds);
+        if (found.length !== cleanIds.length) {
+          return NextResponse.json({ error: '指定的群組不存在' }, { status: 400 });
+        }
+      }
+      // Replace assignments
+      await db.prepare('DELETE FROM member_group_assignments WHERE member_id = ?').run(id);
+      for (const gid of cleanIds) {
+        await db
+          .prepare('INSERT INTO member_group_assignments (member_id, group_id) VALUES (?, ?)')
+          .run(id, gid);
+      }
     }
 
     return NextResponse.json({ success: true });

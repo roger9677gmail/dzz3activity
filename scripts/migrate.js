@@ -207,6 +207,57 @@ CREATE TABLE IF NOT EXISTS practice_notes (
   INDEX idx_note_public (is_public, created_at),
   CONSTRAINT fk_note_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_groups (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(50) NOT NULL UNIQUE,
+  color       VARCHAR(20) NOT NULL DEFAULT '#8B1A1A',
+  sort_order  INT NOT NULL DEFAULT 0,
+  active      TINYINT(1) NOT NULL DEFAULT 1,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_group_assignments (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  group_id    INT UNSIGNED NOT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_member_group (member_id, group_id),
+  INDEX idx_mga_member (member_id),
+  INDEX idx_mga_group (group_id),
+  CONSTRAINT fk_mga_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+  CONSTRAINT fk_mga_group  FOREIGN KEY (group_id)  REFERENCES member_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS announcements (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title           VARCHAR(200) NOT NULL,
+  content         TEXT,
+  image           MEDIUMTEXT NULL,
+  link_url        VARCHAR(500) NULL,
+  attachment_url  VARCHAR(500) NULL,
+  attachment_name VARCHAR(255) NULL,
+  pinned          TINYINT(1) NOT NULL DEFAULT 0,
+  starts_at       DATETIME NULL,
+  ends_at         DATETIME NULL,
+  created_by      INT UNSIGNED NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_ann_visibility (pinned, created_at),
+  INDEX idx_ann_window (starts_at, ends_at),
+  CONSTRAINT fk_ann_creator FOREIGN KEY (created_by) REFERENCES members(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS announcement_groups (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  announcement_id INT UNSIGNED NOT NULL,
+  group_id        INT UNSIGNED NOT NULL,
+  UNIQUE KEY uk_ann_group (announcement_id, group_id),
+  INDEX idx_ag_ann (announcement_id),
+  INDEX idx_ag_group (group_id),
+  CONSTRAINT fk_ag_ann   FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ag_group FOREIGN KEY (group_id)        REFERENCES member_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {
@@ -404,6 +455,32 @@ CREATE TABLE IF NOT EXISTS practice_notes (
       } else {
         console.log(`ℹ️  Location exists: ${name}`);
       }
+    }
+
+    // Seed default member group "全體師兄姐" and backfill assignments for all
+    // existing members so admins always have a sane "broadcast to everyone"
+    // target when authoring announcements.
+    console.log('— Member groups seed —');
+    try {
+      const [rs] = await conn.query(
+        `INSERT IGNORE INTO member_groups (name, sort_order, color) VALUES (?, ?, ?)`,
+        ['全體師兄姐', 0, '#8B1A1A']
+      );
+      if (rs.affectedRows > 0) console.log('✅ Seeded group: 全體師兄姐');
+      else console.log('ℹ️  Group exists: 全體師兄姐');
+    } catch (err) {
+      console.log('ℹ️  Skipped group seed -', err.code || err.message);
+    }
+    try {
+      const [r] = await conn.query(`
+        INSERT IGNORE INTO member_group_assignments (member_id, group_id)
+        SELECT m.id, g.id
+          FROM members m
+          JOIN member_groups g ON g.name = '全體師兄姐'
+      `);
+      console.log(`✅ Assigned ${r.affectedRows} member(s) to 全體師兄姐`);
+    } catch (err) {
+      console.log('ℹ️  Skipped group backfill -', err.code || err.message);
     }
 
     // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).

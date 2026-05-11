@@ -25,7 +25,9 @@ v<YYMMDD>.<SS>
 
 1. **每次改版必須更新版號**。即使只是小改 UI 字、改一行 bug，只要要部署上線就要 bump。
 2. **同一天再次改版**，`SS` 加 1（`v260509.01` → `v260509.02`）。
-3. **跨日**重新從 `01` 起算（`v260509.05` → `v260510.01`）。
+3. **跨日**重新從 `01` 起算（`v260509.05` → `v260510.01`）。⚠️ 一定要看當天日期、不要沿用前一天的 YYMMDD。
+   - ❌ 錯誤：今天 5/11，繼續用 `v260509.17`
+   - ✅ 正確：今天 5/11，改用 `v260511.01`
 4. **單一 source of truth**：版號定義在 `src/lib/version.js`，整個專案都從這裡 import，不要在其他地方寫死。
 5. **登入頁底部必顯示版號**（會員 `/login` 與管理員 `/admin/login` 都要）；個人資料頁「關於本系統」也會顯示。
 6. 版號 bump 與功能修改 **同一個 commit**，避免漏更新。
@@ -108,6 +110,10 @@ done
 | `member_practices` | member_id, practice_id (UNIQUE pair), daily_target, active — 師兄姐訂閱 |
 | `practice_logs` | member_id, practice_id, log_date, value (UNIQUE 三聯) — 每日紀錄；count 為次數、duration 為分鐘 |
 | `practice_notes` | member_id, log_date, content, is_public — 修行筆記 |
+| `member_groups` | id, name (UNIQUE), color, sort_order, active — 群組主檔；預設「全體師兄姐」自動套到所有師兄姐 |
+| `member_group_assignments` | member_id, group_id (UNIQUE pair) — 師兄姐 ↔ 群組 |
+| `announcements` | id, title, content, image (data:URL), link_url, attachment_url, pinned, starts_at, ends_at, created_by |
+| `announcement_groups` | announcement_id, group_id (UNIQUE pair) — 公告 ↔ 目標群組 |
 
 ### 後台權限模型
 
@@ -118,6 +124,7 @@ done
   - `events:manage`、`registrations:manage`、`members:manage`、`locations:manage`
   - `admins:manage`（含指派/撤銷管理員與權限）
   - `reports:view`、`notifications:send`、`practices:manage`
+  - `announcements:manage`、`groups:manage`
 - API：用 `withPermission('xxx:yyy', handler)` 或 `withAdminAuth(handler)` 包裝。
 - UI：`AdminSidebar` 依當前 session 的 `permissions` 過濾選單；無權的頁面會 server-side redirect 回 `/admin`。
 - 撤銷管理員不會刪除師兄姐帳號，只是 `is_admin=0` 並清空 `admin_permissions`，報名紀錄全部保留。
@@ -129,6 +136,18 @@ done
 - 功課主檔由 `practices:manage` 管理員在 `/admin/practices` 維護；type=count 存次數、type=duration 存分鐘。
 - 排名指標：近 90 天 `SUM(value)` per member；可切「全體 / 同道場」。
 - `practice_notes.is_public=1` 才會出現在大眾分享 feed (`/api/notes/public`)，作者可隨時切換私人/公開。
+
+### 公告訊息 + 群組標籤
+
+- 底部 nav 第二項是「公告訊息」(`/announcements`)，已取代舊「報名紀錄」。報名歷史改在「法會活動」卡片內就地顯示。
+- 群組主檔 `/admin/groups`（需 `groups:manage`）。預設 `全體師兄姐` 群組由 migration seed、所有新註冊師兄姐自動加入，無法刪除。
+- 公告主檔 `/admin/announcements`（需 `announcements:manage`）：
+  - 圖片內嵌 data:URL（client 端 resize 至 1280px / JPEG 0.85），跟 avatar 同模式
+  - 外部連結 / 附件連結為純 URL（沒有實體上傳）
+  - `pinned=1` 在師兄姐端釘最上
+  - `starts_at` / `ends_at` 控制可見區間；NULL 等於開放
+  - 必須選至少一個目標群組
+- `/api/announcements` (GET) 自動依師兄姐所屬群組過濾，置頂 → 新→舊排序。
 
 ### 報表 (Excel 匯出)
 

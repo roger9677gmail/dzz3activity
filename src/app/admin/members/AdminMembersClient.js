@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export default function AdminMembersClient({ members, locations, canEdit, emptyMessage }) {
+export default function AdminMembersClient({ members, locations, groups = [], canEdit, emptyMessage }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -16,8 +16,15 @@ export default function AdminMembersClient({ members, locations, canEdit, emptyM
       phone: m.phone || '',
       location_id: m.location_id || '',
       address: m.address || '',
+      group_ids: (m.groups || []).map((g) => g.id),
     });
     setError('');
+  }
+
+  function toggleGroup(id) {
+    setDraft((d) => d.group_ids.includes(id)
+      ? { ...d, group_ids: d.group_ids.filter((g) => g !== id) }
+      : { ...d, group_ids: [...d.group_ids, id] });
   }
 
   async function saveEdit(m) {
@@ -32,6 +39,7 @@ export default function AdminMembersClient({ members, locations, canEdit, emptyM
           phone: draft.phone || null,
           location_id: draft.location_id || null,
           address: draft.address || null,
+          group_ids: draft.group_ids,
         }),
       });
       const data = await res.json();
@@ -110,6 +118,30 @@ export default function AdminMembersClient({ members, locations, canEdit, emptyM
                     onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
                   />
                 </div>
+                {groups.length > 0 && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">群組標籤</label>
+                    <div className="flex flex-wrap gap-2 bg-white rounded-lg p-2 border border-gray-200">
+                      {groups.map((g) => {
+                        const checked = draft.group_ids.includes(g.id);
+                        return (
+                          <button
+                            key={g.id} type="button"
+                            onClick={() => toggleGroup(g.id)}
+                            className={`text-xs px-2 py-1 rounded-full border ${
+                              checked
+                                ? 'text-white border-transparent'
+                                : 'text-gray-600 bg-white border-gray-300'
+                            }`}
+                            style={checked ? { backgroundColor: g.color || '#8B1A1A' } : {}}
+                          >
+                            {g.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div className="text-[11px] text-gray-400">
                   Email：{m.email}（無法修改）
                 </div>
@@ -136,6 +168,16 @@ export default function AdminMembersClient({ members, locations, canEdit, emptyM
                 <div className="text-sm text-gray-500 break-all">{m.phone || '—'}{m.email ? ` ・ ${m.email}` : ''}</div>
                 {(m.location_name || m.address) && (
                   <div className="text-xs text-gray-400">{m.location_name || ''}{m.location_name && m.address ? ' ・ ' : ''}{m.address || ''}</div>
+                )}
+                {m.groups && m.groups.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {m.groups.map((g) => (
+                      <span key={g.id} className="text-[10px] px-1.5 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: g.color || '#8B1A1A' }}>
+                        {g.name}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-3 shrink-0 text-sm">

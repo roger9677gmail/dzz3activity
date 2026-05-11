@@ -13,11 +13,11 @@ const navItems = [
     ),
   },
   {
-    href: '/history',
-    label: '報名紀錄',
+    href: '/announcements',
+    label: '公告訊息',
     icon: (active) => (
       <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill={active ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 0 : 1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 3.94c.36-1.25 2.13-1.25 2.49 0l.48 1.67c.13.45.47.81.92.94l1.69.49c1.24.36 1.24 2.12 0 2.49l-1.69.48a1.31 1.31 0 00-.92.94l-.48 1.7c-.36 1.24-2.13 1.24-2.49 0l-.48-1.7a1.31 1.31 0 00-.92-.94l-1.69-.48c-1.24-.37-1.24-2.13 0-2.49l1.69-.49a1.31 1.31 0 00.92-.94l.48-1.67zM18 14.25l.41 1.21c.06.18.2.32.39.37l1.21.42c.43.12.43.74 0 .86l-1.21.41a.62.62 0 00-.39.38L18 18.75l-.41-1.21a.62.62 0 00-.39-.38l-1.21-.41c-.43-.12-.43-.74 0-.86l1.21-.42a.62.62 0 00.39-.37L18 14.25z" />
       </svg>
     ),
   },
