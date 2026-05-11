@@ -159,6 +159,35 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
     }
   }
 
+  // Inline edit for the daily notes list (今日 view).
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState('');
+  const [editingNoteSaving, setEditingNoteSaving] = useState(false);
+  function startEditNote(note) {
+    setEditingNoteId(note.id);
+    setEditingNoteDraft(note.content || '');
+  }
+  function cancelEditNote() {
+    setEditingNoteId(null);
+    setEditingNoteDraft('');
+  }
+  async function saveEditNote(note) {
+    const text = editingNoteDraft.trim();
+    if (!text) return;
+    setEditingNoteSaving(true);
+    const res = await fetch(`/api/me/notes/${note.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text }),
+    });
+    if (res.ok) {
+      cancelEditNote();
+      router.refresh();
+      setNotesVersion((v) => v + 1);
+    }
+    setEditingNoteSaving(false);
+  }
+
   // ─── Horizontal swipe to change tabs ───────────────────────────────────
   const TAB_KEYS = ['log', 'public', 'leaderboard'];
   const currentTabKey = editing ? 'log' : tab;
@@ -299,16 +328,36 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
             <div className="space-y-2">
               {notes.map((n) => (
                 <div key={n.id} className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                    <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
-                    <div className="flex gap-3">
-                      <button onClick={() => toggleNotePublic(n)} className="text-temple-red">
-                        {n.is_public ? '改為私人' : '改為公開'}
-                      </button>
-                      <button onClick={() => deleteNote(n)} className="text-red-500">刪除</button>
-                    </div>
-                  </div>
+                  {editingNoteId === n.id ? (
+                    <>
+                      <textarea
+                        rows={3} maxLength={5000} autoFocus
+                        className="input-field text-sm"
+                        value={editingNoteDraft}
+                        onChange={(e) => setEditingNoteDraft(e.target.value)}
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <button onClick={cancelEditNote} className="btn-secondary text-xs px-3 py-1">取消</button>
+                        <button onClick={() => saveEditNote(n)} disabled={editingNoteSaving} className="btn-primary text-xs px-3 py-1">
+                          {editingNoteSaving ? '儲存中…' : '儲存'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                        <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
+                        <div className="flex gap-3">
+                          <button onClick={() => startEditNote(n)} className="text-blue-600">編輯</button>
+                          <button onClick={() => toggleNotePublic(n)} className="text-temple-red">
+                            {n.is_public ? '改為私人' : '改為公開'}
+                          </button>
+                          <button onClick={() => deleteNote(n)} className="text-red-500">刪除</button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               {notes.length === 0 && (
@@ -364,6 +413,10 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
 // ── My notes (paginated, infinite-scroll) ──────────────────────────────
 function MyNotesSection({ version, onMutate }) {
   const confirm = useConfirm();
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
   const [notes, setNotes] = useState([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -436,6 +489,40 @@ function MyNotesSection({ version, onMutate }) {
     }
   }
 
+  function startEdit(note) {
+    setEditingId(note.id);
+    setDraft(note.content || '');
+    setEditError('');
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setDraft('');
+    setEditError('');
+  }
+  async function saveEdit(note) {
+    const text = draft.trim();
+    if (!text) { setEditError('請輸入筆記內容'); return; }
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/me/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setEditError(data.error || '儲存失敗');
+      } else {
+        setNotes((prev) => prev.map((n) => n.id === note.id ? { ...n, content: text } : n));
+        cancelEdit();
+        onMutate && onMutate();
+      }
+    } catch {
+      setEditError('網路錯誤');
+    }
+    setSavingEdit(false);
+  }
+
   return (
     <div className="card p-4 space-y-3">
       <h2 className="text-sm font-bold text-gray-700">我的修行心得</h2>
@@ -443,16 +530,38 @@ function MyNotesSection({ version, onMutate }) {
         {notes.map((n) => (
           <div key={n.id} className="bg-gray-50 rounded-lg p-3">
             <div className="text-[11px] text-gray-400 mb-1">{n.log_date}</div>
-            <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-              <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
-              <div className="flex gap-3">
-                <button onClick={() => togglePublic(n)} className="text-temple-red">
-                  {n.is_public ? '改為私人' : '改為公開'}
-                </button>
-                <button onClick={() => remove(n)} className="text-red-500">刪除</button>
-              </div>
-            </div>
+            {editingId === n.id ? (
+              <>
+                <textarea
+                  rows={4} maxLength={5000}
+                  className="input-field text-sm"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  autoFocus
+                />
+                {editError && <div className="text-[11px] text-red-600 mt-1">{editError}</div>}
+                <div className="mt-2 flex justify-end gap-2">
+                  <button onClick={cancelEdit} className="btn-secondary text-xs px-3 py-1">取消</button>
+                  <button onClick={() => saveEdit(n)} disabled={savingEdit} className="btn-primary text-xs px-3 py-1">
+                    {savingEdit ? '儲存中…' : '儲存'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                  <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
+                  <div className="flex gap-3">
+                    <button onClick={() => startEdit(n)} className="text-blue-600">編輯</button>
+                    <button onClick={() => togglePublic(n)} className="text-temple-red">
+                      {n.is_public ? '改為私人' : '改為公開'}
+                    </button>
+                    <button onClick={() => remove(n)} className="text-red-500">刪除</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         ))}
         {notes.length === 0 && !loading && (
