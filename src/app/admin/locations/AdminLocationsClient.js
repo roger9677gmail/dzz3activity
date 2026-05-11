@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 export default function AdminLocationsClient({ locations }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', sort_order: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -89,7 +91,7 @@ export default function AdminLocationsClient({ locations }) {
       alert(`仍有 ${loc.member_count} 位師兄姐屬於此道場，請先轉移後再刪除`);
       return;
     }
-    if (!confirm(`確定刪除道場「${loc.name}」？`)) return;
+    if (!(await confirm({ title: '刪除道場', message: `確定刪除道場「${loc.name}」？`, confirmText: '刪除', danger: true }))) return;
     const res = await fetch(`/api/admin/locations/${loc.id}`, { method: 'DELETE' });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const PERMISSION_OPTIONS = [
   { key: '*', label: '全部權限（最高管理員）' },
@@ -27,6 +28,7 @@ function summarize(perms) {
 
 export default function AdminAdminsClient({ admins, currentAdminId }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -78,7 +80,12 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
   }
 
   async function handleRevoke(admin) {
-    if (!confirm(`確定撤銷管理員「${admin.name}」(${admin.email}) 的後台權限？\n（其師兄姐帳號與紀錄會保留）`)) return;
+    if (!(await confirm({
+      title: '撤銷管理員權限',
+      message: `確定撤銷管理員「${admin.name}」(${admin.email}) 的後台權限？\n（其師兄姐帳號與紀錄會保留）`,
+      confirmText: '撤銷',
+      danger: true,
+    }))) return;
     const res = await fetch(`/api/admin/admins/${admin.id}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) {

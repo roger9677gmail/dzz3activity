@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 async function resizeImage(file, maxSize = 1280, quality = 0.85) {
   const bitmap = await createImageBitmap(file);
@@ -32,6 +33,7 @@ const EMPTY_FORM = {
 
 export default function AdminAnnouncementsClient({ announcements, groups }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [editingId, setEditingId] = useState(null);
@@ -120,7 +122,7 @@ export default function AdminAnnouncementsClient({ announcements, groups }) {
   }
 
   async function handleDelete(a) {
-    if (!confirm(`確定刪除公告「${a.title}」？`)) return;
+    if (!(await confirm({ title: '刪除公告', message: `確定刪除公告「${a.title}」？`, confirmText: '刪除', danger: true }))) return;
     const res = await fetch(`/api/admin/announcements/${a.id}`, { method: 'DELETE' });
     if (res.ok) router.refresh();
   }

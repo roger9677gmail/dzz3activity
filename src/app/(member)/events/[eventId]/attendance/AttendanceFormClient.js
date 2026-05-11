@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 export default function AttendanceFormClient({ event, questions, entries, relations }) {
   const router = useRouter();
@@ -106,9 +107,10 @@ export default function AttendanceFormClient({ event, questions, entries, relati
 }
 
 function CancelButton({ eventId, entryId, label, onDone, compact }) {
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   async function handle() {
-    if (!confirm(`確定${label}？`)) return;
+    if (!(await confirm({ title: label, message: `確定${label}？`, confirmText: label, danger: true }))) return;
     setBusy(true);
     const res = await fetch(`/api/me/attendance/${eventId}/${entryId}`, { method: 'DELETE' });
     if (res.ok) onDone();

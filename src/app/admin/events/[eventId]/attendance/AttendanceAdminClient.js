@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { defaultOptions, TYPE_LABELS, QUESTION_TYPES, formatAnswer } from '@/lib/attendance';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const TABS = [
   { key: 'questions', label: '題目設計' },
@@ -33,6 +34,7 @@ export default function AttendanceAdminClient({ eventId, initialQuestions, atten
 // ── Questions editor ──────────────────────────────────────────────────
 function QuestionsEditor({ eventId, initial }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [adding, setAdding] = useState(false);
   const [draftNew, setDraftNew] = useState({ label: '', type: 'text', options: defaultOptions('text'), required: false });
   const [editingId, setEditingId] = useState(null);
@@ -69,7 +71,12 @@ function QuestionsEditor({ eventId, initial }) {
   }
 
   async function remove(q) {
-    if (!confirm(`刪除題目「${q.label}」會清掉所有人的這題答案，確定？`)) return;
+    if (!(await confirm({
+      title: '刪除題目',
+      message: `刪除題目「${q.label}」會清掉所有人的這題答案，確定？`,
+      confirmText: '刪除',
+      danger: true,
+    }))) return;
     await fetch(`/api/admin/events/${eventId}/attendance-questions/${q.id}`, { method: 'DELETE' });
     router.refresh();
   }

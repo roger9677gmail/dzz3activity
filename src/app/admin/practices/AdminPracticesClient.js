@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const TYPE_OPTIONS = [
   { key: 'count', label: '計次（次/卷/串…）' },
@@ -9,6 +10,7 @@ const TYPE_OPTIONS = [
 
 export default function AdminPracticesClient({ practices }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'count', unit_label: '次', sort_order: 0, active: true });
   const [submitting, setSubmitting] = useState(false);
@@ -68,7 +70,12 @@ export default function AdminPracticesClient({ practices }) {
   }
 
   async function handleDelete(p) {
-    if (!confirm(`刪除「${p.name}」會一併刪掉所有師兄姐的訂閱與紀錄，確定？`)) return;
+    if (!(await confirm({
+      title: '刪除功課',
+      message: `刪除「${p.name}」會一併刪掉所有師兄姐的訂閱與紀錄，確定？`,
+      confirmText: '刪除',
+      danger: true,
+    }))) return;
     const res = await fetch(`/api/admin/practices/${p.id}`, { method: 'DELETE' });
     if (res.ok) router.refresh();
   }

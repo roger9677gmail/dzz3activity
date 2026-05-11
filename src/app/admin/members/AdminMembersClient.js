@@ -1,9 +1,11 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 export default function AdminMembersClient({ members, locations, groups = [], canEdit, emptyMessage }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState('');
@@ -58,7 +60,12 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
 
   async function toggleDisabled(m) {
     const action = m.is_disabled ? '啟用' : '停用';
-    if (!confirm(`確定${action}「${m.name}」(${m.email}) 的帳號？`)) return;
+    if (!(await confirm({
+      title: `${action}帳號`,
+      message: `確定${action}「${m.name}」(${m.email}) 的帳號？`,
+      confirmText: action,
+      danger: !m.is_disabled,
+    }))) return;
     const res = await fetch(`/api/admin/members/${m.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

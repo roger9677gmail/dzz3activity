@@ -1,12 +1,14 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const DEFAULT_COLOR = '#8B1A1A';
 const PRESETS = ['#8B1A1A', '#B22222', '#C4962A', '#2D6E3C', '#1F4F8F', '#6B4DBA', '#3F3F46'];
 
 export default function AdminGroupsClient({ groups }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', color: DEFAULT_COLOR, sort_order: 0 });
   const [submitting, setSubmitting] = useState(false);
@@ -66,7 +68,12 @@ export default function AdminGroupsClient({ groups }) {
 
   async function handleDelete(g) {
     if (g.name === '全體師兄姐') { alert('預設群組無法刪除'); return; }
-    if (!confirm(`刪除群組「${g.name}」會解除 ${g.member_count} 位成員的標籤關聯，確定？`)) return;
+    if (!(await confirm({
+      title: '刪除群組',
+      message: `刪除群組「${g.name}」會解除 ${g.member_count} 位成員的標籤關聯，確定？`,
+      confirmText: '刪除',
+      danger: true,
+    }))) return;
     const res = await fetch(`/api/admin/groups/${g.id}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) { alert(data.error || '刪除失敗'); return; }

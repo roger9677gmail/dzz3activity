@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Heatmap from '@/components/journal/Heatmap';
 import LogInput from '@/components/journal/LogInput';
 import { formatPracticeValue, minutesToDurationString } from '@/lib/practices';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const TABS = [
   { key: 'log', label: '修行日誌' },
@@ -34,6 +35,7 @@ function startDateForPractice(rangeLogs, practiceId, today) {
 export default function JournalClient({ session, subscriptions, dayLogs, rangeLogs, dayNotes, today, date, tab }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const confirm = useConfirm();
 
   // ─── Default tab is the editing log; date selector picks any day ──────
   const editing = tab !== 'public' && tab !== 'leaderboard';
@@ -149,7 +151,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
   }
 
   async function deleteNote(note) {
-    if (!confirm('確定刪除這則筆記？')) return;
+    if (!(await confirm({ title: '刪除筆記', message: '確定刪除這則筆記？', confirmText: '刪除', danger: true }))) return;
     const res = await fetch(`/api/me/notes/${note.id}`, { method: 'DELETE' });
     if (res.ok) {
       router.refresh();
@@ -361,6 +363,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
 
 // ── My notes (paginated, infinite-scroll) ──────────────────────────────
 function MyNotesSection({ version, onMutate }) {
+  const confirm = useConfirm();
   const [notes, setNotes] = useState([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -425,7 +428,7 @@ function MyNotesSection({ version, onMutate }) {
   }
 
   async function remove(note) {
-    if (!confirm('確定刪除這則筆記？')) return;
+    if (!(await confirm({ title: '刪除筆記', message: '確定刪除這則筆記？', confirmText: '刪除', danger: true }))) return;
     const res = await fetch(`/api/me/notes/${note.id}`, { method: 'DELETE' });
     if (res.ok) {
       setNotes((prev) => prev.filter((n) => n.id !== note.id));
