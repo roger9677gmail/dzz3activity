@@ -207,7 +207,7 @@ function QuestionForm({ draft, setDraft }) {
           <label className="block text-xs text-gray-500 mb-1">選項（每行一個）</label>
           <textarea rows={4} className="input-field text-sm"
             value={(draft.options.choices || []).join('\n')}
-            onChange={(e) => setOpts({ choices: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })} />
+            onChange={(e) => setOpts({ choices: e.target.value.split('\n') })} />
           <label className="flex items-center gap-2 text-sm text-gray-700 mt-2">
             <input type="checkbox" checked={!!draft.options.allow_text}
               onChange={(e) => setOpts({ allow_text: e.target.checked })} />
@@ -225,7 +225,7 @@ function QuestionForm({ draft, setDraft }) {
           <label className="block text-xs text-gray-500 mb-1">日期清單（YYYY-MM-DD，每行一個）</label>
           <textarea rows={5} className="input-field text-sm font-mono text-[12px]"
             value={(draft.options.dates || []).join('\n')}
-            onChange={(e) => setOpts({ dates: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })} />
+            onChange={(e) => setOpts({ dates: e.target.value.split('\n') })} />
         </div>
       )}
       {draft.type === 'count' && (
