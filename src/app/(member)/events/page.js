@@ -46,6 +46,22 @@ export default async function EventsPage() {
   const regByEventId = new Map(myRegs.map((r) => [r.event_id, r]));
   const myRegistrationIds = new Set(myRegs.map((r) => r.event_id));
 
+  // Pull this member's attendance entries (本人 + 親友) across all events so
+  // the EventCard can show a name summary even before opening the event.
+  const allAttendance = await db
+    .prepare(
+      `SELECT event_id, id, attendee_name, attendee_relation
+         FROM event_attendance
+        WHERE member_id = ?
+        ORDER BY event_id, (attendee_name IS NOT NULL), id`
+    )
+    .all(session.sub);
+  const attendanceByEventId = new Map();
+  for (const a of allAttendance) {
+    if (!attendanceByEventId.has(a.event_id)) attendanceByEventId.set(a.event_id, []);
+    attendanceByEventId.get(a.event_id).push(a);
+  }
+
   const upcoming = events.filter((e) => e.status === 'active');
   const past = events.filter((e) => e.status !== 'active');
 
@@ -69,7 +85,12 @@ export default async function EventsPage() {
             <h2 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wide">報名中</h2>
             <div className="space-y-3">
               {upcoming.map((ev) => (
-                <EventCard key={ev.id} event={ev} isRegistered={myRegistrationIds.has(ev.id)} registration={regByEventId.get(ev.id) || null} />
+                <EventCard
+                  key={ev.id} event={ev}
+                  isRegistered={myRegistrationIds.has(ev.id)}
+                  registration={regByEventId.get(ev.id) || null}
+                  attendance={attendanceByEventId.get(ev.id) || []}
+                />
               ))}
             </div>
           </section>
@@ -80,7 +101,12 @@ export default async function EventsPage() {
             <h2 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wide">已截止</h2>
             <div className="space-y-3">
               {past.map((ev) => (
-                <EventCard key={ev.id} event={ev} isRegistered={myRegistrationIds.has(ev.id)} registration={regByEventId.get(ev.id) || null} />
+                <EventCard
+                  key={ev.id} event={ev}
+                  isRegistered={myRegistrationIds.has(ev.id)}
+                  registration={regByEventId.get(ev.id) || null}
+                  attendance={attendanceByEventId.get(ev.id) || []}
+                />
               ))}
             </div>
           </section>

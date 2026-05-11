@@ -8,9 +8,14 @@ import {
   getPaymentStatusLabel,
 } from '@/lib/utils';
 
-export default function EventCard({ event, isRegistered = false, registration = null }) {
+export default function EventCard({ event, isRegistered = false, registration = null, attendance = [] }) {
   const deadlinePassed = isDeadlinePassed(event.registration_deadline);
   const daysLeft = daysUntil(event.registration_deadline);
+  const hasAttendance = attendance.length > 0;
+  const attendanceSummary = attendance
+    .map((a) => (a.attendee_name ? `${a.attendee_name}${a.attendee_relation ? `（${a.attendee_relation}）` : ''}` : '本人'))
+    .join('、');
+  const noItems = !event.items || event.items.length === 0;
 
   return (
     <div className="card overflow-hidden">
@@ -128,13 +133,33 @@ export default function EventCard({ event, isRegistered = false, registration = 
           </>
         )}
 
+        {/* Attendance (活動登記) summary — 本人 + 親友 */}
+        {hasAttendance && (
+          <div className="mt-3 text-xs text-gray-600">
+            <span className="text-gray-400">📋 活動登記 {attendance.length} 位：</span>
+            <span className="text-gray-800 ml-1">{attendanceSummary}</span>
+          </div>
+        )}
+
         <div className="mt-4">
           {isRegistered ? (
             <Link href={`/events/${event.id}`} className="block text-center btn-secondary text-sm">
               查看報名內容
             </Link>
           ) : event.status === 'closed' || deadlinePassed ? (
-            <div className="text-center text-gray-400 text-sm py-2">報名已截止</div>
+            // 截止後仍可進去看／管理活動登記
+            hasAttendance ? (
+              <Link href={`/events/${event.id}`} className="block text-center btn-secondary text-sm">
+                查看活動內容
+              </Link>
+            ) : (
+              <div className="text-center text-gray-400 text-sm py-2">報名已截止</div>
+            )
+          ) : noItems ? (
+            // 純活動登記模式（沒有報名項目）
+            <Link href={`/events/${event.id}`} className={`block text-center text-sm ${hasAttendance ? 'btn-secondary' : 'btn-primary'}`}>
+              {hasAttendance ? '管理活動登記' : '前往活動登記'}
+            </Link>
           ) : (
             <Link href={`/events/${event.id}`} className="block text-center btn-primary text-sm">
               立即報名
