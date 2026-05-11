@@ -22,7 +22,9 @@ export default function EventForm({ event = null }) {
   // Stable per-item uid so gift target references survive reordering and edit/save round-trips.
   const uidCounter = useRef(0);
   function newUid() { uidCounter.current += 1; return `c${uidCounter.current}`; }
-  const initialItems = (event?.items || [{ name: '', description: '', price: 0, requires_name: true, requires_content: false }])
+  // Default to no items so admins can create pure attendance-only events
+  // (the existing event's items override this on edit).
+  const initialItems = (event?.items || [])
     .map((it) => ({
       _uid: it.id ? `db${it.id}` : newUid(),
       ...it,
@@ -215,6 +217,12 @@ export default function EventForm({ event = null }) {
           <button type="button" onClick={addItem} className="text-sm text-temple-red font-medium">+ 新增項目</button>
         </div>
 
+        {items.length === 0 && (
+          <div className="text-xs text-gray-400 mb-3">
+            （未新增任何報名項目；此活動將為「純活動登記」模式，師兄姐只能透過「活動登記」題目參加，沒有報名祈福項目）
+          </div>
+        )}
+
         <div className="space-y-4">
           {items.map((item, idx) => (
             <div
@@ -256,7 +264,7 @@ export default function EventForm({ event = null }) {
                     className="text-gray-500 text-sm disabled:opacity-30"
                     aria-label="下移"
                   >↓</button>
-                  {items.length > 1 && (
+                  {items.length >= 1 && (
                     <button type="button" onClick={() => removeItem(idx)} className="text-red-500 text-sm">移除</button>
                   )}
                 </div>

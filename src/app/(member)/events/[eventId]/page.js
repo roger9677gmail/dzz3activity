@@ -19,14 +19,22 @@ export default async function EventDetailPage({ params }) {
     .prepare('SELECT COUNT(*) AS c FROM event_attendance_questions WHERE event_id = ? AND active = 1')
     .get(event.id);
   const hasAttendance = (attendanceRow?.c || 0) > 0;
-  // Member can have multiple attendance rows now (self + 親友). Just check
-  // whether any exists — the entry button's label changes accordingly.
-  const mineAttendance = hasAttendance
+  // Member can have multiple attendance rows now (self + 親友). Load just the
+  // names so we can show a summary inline on the event detail card.
+  const attendanceEntries = hasAttendance
     ? await db
-        .prepare('SELECT COUNT(*) AS c FROM event_attendance WHERE event_id = ? AND member_id = ?')
-        .get(event.id, session.sub)
-    : null;
-  const hasAnyEntry = (mineAttendance?.c || 0) > 0;
+        .prepare(
+          `SELECT id, attendee_name, attendee_relation
+             FROM event_attendance
+            WHERE event_id = ? AND member_id = ?
+            ORDER BY (attendee_name IS NOT NULL), id`
+        )
+        .all(event.id, session.sub)
+    : [];
+  const hasAnyEntry = attendanceEntries.length > 0;
+  const attendanceSummary = attendanceEntries
+    .map((e) => (e.attendee_name ? `${e.attendee_name}${e.attendee_relation ? `（${e.attendee_relation}）` : ''}` : '本人'))
+    .join('、');
 
   const existingRegistration = await db.prepare(`
     SELECT * FROM registrations WHERE event_id = ? AND member_id = ?
@@ -79,16 +87,17 @@ export default async function EventDetailPage({ params }) {
         {/* 活動登記入口（若主辦已建題目） */}
         {hasAttendance && (
           <div className="card p-4">
-            <div className="flex items-start justify-between gap-2 mb-3">
-              <div>
-                <div className="text-sm font-bold text-gray-800">📋 活動登記</div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {hasAnyEntry
-                    ? `已登記 ${mineAttendance.c} 筆，可點此修改或新增親友`
-                    : '本人 / 親友皆可登記（交通 / 住宿 / 用餐）'}
-                </div>
+            <div className="text-sm font-bold text-gray-800 mb-1">📋 活動登記</div>
+            {hasAnyEntry ? (
+              <div className="text-xs text-gray-600 mb-3">
+                <div>已登記 {attendanceEntries.length} 位：</div>
+                <div className="mt-0.5 text-gray-800">{attendanceSummary}</div>
               </div>
-            </div>
+            ) : (
+              <div className="text-xs text-gray-500 mb-3">
+                本人 / 親友皆可登記（交通 / 住宿 / 用餐）
+              </div>
+            )}
             <Link
               href={`/events/${event.id}/attendance`}
               className="btn-primary w-full text-center block"
@@ -98,58 +107,67 @@ export default async function EventDetailPage({ params }) {
           </div>
         )}
 
-        {/* Items preview */}
+        {/* 報名祈福（功德主/蓮位）— only relevant when event has items.
+            If no items, this whole event is "純活動登記" and we skip the
+            entire registration UI. */}
         {event.items.length > 0 && (
-          <div className="card p-4">
-            <h3 className="font-bold text-sm text-gray-700 mb-2">可報名項目</h3>
-            <div className="space-y-2">
-              {event.items.map((item) => (
-                <div key={item.id} className="flex justify-between items-center">
-                  <div>
-                    <span className="text-sm font-medium">{item.name}</span>
-                    {item.description && <span className="text-xs text-gray-400 ml-1">（{item.description}）</span>}
+          <>
+            <div className="card p-4">
+              <h3 className="font-bold text-sm text-gray-700 mb-2">可報名項目</h3>
+              <div className="space-y-2">
+                {event.items.map((item) => (
+                  <div key={item.id} className="flex justify-between items-center">
+                    <div>
+                      <span className="text-sm font-medium">{item.name}</span>
+                      {item.description && <span className="text-xs text-gray-400 ml-1">（{item.description}）</span>}
+                    </div>
+                    <span className="text-temple-gold text-sm font-medium whitespace-nowrap shrink-0 ml-3">{formatMoney(item.price)}</span>
                   </div>
-                  <span className="text-temple-gold text-sm font-medium whitespace-nowrap shrink-0 ml-3">{formatMoney(item.price)}</span>
+                ))}
+              </div>
+            </div>
+
+            {existingRegistration && isPaid && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 text-green-700 font-bold mb-2">✅ 您已完成報名</div>
+                <div className="text-sm text-green-700 space-y-1">
+                  <div>項目：{existingRegistration.items_summary || '—'}</div>
+                  <div>金額：{formatMoney(existingRegistration.total_amount)}</div>
+                  <div>繳款狀態：✅ 已繳款</div>
+                  {existingRegistration.receipt_number && <div>收據號碼：{existingRegistration.receipt_number}</div>}
+                  {existingRegistration.notes && <div>備註：{existingRegistration.notes}</div>}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+
+            {existingRegistration && !isPaid && canRegister && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                <div className="font-bold mb-1">⏳ 您已報名但尚未繳款</div>
+                <div>可在下方修改報名項目；繳款後將無法再修改。</div>
+              </div>
+            )}
+
+            {canRegister && (
+              <RegistrationForm
+                event={event}
+                existingRegistration={existingRegistration && !isPaid ? existingRegistration : null}
+              />
+            )}
+
+            {!canRegister && !existingRegistration && (
+              <div className="text-center py-6 text-gray-400">
+                <div className="text-3xl mb-2">🔒</div>
+                <p className="text-sm">{deadlinePassed ? '報名已截止' : '此活動目前不開放報名'}</p>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Paid registration is read-only; show confirmation. */}
-        {existingRegistration && isPaid && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-green-700 font-bold mb-2">✅ 您已完成報名</div>
-            <div className="text-sm text-green-700 space-y-1">
-              <div>項目：{existingRegistration.items_summary || '—'}</div>
-              <div>金額：{formatMoney(existingRegistration.total_amount)}</div>
-              <div>繳款狀態：✅ 已繳款</div>
-              {existingRegistration.receipt_number && <div>收據號碼：{existingRegistration.receipt_number}</div>}
-              {existingRegistration.notes && <div>備註：{existingRegistration.notes}</div>}
-            </div>
-          </div>
-        )}
-
-        {/* Unpaid registration — banner + edit-mode form. */}
-        {existingRegistration && !isPaid && canRegister && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            <div className="font-bold mb-1">⏳ 您已報名但尚未繳款</div>
-            <div>可在下方修改報名項目；繳款後將無法再修改。</div>
-          </div>
-        )}
-
-        {/* Registration / edit form */}
-        {canRegister && (
-          <RegistrationForm
-            event={event}
-            existingRegistration={existingRegistration && !isPaid ? existingRegistration : null}
-          />
-        )}
-
-        {!canRegister && !existingRegistration && (
+        {/* Event has neither items nor attendance — nothing for the member to do. */}
+        {event.items.length === 0 && !hasAttendance && (
           <div className="text-center py-6 text-gray-400">
-            <div className="text-3xl mb-2">🔒</div>
-            <p className="text-sm">{deadlinePassed ? '報名已截止' : '此活動目前不開放報名'}</p>
+            <div className="text-3xl mb-2">📭</div>
+            <p className="text-sm">此活動目前無可登記或報名項目</p>
           </div>
         )}
       </div>
