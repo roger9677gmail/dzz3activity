@@ -24,17 +24,25 @@ export async function loadEntriesForMember(eventId, memberId) {
         ORDER BY (attendee_name IS NOT NULL), id`
     )
     .all(eventId, memberId);
-  for (const e of entries) {
-    e.answers = {};
+  for (const e of entries) e.answers = {};
+  if (entries.length > 0) {
+    const ids = entries.map((e) => e.id);
+    const placeholders = ids.map(() => '?').join(',');
     const rows = await db
-      .prepare('SELECT question_id, value FROM event_attendance_answers WHERE attendance_id = ?')
-      .all(e.id);
+      .prepare(
+        `SELECT attendance_id, question_id, value
+           FROM event_attendance_answers
+          WHERE attendance_id IN (${placeholders})`
+      )
+      .all(...ids);
+    const byId = new Map(entries.map((e) => [e.id, e]));
     for (const r of rows) {
       let v = r.value;
       if (typeof v === 'string') {
         try { v = JSON.parse(v); } catch {}
       }
-      e.answers[r.question_id] = v;
+      const entry = byId.get(r.attendance_id);
+      if (entry) entry.answers[r.question_id] = v;
     }
   }
   return entries;

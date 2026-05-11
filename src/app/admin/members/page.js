@@ -45,15 +45,25 @@ export default async function AdminMembersPage({ searchParams }) {
     ORDER BY m.is_admin DESC, m.name
   `).all(...args);
 
-  // Attach group tags
-  for (const m of members) {
-    m.groups = await db.prepare(`
-      SELECT g.id, g.name, g.color, g.location_id
+  // Batch-load every member's groups in a single query (avoids N+1).
+  if (members.length > 0) {
+    const memberIds = members.map((m) => m.id);
+    const placeholders = memberIds.map(() => '?').join(',');
+    const rows = await db.prepare(`
+      SELECT a.member_id, g.id, g.name, g.color, g.location_id, g.sort_order
         FROM member_group_assignments a
         JOIN member_groups g ON g.id = a.group_id
-       WHERE a.member_id = ?
+       WHERE a.member_id IN (${placeholders})
        ORDER BY (g.location_id IS NULL), g.sort_order, g.id
-    `).all(m.id);
+    `).all(...memberIds);
+    const byMember = new Map();
+    for (const r of rows) {
+      if (!byMember.has(r.member_id)) byMember.set(r.member_id, []);
+      byMember.get(r.member_id).push({
+        id: r.id, name: r.name, color: r.color, location_id: r.location_id,
+      });
+    }
+    for (const m of members) m.groups = byMember.get(m.id) || [];
   }
 
   // Helper to build query string preserving the relevant filters.

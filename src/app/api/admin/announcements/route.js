@@ -16,15 +16,23 @@ export const GET = withPermission('announcements:manage', async () => {
         ORDER BY a.pinned DESC, a.created_at DESC`
     )
     .all();
-  for (const r of rows) {
-    r.groups = await db
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const allGroups = await db
       .prepare(
-        `SELECT g.id, g.name, g.color
+        `SELECT ag.announcement_id, g.id, g.name, g.color, g.sort_order
            FROM announcement_groups ag JOIN member_groups g ON g.id = ag.group_id
-          WHERE ag.announcement_id = ?
+          WHERE ag.announcement_id IN (${placeholders})
           ORDER BY g.sort_order, g.id`
       )
-      .all(r.id);
+      .all(...ids);
+    const byAnn = new Map();
+    for (const g of allGroups) {
+      if (!byAnn.has(g.announcement_id)) byAnn.set(g.announcement_id, []);
+      byAnn.get(g.announcement_id).push({ id: g.id, name: g.name, color: g.color });
+    }
+    for (const r of rows) r.groups = byAnn.get(r.id) || [];
   }
   return NextResponse.json({ announcements: rows });
 });

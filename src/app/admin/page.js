@@ -21,64 +21,56 @@ export default async function AdminDashboard({ searchParams }) {
   ).all();
   const selectedLocation = locationId ? locations.find((l) => l.id === locationId) : null;
 
-  // Members: include admins (they are still 師兄姐); exclude disabled.
-  const memberClause = locationId
-    ? 'WHERE is_disabled = 0 AND location_id = ?'
-    : 'WHERE is_disabled = 0';
-  const memberArgs = locationId ? [locationId] : [];
-  const totalMembers = (await db.prepare(
-    `SELECT COUNT(*) AS count FROM members ${memberClause}`
-  ).get(...memberArgs)).count;
+  const locArgs = locationId ? [locationId] : [];
+  const locFilterMember = locationId ? 'AND location_id = ?' : '';
+  const locFilterM = locationId ? 'AND m.location_id = ?' : '';
 
-  // 進行中活動 (status='active')
-  const totalEvents = (await db.prepare(
-    "SELECT COUNT(*) AS count FROM events WHERE status = 'active'"
-  ).get()).count;
+  // Combine all the headline stats into a single round-trip per cross-join
+  // group; brings the page from ~6 queries to 3.
+  const memberRow = await db.prepare(
+    `SELECT COUNT(*) AS total_members FROM members WHERE is_disabled = 0 ${locFilterMember}`
+  ).get(...locArgs);
 
-  // 祈福項次數：SUM(quantity) of registration_items belonging to active events.
-  // Location filter applies to the registering member.
-  const qfItemsRow = await db.prepare(`
-    SELECT COALESCE(SUM(ri.quantity), 0) AS sum
-      FROM registration_items ri
-      JOIN registrations r ON r.id = ri.registration_id
-      JOIN events e ON e.id = r.event_id
-      JOIN members m ON m.id = r.member_id
-     WHERE e.status = 'active' AND r.status != 'cancelled' AND m.is_disabled = 0
-       ${locationId ? 'AND m.location_id = ?' : ''}
-  `).get(...(locationId ? [locationId] : []));
-  const qfItemCount = qfItemsRow?.sum || 0;
+  const eventRow = await db.prepare(
+    "SELECT COUNT(*) AS total_events FROM events WHERE status = 'active'"
+  ).get();
 
-  // 活動登記人次：event_attendance rows for active events
-  const attendanceCount = (await db.prepare(`
-    SELECT COUNT(*) AS count
-      FROM event_attendance a
-      JOIN events e ON e.id = a.event_id
-      JOIN members m ON m.id = a.member_id
-     WHERE e.status = 'active' AND m.is_disabled = 0
-       ${locationId ? 'AND m.location_id = ?' : ''}
-  `).get(...(locationId ? [locationId] : []))).count;
+  // Single-pass aggregate over the active-event registration / attendance data
+  // for the (optionally filtered) member set.
+  const regAgg = await db.prepare(`
+    SELECT
+      (SELECT COALESCE(SUM(ri.quantity), 0)
+         FROM registration_items ri
+         JOIN registrations r ON r.id = ri.registration_id
+         JOIN events e ON e.id = r.event_id
+         JOIN members m ON m.id = r.member_id
+        WHERE e.status = 'active' AND r.status != 'cancelled'
+          AND m.is_disabled = 0 ${locFilterM}) AS qf_items,
+      (SELECT COUNT(*)
+         FROM event_attendance a
+         JOIN events e ON e.id = a.event_id
+         JOIN members m ON m.id = a.member_id
+        WHERE e.status = 'active' AND m.is_disabled = 0 ${locFilterM}) AS attendance_count,
+      (SELECT COUNT(*)
+         FROM registrations r
+         JOIN events e ON e.id = r.event_id
+         JOIN members m ON m.id = r.member_id
+        WHERE e.status = 'active' AND r.status != 'cancelled'
+          AND r.payment_status = 'paid' AND m.is_disabled = 0 ${locFilterM}) AS paid_count,
+      (SELECT COUNT(*)
+         FROM registrations r
+         JOIN events e ON e.id = r.event_id
+         JOIN members m ON m.id = r.member_id
+        WHERE e.status = 'active' AND r.status != 'cancelled'
+          AND r.payment_status = 'unpaid' AND m.is_disabled = 0 ${locFilterM}) AS unpaid_count
+  `).get(...locArgs, ...locArgs, ...locArgs, ...locArgs);
 
-  // 繳款人數 (paid registrations) — active events
-  const paidCount = (await db.prepare(`
-    SELECT COUNT(*) AS count
-      FROM registrations r
-      JOIN events e ON e.id = r.event_id
-      JOIN members m ON m.id = r.member_id
-     WHERE e.status = 'active' AND r.status != 'cancelled'
-       AND r.payment_status = 'paid' AND m.is_disabled = 0
-       ${locationId ? 'AND m.location_id = ?' : ''}
-  `).get(...(locationId ? [locationId] : []))).count;
-
-  // 待繳款 — active events
-  const unpaidCount = (await db.prepare(`
-    SELECT COUNT(*) AS count
-      FROM registrations r
-      JOIN events e ON e.id = r.event_id
-      JOIN members m ON m.id = r.member_id
-     WHERE e.status = 'active' AND r.status != 'cancelled'
-       AND r.payment_status = 'unpaid' AND m.is_disabled = 0
-       ${locationId ? 'AND m.location_id = ?' : ''}
-  `).get(...(locationId ? [locationId] : []))).count;
+  const totalMembers = memberRow?.total_members || 0;
+  const totalEvents = eventRow?.total_events || 0;
+  const qfItemCount = regAgg?.qf_items || 0;
+  const attendanceCount = regAgg?.attendance_count || 0;
+  const paidCount = regAgg?.paid_count || 0;
+  const unpaidCount = regAgg?.unpaid_count || 0;
 
   // Per-event card stats (also filtered by location if set)
   const eventStats = await db.prepare(`
