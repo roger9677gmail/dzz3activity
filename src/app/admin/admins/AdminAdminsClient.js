@@ -10,7 +10,7 @@ const PERMISSION_OPTIONS = [
   { key: 'members:manage', label: '師兄姐管理' },
   { key: 'locations:manage', label: '道場管理' },
   { key: 'admins:manage', label: '管理員設定（含權限指派）' },
-  { key: 'reports:view', label: '報表匯出' },
+  { key: 'reports:view', label: '報名查詢' },
   { key: 'notifications:send', label: '推播通知' },
   { key: 'practices:manage', label: '功課項目管理' },
   { key: 'announcements:manage', label: '公告訊息管理' },

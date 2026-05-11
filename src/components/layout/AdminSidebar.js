@@ -14,7 +14,7 @@ const navItems = [
   { href: '/admin/practices', label: '功課項目', icon: '📿', perm: 'practices:manage' },
   { href: '/admin/announcements', label: '公告訊息', icon: '📢', perm: 'announcements:manage' },
   { href: '/admin/admins', label: '管理員設定', icon: '🛡️', perm: 'admins:manage' },
-  { href: '/admin/reports', label: '報表匯出', icon: '📄', perm: 'reports:view' },
+  { href: '/admin/reports', label: '報名查詢', icon: '🔍', perm: 'reports:view' },
   { href: '/admin/notifications', label: '推播通知', icon: '🔔', perm: 'notifications:send' },
 ];
 

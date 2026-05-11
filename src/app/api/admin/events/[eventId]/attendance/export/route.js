@@ -22,18 +22,26 @@ export const GET = withPermission('attendance:manage', async (request, { params 
     .all(eventId))
     .map((q) => ({ ...q, options: parseOptions(q.type, q.options) }));
 
-  const rows = await db
-    .prepare(
-      `SELECT a.id, a.member_id, a.attendee_name, a.attendee_relation, a.notes, a.created_at,
-              m.name AS member_name, m.phone AS member_phone,
-              l.name AS location_name
-         FROM event_attendance a
-         JOIN members m ON m.id = a.member_id
-    LEFT JOIN locations l ON l.id = m.location_id
-        WHERE a.event_id = ? AND m.is_disabled = 0
-        ORDER BY m.name, (a.attendee_name IS NOT NULL), a.id`
-    )
-    .all(eventId);
+  const { searchParams } = new URL(request.url);
+  const groupIds = (searchParams.get('group_ids') || '')
+    .split(',').map((s) => parseInt(s)).filter((n) => Number.isInteger(n) && n > 0);
+
+  let sql = `SELECT a.id, a.member_id, a.attendee_name, a.attendee_relation, a.notes, a.created_at,
+                    m.name AS member_name, m.phone AS member_phone,
+                    l.name AS location_name
+               FROM event_attendance a
+               JOIN members m ON m.id = a.member_id
+          LEFT JOIN locations l ON l.id = m.location_id
+              WHERE a.event_id = ? AND m.is_disabled = 0`;
+  const args = [eventId];
+  if (groupIds.length > 0) {
+    const placeholders = groupIds.map(() => '?').join(',');
+    sql += ` AND EXISTS (SELECT 1 FROM member_group_assignments mga
+                          WHERE mga.member_id = m.id AND mga.group_id IN (${placeholders}))`;
+    args.push(...groupIds);
+  }
+  sql += ' ORDER BY m.name, (a.attendee_name IS NOT NULL), a.id';
+  const rows = await db.prepare(sql).all(...args);
 
   // Pre-fetch answers grouped by attendance.id
   const answers = {};
