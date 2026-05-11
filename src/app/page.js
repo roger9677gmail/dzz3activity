@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getActiveSession } from '@/lib/auth';
 
 export default async function Home() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (session) redirect(session.is_admin ? '/admin' : '/events');
   redirect('/login');
 }

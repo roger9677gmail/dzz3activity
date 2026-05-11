@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getActiveSession } from '@/lib/auth';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 
 export default async function AdminLayout({ children }) {
-  const session = await getSession();
-  if (!session) redirect('/login');
+  const session = await getActiveSession();
+  if (!session) redirect('/login?disabled=1');
   if (!session.is_admin) redirect('/events');
 
   return (

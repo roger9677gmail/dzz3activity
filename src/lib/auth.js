@@ -82,3 +82,17 @@ export async function getSession() {
   if (!token) return null;
   return verifyToken(token);
 }
+
+// Like getSession() but also confirms the underlying member is still active
+// (not is_disabled). Use this in server-rendered layouts so a stale cookie for
+// a since-suspended account doesn't bypass the gate. Returns null if the
+// session is missing, invalid, or the member is disabled / deleted.
+export async function getActiveSession() {
+  const session = await getSession();
+  if (!session) return null;
+  // Dynamic import keeps this server-only and avoids pulling mysql2 into edge bundles.
+  const { default: db } = await import('./db');
+  const m = await db.prepare('SELECT id, is_disabled FROM members WHERE id = ?').get(session.sub);
+  if (!m || m.is_disabled) return null;
+  return session;
+}

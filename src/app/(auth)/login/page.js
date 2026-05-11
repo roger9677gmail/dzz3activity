@@ -1,14 +1,33 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { APP_NAME, APP_VERSION } from '@/lib/version';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const disabledFlag = searchParams.get('disabled') === '1';
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  // When the layout bounced a disabled-account session here, clear the stale
+  // cookie immediately so it doesn't keep re-redirecting on the next nav.
+  useEffect(() => {
+    if (!disabledFlag) return;
+    setNotice('您的帳號已停用，無法登入。請聯繫管理員。');
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  }, [disabledFlag]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -70,6 +89,11 @@ export default function LoginPage() {
             />
           </div>
 
+          {notice && !error && (
+            <div className="bg-amber-50 text-amber-800 text-sm px-4 py-3 rounded-lg border border-amber-200">
+              {notice}
+            </div>
+          )}
           {error && (
             <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
               {error}
