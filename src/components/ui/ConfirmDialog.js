@@ -93,10 +93,18 @@ export function ConfirmProvider({ children }) {
 export function useConfirm() {
   const ctx = useContext(ConfirmContext);
   if (!ctx) {
-    // Graceful fallback: callers can still confirm even outside a provider
-    // (e.g. during SSR snapshot warming) by falling back to window.confirm.
-    return (opts = {}) =>
-      Promise.resolve(window.confirm(`${opts.title || ''}\n\n${opts.message || ''}`.trim()));
+    // Graceful fallback: outside a provider (e.g. SSR snapshot warming, or
+    // a missed wiring), return a stub that resolves false. Calling
+    // window.confirm here would crash during SSR.
+    return (opts = {}) => {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        return Promise.resolve(
+          window.confirm(`${opts.title || ''}\n\n${opts.message || ''}`.trim())
+        );
+      }
+      console.warn('useConfirm called without ConfirmProvider (SSR)');
+      return Promise.resolve(false);
+    };
   }
   return ctx;
 }

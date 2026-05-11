@@ -74,9 +74,9 @@ export function buildNormalizedAnswers(questions, incoming) {
   return { ok: true, normalized };
 }
 
-export async function insertAnswers(attendanceId, normalized) {
+export async function insertAnswers(attendanceId, normalized, exec = db) {
   for (const a of normalized) {
-    await db
+    await exec
       .prepare('INSERT INTO event_attendance_answers (attendance_id, question_id, value) VALUES (?, ?, ?)')
       .run(attendanceId, a.question_id, JSON.stringify(a.value));
   }

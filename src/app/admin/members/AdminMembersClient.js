@@ -227,7 +227,7 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                         title={isMirror
                           ? '道場鏡射群組依「所屬道場」自動套用'
                           : (isMember ? '點擊將此師兄姐移出群組' : '點擊將此師兄姐加入群組')}
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full border transition-opacity ${
+                        className={`text-xs px-3 py-1.5 min-h-[32px] rounded-full border transition-opacity ${
                           isMember
                             ? 'text-white border-transparent'
                             : 'text-gray-600 bg-white border-gray-300 hover:bg-gray-50'

@@ -53,14 +53,33 @@ export const PUT = withAuth(async (request, { params }) => {
     if (!ans.ok) return NextResponse.json({ error: ans.error }, { status: 400 });
 
     const notes = body.notes == null ? null : String(body.notes).slice(0, 2000);
-    await db
-      .prepare(
-        'UPDATE event_attendance SET attendee_name = ?, attendee_relation = ?, notes = ? WHERE id = ?'
-      )
-      .run(f.attendee_name, f.attendee_relation, notes, attendanceId);
-    await db.prepare('DELETE FROM event_attendance_answers WHERE attendance_id = ?').run(attendanceId);
-    await insertAnswers(attendanceId, ans.normalized);
 
+    // Atomic: re-lock the uniqueness check inside the tx so a concurrent POST
+    // can't race ahead of us and steal the "本人" slot.
+    const result = await db.transaction(async (tx) => {
+      if (f.attendee_name == null) {
+        const other = await tx
+          .prepare(
+            'SELECT id FROM event_attendance WHERE event_id = ? AND member_id = ? AND attendee_name IS NULL AND id != ? FOR UPDATE'
+          )
+          .get(eventId, memberId, attendanceId);
+        if (other) return { conflict: true };
+      }
+      await tx
+        .prepare(
+          'UPDATE event_attendance SET attendee_name = ?, attendee_relation = ?, notes = ? WHERE id = ?'
+        )
+        .run(f.attendee_name, f.attendee_relation, notes, attendanceId);
+      await tx
+        .prepare('DELETE FROM event_attendance_answers WHERE attendance_id = ?')
+        .run(attendanceId);
+      await insertAnswers(attendanceId, ans.normalized, tx);
+      return {};
+    });
+
+    if (result.conflict) {
+      return NextResponse.json({ error: '本人已有登記' }, { status: 409 });
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

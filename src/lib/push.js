@@ -12,6 +12,11 @@ if (
   );
 }
 
+// A subscription is considered "permanently gone" if the push service returns
+// any of these — there's no point keeping the row around.
+// 404/410 = endpoint deregistered, 403 = VAPID key changed, 401 = bad auth.
+const TERMINAL_STATUS = new Set([401, 403, 404, 410]);
+
 export async function sendPushToSubscription(subscription, payload) {
   try {
     await webpush.sendNotification(
@@ -23,8 +28,9 @@ export async function sendPushToSubscription(subscription, payload) {
     );
     return { success: true };
   } catch (err) {
-    if (err.statusCode === 410) return { success: false, expired: true };
-    return { success: false, error: err.message };
+    const status = err.statusCode || 0;
+    if (TERMINAL_STATUS.has(status)) return { success: false, expired: true, status };
+    return { success: false, error: err.message, status };
   }
 }
 
