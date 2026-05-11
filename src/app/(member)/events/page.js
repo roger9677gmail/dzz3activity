@@ -17,12 +17,24 @@ export default async function EventsPage() {
     ORDER BY e.start_date DESC
   `).all();
 
-  for (const ev of events) {
-    ev.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
+  // Batch-load event_items for ALL visible events in a single query, then group.
+  const eventIds = events.map((e) => e.id);
+  if (eventIds.length > 0) {
+    const placeholders = eventIds.map(() => '?').join(',');
+    const allItems = await db
+      .prepare(`SELECT * FROM event_items WHERE event_id IN (${placeholders}) ORDER BY event_id, sort_order, id`)
+      .all(...eventIds);
+    const itemsByEventId = new Map();
+    for (const it of allItems) {
+      if (!itemsByEventId.has(it.event_id)) itemsByEventId.set(it.event_id, []);
+      itemsByEventId.get(it.event_id).push(it);
+    }
+    for (const ev of events) ev.items = itemsByEventId.get(ev.id) || [];
+  } else {
+    for (const ev of events) ev.items = [];
   }
 
-  // Pull this member's registrations (one per event by the UNIQUE constraint),
-  // along with their items — so the EventCard can render a full summary inline.
+  // Pull this member's registrations + items in two batched queries (1 + 1).
   const myRegs = await db
     .prepare(
       `SELECT id, event_id, status, total_amount, payment_status,
@@ -31,17 +43,25 @@ export default async function EventsPage() {
         WHERE member_id = ? AND status != 'cancelled'`
     )
     .all(session.sub);
-  for (const reg of myRegs) {
-    reg.items = await db
+  if (myRegs.length > 0) {
+    const regIds = myRegs.map((r) => r.id);
+    const placeholders = regIds.map(() => '?').join(',');
+    const allRegItems = await db
       .prepare(
-        `SELECT ri.id, ri.quantity, ri.names, ri.contents, ri.subtotal, ri.is_gift,
-                ei.name AS item_name
+        `SELECT ri.id, ri.registration_id, ri.quantity, ri.names, ri.contents,
+                ri.subtotal, ri.is_gift, ei.name AS item_name
            FROM registration_items ri
            JOIN event_items ei ON ei.id = ri.event_item_id
-          WHERE ri.registration_id = ?
-          ORDER BY ri.is_gift, ri.id`
+          WHERE ri.registration_id IN (${placeholders})
+          ORDER BY ri.registration_id, ri.is_gift, ri.id`
       )
-      .all(reg.id);
+      .all(...regIds);
+    const itemsByRegId = new Map();
+    for (const it of allRegItems) {
+      if (!itemsByRegId.has(it.registration_id)) itemsByRegId.set(it.registration_id, []);
+      itemsByRegId.get(it.registration_id).push(it);
+    }
+    for (const reg of myRegs) reg.items = itemsByRegId.get(reg.id) || [];
   }
   const regByEventId = new Map(myRegs.map((r) => [r.event_id, r]));
   const myRegistrationIds = new Set(myRegs.map((r) => r.event_id));

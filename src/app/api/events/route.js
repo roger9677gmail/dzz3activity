@@ -22,9 +22,19 @@ export async function GET(request) {
 
   const events = await db.prepare(query).all(...params);
 
-  // Attach items to each event
-  for (const ev of events) {
-    ev.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(ev.id);
+  // Batch-load items for all events in a single query, then group.
+  if (events.length > 0) {
+    const eventIds = events.map((e) => e.id);
+    const placeholders = eventIds.map(() => '?').join(',');
+    const allItems = await db
+      .prepare(`SELECT * FROM event_items WHERE event_id IN (${placeholders}) ORDER BY event_id, sort_order, id`)
+      .all(...eventIds);
+    const itemsByEventId = new Map();
+    for (const it of allItems) {
+      if (!itemsByEventId.has(it.event_id)) itemsByEventId.set(it.event_id, []);
+      itemsByEventId.get(it.event_id).push(it);
+    }
+    for (const ev of events) ev.items = itemsByEventId.get(ev.id) || [];
   }
 
   return NextResponse.json(events);
