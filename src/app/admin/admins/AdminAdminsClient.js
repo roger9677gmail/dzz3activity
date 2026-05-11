@@ -26,17 +26,13 @@ function summarize(perms) {
     .join('、');
 }
 
-export default function AdminAdminsClient({ admins, currentAdminId }) {
+export default function AdminAdminsClient({ admins, candidates = [], currentAdminId }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    permissions: [],
-  });
+  const [search, setSearch] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [permissions, setPermissions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [pwOpen, setPwOpen] = useState(false);
@@ -55,22 +51,33 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
     return without.includes(key) ? without.filter((p) => p !== key) : [...without, key];
   }
 
+  function resetForm() {
+    setShowForm(false);
+    setSelectedMemberId(null);
+    setPermissions([]);
+    setSearch('');
+    setError('');
+  }
+
   async function handleCreate(e) {
     e.preventDefault();
     setError('');
+    if (!selectedMemberId) {
+      setError('請選擇要指派為管理員的師兄姐');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch('/api/admin/admins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ member_id: selectedMemberId, permissions }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || '新增失敗');
+        setError(data.error || '指派失敗');
       } else {
-        setForm({ name: '', email: '', phone: '', password: '', permissions: [] });
-        setShowForm(false);
+        resetForm();
         router.refresh();
       }
     } catch {
@@ -290,67 +297,144 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
           + 新增管理員
         </button>
       ) : (
-        <form onSubmit={handleCreate} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
-          <h3 className="font-bold text-gray-800">新增管理員</h3>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">姓名 *</label>
-            <input
-              type="text" required className="input-field text-sm"
-              value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Email *（登入帳號）</label>
-            <input
-              type="email" required className="input-field text-sm"
-              value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">電話（選填）</label>
-            <input
-              type="tel" className="input-field text-sm"
-              value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">密碼 *（至少 6 碼）</label>
-            <input
-              type="password" required minLength={6} className="input-field text-sm"
-              value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">指派權限</label>
-            <div className="space-y-1.5 bg-gray-50 rounded-lg p-3">
-              {PERMISSION_OPTIONS.map((opt) => {
-                const checked = opt.key === '*'
-                  ? form.permissions.includes('*')
-                  : form.permissions.includes('*') || form.permissions.includes(opt.key);
-                const disabled = opt.key !== '*' && form.permissions.includes('*');
-                return (
-                  <label key={opt.key} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={() => setForm((p) => ({ ...p, permissions: togglePerm(p.permissions, opt.key) }))}
-                    />
-                    <span className={disabled ? 'text-gray-400' : ''}>{opt.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-          {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
-          <div className="flex gap-2">
-            <button type="button" onClick={() => { setShowForm(false); setError(''); }} className="btn-secondary flex-1">取消</button>
-            <button type="submit" disabled={submitting} className="btn-primary flex-1">
-              {submitting ? '建立中...' : '建立'}
-            </button>
-          </div>
-        </form>
+        <PromoteForm
+          candidates={candidates}
+          search={search} setSearch={setSearch}
+          selectedMemberId={selectedMemberId} setSelectedMemberId={setSelectedMemberId}
+          permissions={permissions} setPermissions={setPermissions}
+          togglePerm={togglePerm}
+          submitting={submitting} error={error}
+          onSubmit={handleCreate}
+          onCancel={resetForm}
+        />
       )}
     </div>
+  );
+}
+
+function PromoteForm({
+  candidates, search, setSearch,
+  selectedMemberId, setSelectedMemberId,
+  permissions, setPermissions, togglePerm,
+  submitting, error, onSubmit, onCancel,
+}) {
+  const selected = candidates.find((c) => c.id === selectedMemberId) || null;
+  const needle = search.trim().toLowerCase();
+  const filtered = needle
+    ? candidates.filter((c) =>
+        (c.name && c.name.toLowerCase().includes(needle)) ||
+        (c.email && c.email.toLowerCase().includes(needle)) ||
+        (c.phone && c.phone.includes(needle)) ||
+        (c.location_name && c.location_name.toLowerCase().includes(needle))
+      )
+    : candidates;
+
+  return (
+    <form onSubmit={onSubmit} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+      <h3 className="font-bold text-gray-800">新增管理員</h3>
+      <p className="text-xs text-gray-500">
+        從現有師兄姐中挑選並指派後台權限。對方使用既有 Email 與密碼登入，無需重設。
+      </p>
+
+      {selected ? (
+        <div className="border border-temple-red rounded-lg p-3 bg-red-50">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-medium text-gray-800">{selected.name}</div>
+              <div className="text-xs text-gray-600 break-all">{selected.email}</div>
+              {(selected.phone || selected.location_name) && (
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {selected.location_name || ''}{selected.phone ? `${selected.location_name ? ' ・ ' : ''}${selected.phone}` : ''}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedMemberId(null)}
+              className="text-xs text-temple-red shrink-0"
+            >重選</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">選擇師兄姐 *</label>
+          <input
+            type="text"
+            className="input-field text-sm mb-2"
+            placeholder="搜尋姓名 / Email / 電話 / 道場"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {candidates.length === 0 ? (
+            <div className="text-sm text-gray-400 text-center py-6 bg-gray-50 rounded-lg">
+              所有現有師兄姐都已是管理員，或無啟用中的帳號
+            </div>
+          ) : (
+            <div className="max-h-64 overflow-y-auto bg-gray-50 rounded-lg divide-y divide-gray-200">
+              {filtered.length === 0 && (
+                <div className="text-sm text-gray-400 text-center py-6">找不到符合的師兄姐</div>
+              )}
+              {filtered.slice(0, 50).map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => setSelectedMemberId(c.id)}
+                  className="w-full text-left px-3 py-2 hover:bg-white focus-visible:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-temple-red"
+                >
+                  <div className="text-sm font-medium text-gray-800">{c.name}</div>
+                  <div className="text-xs text-gray-500 break-all">{c.email}</div>
+                  {(c.phone || c.location_name) && (
+                    <div className="text-[11px] text-gray-400 mt-0.5">
+                      {c.location_name || ''}{c.phone ? `${c.location_name ? ' ・ ' : ''}${c.phone}` : ''}
+                    </div>
+                  )}
+                </button>
+              ))}
+              {filtered.length > 50 && (
+                <div className="text-[11px] text-gray-400 text-center py-2">
+                  顯示前 50 筆，請輸入關鍵字縮小範圍（共 {filtered.length} 筆）
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">指派權限</label>
+        <div className="space-y-1.5 bg-gray-50 rounded-lg p-3">
+          {PERMISSION_OPTIONS.map((opt) => {
+            const checked = opt.key === '*'
+              ? permissions.includes('*')
+              : permissions.includes('*') || permissions.includes(opt.key);
+            const disabled = opt.key !== '*' && permissions.includes('*');
+            return (
+              <label key={opt.key} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => setPermissions((p) => togglePerm(p, opt.key))}
+                />
+                <span className={disabled ? 'text-gray-400' : ''}>{opt.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {error && <div className="bg-red-50 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>}
+
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel} className="btn-secondary flex-1">取消</button>
+        <button
+          type="submit"
+          disabled={submitting || !selectedMemberId}
+          className="btn-primary flex-1"
+        >
+          {submitting ? '指派中…' : '指派為管理員'}
+        </button>
+      </div>
+    </form>
   );
 }

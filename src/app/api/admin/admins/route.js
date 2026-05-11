@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
 import { parsePermissions } from '@/lib/auth';
@@ -39,33 +38,40 @@ export const GET = withPermission('admins:manage', async () => {
   return NextResponse.json({ admins });
 });
 
+// POST: promote an existing 師兄姐 to admin.
+// Body: { member_id, permissions }
+// (Previously this created a brand-new account; admins are now always
+// drawn from the existing member roster so credentials & profiles stay
+// owned by the member.)
 export const POST = withPermission('admins:manage', async (request) => {
   try {
-    const { name, email, phone, password, permissions } = await request.json();
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: '姓名、Email、密碼為必填' }, { status: 400 });
+    const { member_id, permissions } = await request.json();
+    const memberId = parseInt(member_id);
+    if (!memberId) {
+      return NextResponse.json({ error: '請選擇要指派的師兄姐' }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: '密碼至少需 6 碼' }, { status: 400 });
-    }
-    const normalized = String(email).trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(normalized)) {
-      return NextResponse.json({ error: 'Email 格式不正確' }, { status: 400 });
-    }
-    const phoneVal = phone ? String(phone).trim() : null;
-    const perms = sanitizePermissions(permissions);
 
-    const existing = await db.prepare('SELECT id FROM members WHERE email = ?').get(normalized);
-    if (existing) {
-      return NextResponse.json({ error: '此 Email 已被使用' }, { status: 409 });
+    const member = await db
+      .prepare('SELECT id, name, email, is_admin, is_disabled FROM members WHERE id = ?')
+      .get(memberId);
+    if (!member) {
+      return NextResponse.json({ error: '師兄姐不存在' }, { status: 404 });
     }
-    const hash = await bcrypt.hash(password, 10);
-    const result = await db
+    if (member.is_disabled) {
+      return NextResponse.json({ error: '此師兄姐帳號已停用，請先啟用後再指派' }, { status: 400 });
+    }
+    if (member.is_admin) {
+      return NextResponse.json({ error: '此師兄姐已是管理員' }, { status: 409 });
+    }
+
+    const perms = sanitizePermissions(permissions);
+    await db
       .prepare(
-        'INSERT INTO members (name, email, phone, password, role, is_admin, admin_permissions) VALUES (?, ?, ?, ?, ?, 1, ?)'
+        "UPDATE members SET is_admin = 1, role = 'admin', admin_permissions = ? WHERE id = ?"
       )
-      .run(name, normalized, phoneVal, hash, 'admin', JSON.stringify(perms));
-    return NextResponse.json({ success: true, id: result.lastInsertRowid });
+      .run(JSON.stringify(perms), memberId);
+
+    return NextResponse.json({ success: true, id: memberId });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });
