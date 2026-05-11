@@ -192,43 +192,68 @@ function QfList({ rows }) {
             <th className="px-3 py-2 text-left whitespace-nowrap">收據</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
-          {rows.map((r) => (
-            <tr key={r.id}>
-              <td className="px-3 py-2 font-medium text-gray-800 whitespace-nowrap align-top">{r.member_name}</td>
-              <td className="px-3 py-2 text-gray-600 whitespace-nowrap align-top">{r.location_name || ''}</td>
-              <td className="px-3 py-2 text-gray-600 whitespace-nowrap align-top">{r.member_phone || ''}</td>
-              <td className="px-3 py-2 text-gray-700 align-top">
-                {r.items.map((it, i) => (
-                  <div key={i} className="text-xs">
-                    {it.item_name} × {it.quantity}
-                    {it.is_gift && <span className="text-temple-gold ml-1">（贈品）</span>}
-                    {it.names_arr.length > 0 && (
-                      <span className="text-gray-400 ml-1">（{it.names_arr.join('、')}）</span>
-                    )}
-                    {it.contents_arr.some((c) => c && c.trim()) && (
-                      <div className="pl-3 text-[11px] text-gray-500">
-                        超渡：{it.contents_arr.filter((c) => c && c.trim()).join('；')}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </td>
-              <td className="px-3 py-2 text-right whitespace-nowrap align-top text-temple-red">
-                {formatMoney(r.total_amount)}
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap align-top">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  r.payment_status === 'paid' ? 'badge-paid' : 'badge-unpaid'
-                }`}>
-                  {getPaymentStatusLabel(r.payment_status)}
-                </span>
-              </td>
-              <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap align-top">
-                {r.receipt_number || '—'}
-              </td>
-            </tr>
-          ))}
+        <tbody>
+          {rows.map((r) => {
+            const items = r.items.length > 0 ? r.items : [null]; // ensure at least one row
+            const span = items.length;
+            return items.map((it, idx) => (
+              <tr key={`${r.id}-${idx}`} className={idx > 0 ? 'border-t-0' : ''}>
+                {idx === 0 && (
+                  <td rowSpan={span} className="px-3 py-2 font-medium text-gray-800 whitespace-nowrap align-top border-t border-gray-100">
+                    {r.member_name}
+                  </td>
+                )}
+                {idx === 0 && (
+                  <td rowSpan={span} className="px-3 py-2 text-gray-600 whitespace-nowrap align-top border-t border-gray-100">
+                    {r.location_name || ''}
+                  </td>
+                )}
+                {idx === 0 && (
+                  <td rowSpan={span} className="px-3 py-2 text-gray-600 whitespace-nowrap align-top border-t border-gray-100">
+                    {r.member_phone || ''}
+                  </td>
+                )}
+                <td className="px-3 py-2 text-gray-700 align-top">
+                  {it ? (
+                    <div className="text-xs">
+                      {it.item_name} × {it.quantity}
+                      {it.is_gift && <span className="text-temple-gold ml-1">（贈品）</span>}
+                      {it.names_arr.length > 0 && (
+                        <span className="text-gray-400 ml-1">（{it.names_arr.join('、')}）</span>
+                      )}
+                      {it.contents_arr.some((c) => c && c.trim()) && (
+                        <div className="pl-3 text-[11px] text-gray-500 mt-0.5">
+                          超渡：{it.contents_arr.filter((c) => c && c.trim()).join('；')}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap align-top text-temple-red text-xs">
+                  {it ? formatMoney(it.subtotal || 0) : ''}
+                </td>
+                {idx === 0 && (
+                  <td rowSpan={span} className="px-3 py-2 whitespace-nowrap align-top border-t border-gray-100">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      r.payment_status === 'paid' ? 'badge-paid' : 'badge-unpaid'
+                    }`}>
+                      {getPaymentStatusLabel(r.payment_status)}
+                    </span>
+                    <div className="text-[11px] text-gray-400 mt-1">
+                      合計 {formatMoney(r.total_amount)}
+                    </div>
+                  </td>
+                )}
+                {idx === 0 && (
+                  <td rowSpan={span} className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap align-top border-t border-gray-100">
+                    {r.receipt_number || '—'}
+                  </td>
+                )}
+              </tr>
+            ));
+          })}
         </tbody>
       </table>
     </div>
