@@ -259,7 +259,9 @@ function AnswersList({ questions, attendances, eventId }) {
       <table className="min-w-full text-sm">
         <thead className="bg-gray-50 text-gray-600 text-xs">
           <tr>
-            <th className="px-3 py-2 text-left">姓名</th>
+            <th className="px-3 py-2 text-left">師兄姐</th>
+            <th className="px-3 py-2 text-left">登記對象</th>
+            <th className="px-3 py-2 text-left">關係</th>
             <th className="px-3 py-2 text-left">道場</th>
             <th className="px-3 py-2 text-left">電話</th>
             {questions.map((q) => (
@@ -273,6 +275,10 @@ function AnswersList({ questions, attendances, eventId }) {
           {attendances.map((a) => (
             <tr key={a.id}>
               <td className="px-3 py-2 font-medium text-gray-800 whitespace-nowrap">{a.member_name}</td>
+              <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                {a.attendee_name ? a.attendee_name : <span className="text-gray-400">本人</span>}
+              </td>
+              <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{a.attendee_relation || ''}</td>
               <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{a.location_name || ''}</td>
               <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{a.member_phone || ''}</td>
               {questions.map((q) => (

@@ -115,7 +115,7 @@ done
 | `announcements` | id, title, content, image (data:URL), link_url, attachment_url, pinned, starts_at, ends_at, created_by |
 | `announcement_groups` | announcement_id, group_id (UNIQUE pair) — 公告 ↔ 目標群組 |
 | `event_attendance_questions` | event_id, label, type, options JSON, required, sort_order — 活動登記題目，type: text\|choice\|multi_date\|count\|checkbox |
-| `event_attendance` | event_id, member_id (UNIQUE pair), notes — 每位師兄姐每場活動最多一筆 |
+| `event_attendance` | event_id, member_id, `attendee_name` (NULL=本人，NOT NULL=親友姓名), `attendee_relation`, notes — 一筆=一個人；本人每場至多 1 筆 (app 層約束)，親友可多筆 |
 | `event_attendance_answers` | attendance_id, question_id (UNIQUE pair), value JSON — 每題回覆 |
 
 ### 後台權限模型
@@ -169,7 +169,9 @@ done
   - `text` 單行文字 / `choice` 單選（可加自訂文字欄位，例：車號）/ `multi_date` 多選清單（每行一個選項，可填日期或自訂文字；type 名沿用 multi_date 為向後相容）/ `count` 數字 / `checkbox` 是否參加
 - Admin 看名單：同頁的「已登記名單」分頁；按右上「📄 匯出 Excel」拿到完整表格（`multi_date` 自動展開為一日一欄、勾選為 1）
 - 師兄姐填表：`/events/[eventId]/attendance`；event 詳情頁有題目時會出現「📋 活動登記」入口
-- 一人一場活動最多一筆 `event_attendance`；修改即覆蓋
+- 同一師兄姐可登記「本人 + N 位親友」：本人 attendee_name=NULL（每場至多 1 筆），親友 attendee_name+relation 必填、可多筆。各自獨立填寫所有題目，互不影響
+- API：`GET /api/me/attendance/[eventId]` 回 `{entries:[...]}`；`POST` 新增；`PUT /api/me/attendance/[eventId]/[attendanceId]` 更新；`DELETE` 刪除（含本人取消登記）
+- Admin 名單與 Excel 一列＝一個人，含「登記對象 / 關係」兩欄
 
 ### 報表 (Excel 匯出)
 

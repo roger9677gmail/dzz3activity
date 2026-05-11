@@ -19,11 +19,14 @@ export default async function EventDetailPage({ params }) {
     .prepare('SELECT COUNT(*) AS c FROM event_attendance_questions WHERE event_id = ? AND active = 1')
     .get(event.id);
   const hasAttendance = (attendanceRow?.c || 0) > 0;
+  // Member can have multiple attendance rows now (self + 親友). Just check
+  // whether any exists — the entry button's label changes accordingly.
   const mineAttendance = hasAttendance
     ? await db
-        .prepare('SELECT id, created_at FROM event_attendance WHERE event_id = ? AND member_id = ?')
+        .prepare('SELECT COUNT(*) AS c FROM event_attendance WHERE event_id = ? AND member_id = ?')
         .get(event.id, session.sub)
     : null;
+  const hasAnyEntry = (mineAttendance?.c || 0) > 0;
 
   const existingRegistration = await db.prepare(`
     SELECT * FROM registrations WHERE event_id = ? AND member_id = ?
@@ -82,10 +85,10 @@ export default async function EventDetailPage({ params }) {
             <div>
               <div className="text-sm font-bold text-gray-800">📋 活動登記</div>
               <div className="text-xs text-gray-500 mt-0.5">
-                {mineAttendance ? '已登記，可點此修改' : '交通 / 住宿 / 用餐 / 課程登記'}
+                {hasAnyEntry ? `已登記 ${mineAttendance.c} 筆，可點此修改或新增親友` : '本人 / 親友皆可登記（交通 / 住宿 / 用餐）'}
               </div>
             </div>
-            <span className="text-temple-red text-sm">{mineAttendance ? '修改 →' : '前往登記 →'}</span>
+            <span className="text-temple-red text-sm">{hasAnyEntry ? '管理 →' : '前往登記 →'}</span>
           </Link>
         )}
 

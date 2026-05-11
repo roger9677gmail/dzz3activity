@@ -24,14 +24,14 @@ export const GET = withPermission('attendance:manage', async (request, { params 
 
   const rows = await db
     .prepare(
-      `SELECT a.id, a.member_id, a.notes, a.created_at,
+      `SELECT a.id, a.member_id, a.attendee_name, a.attendee_relation, a.notes, a.created_at,
               m.name AS member_name, m.phone AS member_phone,
               l.name AS location_name
          FROM event_attendance a
          JOIN members m ON m.id = a.member_id
     LEFT JOIN locations l ON l.id = m.location_id
         WHERE a.event_id = ? AND m.is_disabled = 0
-        ORDER BY a.created_at`
+        ORDER BY m.name, (a.attendee_name IS NOT NULL), a.id`
     )
     .all(eventId);
 
@@ -55,7 +55,9 @@ export const GET = withPermission('attendance:manage', async (request, { params 
   // Build column layout. multi_date types fan out into one column per date.
   const columns = [
     { header: '序號', key: '_idx', width: 6 },
-    { header: '姓名', key: '_name', width: 14 },
+    { header: '師兄姐', key: '_name', width: 14 },
+    { header: '登記對象', key: '_attendee', width: 14 },
+    { header: '關係', key: '_relation', width: 10 },
     { header: '道場', key: '_location', width: 14 },
     { header: '電話', key: '_phone', width: 14 },
   ];
@@ -90,6 +92,8 @@ export const GET = withPermission('attendance:manage', async (request, { params 
     const out = {
       _idx: idx + 1,
       _name: r.member_name,
+      _attendee: r.attendee_name || '本人',
+      _relation: r.attendee_relation || '',
       _location: r.location_name || '',
       _phone: r.member_phone || '',
       _notes: r.notes || '',

@@ -276,15 +276,17 @@ CREATE TABLE IF NOT EXISTS event_attendance_questions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS event_attendance (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  event_id    INT UNSIGNED NOT NULL,
-  member_id   INT UNSIGNED NOT NULL,
-  notes       TEXT NULL,
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_ea_event_member (event_id, member_id),
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id           INT UNSIGNED NOT NULL,
+  member_id          INT UNSIGNED NOT NULL,
+  attendee_name      VARCHAR(100) NULL,
+  attendee_relation  VARCHAR(20)  NULL,
+  notes              TEXT NULL,
+  created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_ea_event (event_id),
   INDEX idx_ea_member (member_id),
+  INDEX idx_ea_event_member (event_id, member_id),
   CONSTRAINT fk_ea_event  FOREIGN KEY (event_id)  REFERENCES events(id)  ON DELETE CASCADE,
   CONSTRAINT fk_ea_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -589,6 +591,45 @@ CREATE TABLE IF NOT EXISTS event_attendance_answers (
       console.log(`✅ Assigned ${r.affectedRows} member(s) to 全體師兄姐`);
     } catch (err) {
       console.log('ℹ️  Skipped group backfill -', err.code || err.message);
+    }
+
+    // Attendance: multi-attendee support (本人 + 親友)
+    console.log('— Attendance multi-attendee migration —');
+    try {
+      await conn.query('ALTER TABLE event_attendance ADD COLUMN attendee_name VARCHAR(100) NULL AFTER member_id');
+      console.log('✅ Applied: ADD event_attendance.attendee_name');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD event_attendance.attendee_name');
+      } else { throw err; }
+    }
+    try {
+      await conn.query('ALTER TABLE event_attendance ADD COLUMN attendee_relation VARCHAR(20) NULL AFTER attendee_name');
+      console.log('✅ Applied: ADD event_attendance.attendee_relation');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD event_attendance.attendee_relation');
+      } else { throw err; }
+    }
+    try {
+      await conn.query('ALTER TABLE event_attendance DROP INDEX uk_ea_event_member');
+      console.log('✅ Applied: DROP UNIQUE uk_ea_event_member (one row per attendee now)');
+    } catch (err) {
+      if (err && (err.code === 'ER_CANT_DROP_FIELD_OR_KEY' || /check that .* exists/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (index already dropped): uk_ea_event_member');
+      } else {
+        console.log('ℹ️  Skipped UNIQUE drop -', err.code || err.message);
+      }
+    }
+    try {
+      await conn.query('ALTER TABLE event_attendance ADD INDEX idx_ea_event_member (event_id, member_id)');
+      console.log('✅ Applied: ADD INDEX idx_ea_event_member');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_KEYNAME' || /Duplicate key name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (index exists): idx_ea_event_member');
+      } else {
+        console.log('ℹ️  Skipped INDEX add -', err.code || err.message);
+      }
     }
 
     // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).
