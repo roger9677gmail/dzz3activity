@@ -7,7 +7,7 @@ import { APP_VERSION } from '@/lib/version';
 const navItems = [
   { href: '/admin', label: '總覽', exact: true, icon: '📊' },
   { href: '/admin/events', label: '活動管理', icon: '🏛️', perm: 'events:manage' },
-  { href: '/admin/registrations', label: '報名管理', icon: '📋', perm: 'registrations:manage' },
+  { href: '/admin/registrations', label: '繳款收據登錄', icon: '📋', perm: 'registrations:manage' },
   { href: '/admin/members', label: '師兄姐管理', icon: '👥', perm: 'members:manage' },
   { href: '/admin/locations', label: '道場管理', icon: '🏯', perm: 'locations:manage' },
   { href: '/admin/groups', label: '群組標籤', icon: '🏷️', perm: 'groups:manage' },

@@ -6,7 +6,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 const PERMISSION_OPTIONS = [
   { key: '*', label: '全部權限（最高管理員）' },
   { key: 'events:manage', label: '活動管理' },
-  { key: 'registrations:manage', label: '報名管理' },
+  { key: 'registrations:manage', label: '繳款收據登錄' },
   { key: 'members:manage', label: '師兄姐管理' },
   { key: 'locations:manage', label: '道場管理' },
   { key: 'admins:manage', label: '管理員設定（含權限指派）' },

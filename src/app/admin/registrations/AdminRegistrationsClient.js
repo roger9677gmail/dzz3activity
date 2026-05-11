@@ -14,7 +14,7 @@ export default function AdminRegistrationsClient({ registrations, events, initia
   function applyFilters(newFilters) {
     const f = { ...filters, ...newFilters };
     setFilters(f);
-    const params = new URLSearchParams({ type: 'qf' });
+    const params = new URLSearchParams();
     if (f.eventId) params.set('eventId', f.eventId);
     if (f.paymentStatus) params.set('payment_status', f.paymentStatus);
     if (f.search) params.set('search', f.search);
