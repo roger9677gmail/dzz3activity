@@ -5,7 +5,7 @@ export const QUESTION_TYPES = ['text', 'choice', 'multi_date', 'count', 'checkbo
 export const TYPE_LABELS = {
   text: '單行文字',
   choice: '單選（可加自訂文字欄位）',
-  multi_date: '多日期勾選',
+  multi_date: '多選清單（每行一個選項，可填日期或自訂文字）',
   count: '數字',
   checkbox: '是否參加',
 };
@@ -67,18 +67,20 @@ export function normalizeAnswer(question, raw) {
       return { ok: true, value: { choice, text: allowText ? extra : '' } };
     }
     case 'multi_date': {
+      // Despite the name, this type now accepts any text per option (dates
+      // are just one common case). Storage key stays `dates` for back-compat.
       const arr = raw && Array.isArray(raw.dates) ? raw.dates : (Array.isArray(raw) ? raw : []);
-      const cleaned = [...new Set(arr.map((d) => String(d)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))];
+      const cleaned = [...new Set(arr.map((d) => String(d).trim()).filter(Boolean))];
       const allowed = Array.isArray(opts.dates) ? opts.dates : null;
       if (allowed && allowed.length > 0) {
         for (const d of cleaned) {
           if (!allowed.includes(d)) {
-            return { ok: false, error: `「${question.label}」日期不在允許範圍` };
+            return { ok: false, error: `「${question.label}」選項不在允許範圍` };
           }
         }
       }
       if (question.required && cleaned.length === 0) {
-        return { ok: false, error: `「${question.label}」至少選一個日期` };
+        return { ok: false, error: `「${question.label}」至少選一個` };
       }
       return { ok: true, value: { dates: cleaned } };
     }
@@ -142,11 +144,17 @@ export function normalizeOptions(type, raw) {
       return { ok: true, value: { choices, allow_text, text_label } };
     }
     case 'multi_date': {
-      const dates = Array.isArray(o.dates)
-        ? [...new Set(o.dates.map((d) => String(d)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))]
+      // Free-form list: each non-empty trimmed line becomes one option.
+      // Order preserved (no sort) so admin can hand-arrange the sequence.
+      const items = Array.isArray(o.dates)
+        ? o.dates.map((d) => String(d).trim()).filter(Boolean)
         : [];
-      if (dates.length < 1) return { ok: false, error: '請至少加入一個日期' };
-      dates.sort();
+      const seen = new Set();
+      const dates = [];
+      for (const it of items) {
+        if (!seen.has(it)) { seen.add(it); dates.push(it); }
+      }
+      if (dates.length < 1) return { ok: false, error: '請至少加入一個選項' };
       return { ok: true, value: { dates } };
     }
     case 'count': {

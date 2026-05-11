@@ -64,7 +64,9 @@ export const GET = withPermission('attendance:manage', async (request, { params 
     if (q.type === 'multi_date' && Array.isArray(q.options.dates)) {
       for (const d of q.options.dates) {
         const key = `q${q.id}_${d}`;
-        columns.push({ header: `${q.label} ${d.slice(5)}`, key, width: 10 });
+        // For YYYY-MM-DD strip year prefix to keep header tight; otherwise show full text.
+        const short = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.slice(5) : d;
+        columns.push({ header: `${q.label} ${short}`, key, width: 10 });
         colSpec.push({ question: q, dateKey: d, key });
       }
     } else {

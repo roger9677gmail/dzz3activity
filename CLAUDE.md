@@ -158,7 +158,7 @@ done
 同一個 event 下，「報名祈福（付費功德主/蓮位）」與「活動登記（交通/住宿/用餐等）」是兩個獨立子模組，師兄姐可只填其一或兩者皆填。
 
 - Admin 設計題目：`/admin/events/[eventId]/attendance` → 題目設計分頁，支援五種題型：
-  - `text` 單行文字 / `choice` 單選（可加自訂文字欄位，例：車號）/ `multi_date` 多日期勾選 / `count` 數字 / `checkbox` 是否參加
+  - `text` 單行文字 / `choice` 單選（可加自訂文字欄位，例：車號）/ `multi_date` 多選清單（每行一個選項，可填日期或自訂文字；type 名沿用 multi_date 為向後相容）/ `count` 數字 / `checkbox` 是否參加
 - Admin 看名單：同頁的「已登記名單」分頁；按右上「📄 匯出 Excel」拿到完整表格（`multi_date` 自動展開為一日一欄、勾選為 1）
 - 師兄姐填表：`/events/[eventId]/attendance`；event 詳情頁有題目時會出現「📋 活動登記」入口
 - 一人一場活動最多一筆 `event_attendance`；修改即覆蓋

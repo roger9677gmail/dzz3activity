@@ -159,7 +159,7 @@ function OptionsSummary({ q }) {
   switch (q.type) {
     case 'text': return <>長度上限 {o.maxLength || 200}</>;
     case 'choice': return <>選項：{(o.choices || []).join('、')}{o.allow_text ? ` ・ 含自訂文字（${o.text_label || ''}）` : ''}</>;
-    case 'multi_date': return <>日期：{(o.dates || []).join('、')}</>;
+    case 'multi_date': return <>選項：{(o.dates || []).join('、')}</>;
     case 'count': return <>範圍：{o.min ?? 0}~{o.max ?? 99}</>;
     case 'checkbox': return <>勾選即代表「是」</>;
     default: return null;
@@ -222,8 +222,9 @@ function QuestionForm({ draft, setDraft }) {
       )}
       {draft.type === 'multi_date' && (
         <div>
-          <label className="block text-xs text-gray-500 mb-1">日期清單（YYYY-MM-DD，每行一個）</label>
-          <textarea rows={5} className="input-field text-sm font-mono text-[12px]"
+          <label className="block text-xs text-gray-500 mb-1">選項清單（每行一個，可填日期或自訂文字）</label>
+          <textarea rows={5} className="input-field text-sm"
+            placeholder={'例如：\n2026-08-23\n2026-08-24\n或：\n下午茶時段\n夜間共修'}
             value={(draft.options.dates || []).join('\n')}
             onChange={(e) => setOpts({ dates: e.target.value.split('\n') })} />
         </div>
