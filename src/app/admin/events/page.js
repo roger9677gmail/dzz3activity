@@ -20,7 +20,10 @@ export default async function AdminEventsPage() {
          WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) AS reg_count,
       (SELECT COUNT(*) FROM registrations r
          JOIN members m ON m.id = r.member_id
-         WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid' AND m.is_disabled = 0) AS paid_count
+         WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid' AND m.is_disabled = 0) AS paid_count,
+      (SELECT COUNT(*) FROM event_attendance a
+         JOIN members m ON m.id = a.member_id
+         WHERE a.event_id = e.id AND m.is_disabled = 0) AS att_count
     FROM events e
     ORDER BY
       CASE e.status WHEN 'active' THEN 1 WHEN 'draft' THEN 2 WHEN 'closed' THEN 3 ELSE 4 END,
@@ -61,18 +64,24 @@ export default async function AdminEventsPage() {
                   }`}>
                     {getEventStatusLabel(ev.status)}
                   </span>
-                  <span className="text-sm text-gray-600">{ev.reg_count} 人報名</span>
+                  <span className="text-sm text-gray-600">
+                    {ev.reg_count} 祈福 ・ {ev.att_count} 活動
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Link href={`/admin/events/${ev.id}`}
-                  className="flex-1 text-center text-sm py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  className="text-center text-sm py-1.5 px-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
                   編輯
                 </Link>
                 <Link href={`/admin/events/${ev.id}/registrations`}
-                  className="flex-1 text-center text-sm py-1.5 rounded-lg border border-temple-red text-temple-red hover:bg-red-50">
-                  查看名單 ({ev.reg_count})
+                  className="flex-1 min-w-[8rem] text-center text-sm py-1.5 px-2 rounded-lg border border-temple-red text-temple-red hover:bg-red-50">
+                  祈福名單 ({ev.reg_count})
+                </Link>
+                <Link href={`/admin/events/${ev.id}/attendance`}
+                  className="flex-1 min-w-[8rem] text-center text-sm py-1.5 px-2 rounded-lg border border-blue-400 text-blue-600 hover:bg-blue-50">
+                  活動名單 ({ev.att_count})
                 </Link>
                 <DuplicateEventButton eventId={ev.id} eventName={ev.name} />
                 <DeleteEventButton eventId={ev.id} eventName={ev.name} regCount={ev.reg_count} paidCount={ev.paid_count} />
