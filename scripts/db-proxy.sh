@@ -168,7 +168,10 @@ case "$cmd" in
     wait "$PROXY_PID"
     ;;
   *)
-    shift || true
+    # Fallback: treat the entire arg list as a custom command, e.g.
+    #   bash scripts/db-proxy.sh node scripts/delete-member.js --email foo
+    # Run "$@" directly (no shift — we don't want to drop "node" or the
+    # script's first arg).
     if [[ $# -eq 0 ]]; then
       err "Unknown command: $cmd"
       err "Use one of: migrate | seed | shell | start | <custom command...>"
