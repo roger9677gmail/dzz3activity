@@ -45,7 +45,10 @@ export default function MemberNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe">
+    <nav
+      aria-label="主要導覽"
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe"
+    >
       <div className="flex">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -53,7 +56,9 @@ export default function MemberNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
+              aria-current={active ? 'page' : undefined}
+              aria-label={item.label}
+              className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-temple-red ${
                 active ? 'text-temple-red' : 'text-gray-400'
               }`}
             >

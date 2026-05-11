@@ -5,4 +5,4 @@
 // Bump on every release. See CLAUDE.md for the full rule.
 export const APP_NAME = '大自在山活動報名系統';
 export const APP_SHORT_NAME = '大自在山活動';
-export const APP_VERSION = 'v260511.16';
+export const APP_VERSION = 'v260511.17';
