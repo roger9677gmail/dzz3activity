@@ -35,11 +35,6 @@ export default function AdminAdminsClient({ admins, candidates = [], currentAdmi
   const [permissions, setPermissions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [pwOpen, setPwOpen] = useState(false);
-  const [pwForm, setPwForm] = useState({ old_password: '', new_password: '', confirm_password: '' });
-  const [pwSubmitting, setPwSubmitting] = useState(false);
-  const [pwError, setPwError] = useState('');
-  const [pwInfo, setPwInfo] = useState('');
   const [permEditingId, setPermEditingId] = useState(null);
   const [permDraft, setPermDraft] = useState([]);
   const [permSaving, setPermSaving] = useState(false);
@@ -124,42 +119,6 @@ export default function AdminAdminsClient({ admins, candidates = [], currentAdmi
     setPermSaving(false);
   }
 
-  async function handleChangePassword(e) {
-    e.preventDefault();
-    setPwError('');
-    setPwInfo('');
-    if (pwForm.new_password !== pwForm.confirm_password) {
-      setPwError('新密碼兩次輸入不一致');
-      return;
-    }
-    if (pwForm.new_password.length < 6) {
-      setPwError('新密碼至少需 6 碼');
-      return;
-    }
-    setPwSubmitting(true);
-    try {
-      const res = await fetch(`/api/admin/admins/${currentAdminId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          old_password: pwForm.old_password,
-          new_password: pwForm.new_password,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPwError(data.error || '修改失敗');
-      } else {
-        setPwInfo('密碼已更新');
-        setPwForm({ old_password: '', new_password: '', confirm_password: '' });
-        setTimeout(() => { setPwInfo(''); setPwOpen(false); }, 1500);
-      }
-    } catch {
-      setPwError('網路錯誤，請稍後再試');
-    }
-    setPwSubmitting(false);
-  }
-
   return (
     <div>
       <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100 mb-4">
@@ -181,14 +140,6 @@ export default function AdminAdminsClient({ admins, candidates = [], currentAdmi
                   <div className="text-xs text-gray-500 mt-1">權限：{summarize(perms)}</div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  {isMe && (
-                    <button
-                      onClick={() => { setPwOpen((v) => !v); setPwError(''); setPwInfo(''); }}
-                      className="text-sm text-temple-red"
-                    >
-                      {pwOpen ? '取消' : '修改密碼'}
-                    </button>
-                  )}
                   <button
                     onClick={() => {
                       if (editing) {
@@ -251,42 +202,6 @@ export default function AdminAdminsClient({ admins, candidates = [], currentAdmi
                 </div>
               )}
 
-              {isMe && pwOpen && (
-                <form onSubmit={handleChangePassword} className="mt-3 space-y-2 bg-gray-50 rounded-lg p-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">目前密碼</label>
-                    <input
-                      type="password" required autoComplete="current-password"
-                      className="input-field text-sm"
-                      value={pwForm.old_password}
-                      onChange={(e) => setPwForm((p) => ({ ...p, old_password: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">新密碼（至少 6 碼）</label>
-                    <input
-                      type="password" required minLength={6} autoComplete="new-password"
-                      className="input-field text-sm"
-                      value={pwForm.new_password}
-                      onChange={(e) => setPwForm((p) => ({ ...p, new_password: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">再次輸入新密碼</label>
-                    <input
-                      type="password" required autoComplete="new-password"
-                      className="input-field text-sm"
-                      value={pwForm.confirm_password}
-                      onChange={(e) => setPwForm((p) => ({ ...p, confirm_password: e.target.value }))}
-                    />
-                  </div>
-                  {pwError && <div className="text-sm text-red-600">{pwError}</div>}
-                  {pwInfo && <div className="text-sm text-green-700">{pwInfo}</div>}
-                  <button type="submit" disabled={pwSubmitting} className="btn-primary text-sm w-full">
-                    {pwSubmitting ? '更新中…' : '更新密碼'}
-                  </button>
-                </form>
-              )}
             </div>
           );
         })}
