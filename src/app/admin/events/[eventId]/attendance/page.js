@@ -27,14 +27,15 @@ export default async function AdminEventAttendancePage({ params }) {
 
   const attendances = await db
     .prepare(
-      `SELECT a.id, a.member_id, a.notes, a.created_at, a.updated_at,
+      `SELECT a.id, a.member_id, a.attendee_name, a.attendee_relation,
+              a.notes, a.created_at, a.updated_at,
               m.name AS member_name, m.phone AS member_phone, m.email AS member_email,
               l.name AS location_name
          FROM event_attendance a
          JOIN members m ON m.id = a.member_id
     LEFT JOIN locations l ON l.id = m.location_id
         WHERE a.event_id = ? AND m.is_disabled = 0
-        ORDER BY a.created_at`
+        ORDER BY m.name, (a.attendee_name IS NOT NULL), a.id`
     )
     .all(eventId);
   for (const r of attendances) {
