@@ -32,6 +32,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--confirm') args.confirm = true;
     else if (a === '--name') args.name = argv[++i];
+    else if (a === '--email') args.email = String(argv[++i] || '').trim().toLowerCase();
     else if (a === '--id') args.id = parseInt(argv[++i]);
   }
   return args;
@@ -39,8 +40,8 @@ function parseArgs(argv) {
 
 (async () => {
   const args = parseArgs(process.argv);
-  if (!args.name && !args.id) {
-    console.error('Usage: --name "<name>"  OR  --id <member_id>  [--confirm]');
+  if (!args.name && !args.id && !args.email) {
+    console.error('Usage: --email "<email>"  OR  --name "<name>"  OR  --id <member_id>  [--confirm]');
     process.exit(1);
   }
 
@@ -72,6 +73,13 @@ function parseArgs(argv) {
         [args.id]
       );
       if (rows.length === 0) { console.error(`找不到師兄姐 id=${args.id}`); process.exit(1); }
+      target = rows[0];
+    } else if (args.email) {
+      const [rows] = await conn.query(
+        'SELECT id, name, email, phone, is_admin, is_disabled FROM members WHERE LOWER(email) = ?',
+        [args.email]
+      );
+      if (rows.length === 0) { console.error(`找不到 email「${args.email}」的師兄姐`); process.exit(1); }
       target = rows[0];
     } else {
       const [rows] = await conn.query(
