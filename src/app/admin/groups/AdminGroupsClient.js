@@ -38,10 +38,15 @@ export default function AdminGroupsClient({ groups }) {
 
   async function handleSaveEdit() {
     setEditError('');
+    // Mirror groups: only color / sort_order are editable — strip name/active.
+    const editing = groups.find((g) => g.id === editingId);
+    const payload = editing?.location_id != null
+      ? { color: editDraft.color, sort_order: editDraft.sort_order }
+      : editDraft;
     const res = await fetch(`/api/admin/groups/${editingId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editDraft),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) { setEditError(data.error || '更新失敗'); return; }
@@ -75,15 +80,22 @@ export default function AdminGroupsClient({ groups }) {
           <div className="p-6 text-center text-gray-400 text-sm">尚未建立任何群組</div>
         )}
         {groups.map((g) => {
+          const isMirror = g.location_id != null;
           const isEditing = editingId === g.id;
           if (isEditing) {
             return (
               <div key={g.id} className="px-4 py-3 space-y-2 bg-gray-50">
-                <input
-                  type="text" className="input-field text-sm"
-                  value={editDraft.name}
-                  onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
-                />
+                {isMirror ? (
+                  <div className="text-sm text-gray-600">
+                    🏯 道場鏡射群組「{g.name}」— 名稱請至「道場管理」修改
+                  </div>
+                ) : (
+                  <input
+                    type="text" className="input-field text-sm"
+                    value={editDraft.name}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
+                  />
+                )}
                 <div className="flex flex-wrap gap-2 items-center">
                   {PRESETS.map((c) => (
                     <button
@@ -111,16 +123,23 @@ export default function AdminGroupsClient({ groups }) {
             <div key={g.id} className="px-4 py-3 flex items-center gap-3">
               <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-800">
-                  {g.name}
-                  {!g.active && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">停用</span>}
+                <div className="text-sm font-medium text-gray-800 flex items-center gap-2 flex-wrap">
+                  {isMirror ? '🏯' : null}
+                  <span>{g.name}</span>
+                  {isMirror && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">道場鏡射</span>
+                  )}
+                  {!g.active && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">停用</span>}
                 </div>
-                <div className="text-xs text-gray-500">{g.member_count} 位成員 ・ 排序：{g.sort_order}</div>
+                <div className="text-xs text-gray-500">
+                  {g.member_count} 位成員 ・ 排序：{g.sort_order}
+                  {isMirror && <span className="ml-1 text-gray-400">・成員依師兄姐道場自動同步</span>}
+                </div>
               </div>
               <div className="flex items-center gap-3 shrink-0 text-sm">
                 <button onClick={() => { setEditingId(g.id); setEditDraft({ name: g.name, color: g.color, sort_order: g.sort_order }); }} className="text-blue-600">編輯</button>
-                <button onClick={() => handleToggleActive(g)} className="text-temple-red">{g.active ? '停用' : '啟用'}</button>
-                <button onClick={() => handleDelete(g)} disabled={g.name === '全體師兄姐'} className="text-red-500 disabled:text-gray-300">刪除</button>
+                <button onClick={() => handleToggleActive(g)} disabled={isMirror} className="text-temple-red disabled:text-gray-300">{g.active ? '停用' : '啟用'}</button>
+                <button onClick={() => handleDelete(g)} disabled={g.name === '全體師兄姐' || isMirror} className="text-red-500 disabled:text-gray-300">刪除</button>
               </div>
             </div>
           );

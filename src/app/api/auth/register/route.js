@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { createSessionResponse } from '@/lib/auth';
 import { verifyAndConsume } from '@/lib/email-verify';
+import { syncMirrorGroup } from '@/lib/group-sync';
 
 export async function POST(request) {
   try {
@@ -69,6 +70,10 @@ export async function POST(request) {
     } catch (err) {
       console.error('Failed to assign default group:', err);
     }
+
+    // Mirror group for their chosen 道場
+    try { await syncMirrorGroup(result.lastInsertRowid); }
+    catch (err) { console.error('Failed to sync mirror group:', err); }
 
     return createSessionResponse(
       { sub: result.lastInsertRowid, name, email: normalizedEmail, is_admin: 0, permissions: [] },

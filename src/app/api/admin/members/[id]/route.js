@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
+import { syncMirrorGroup } from '@/lib/group-sync';
 
 // PATCH: edit member basic info AND/OR toggle suspension.
 // Body fields (all optional): name, phone, location_id, address, is_disabled
@@ -75,23 +76,39 @@ export const PATCH = withPermission('members:manage', async (request, { params }
 
     if (groupIds !== null) {
       const cleanIds = [...new Set(groupIds.map((g) => parseInt(g)).filter((n) => Number.isInteger(n) && n > 0))];
-      // Validate IDs exist
+      // Validate IDs exist and filter out mirror groups (those are auto-managed
+      // from members.location_id and can't be hand-picked by admin).
+      let nonMirrorIds = [];
       if (cleanIds.length > 0) {
         const placeholders = cleanIds.map(() => '?').join(',');
-        const found = await db
-          .prepare(`SELECT id FROM member_groups WHERE id IN (${placeholders})`)
+        const rows = await db
+          .prepare(`SELECT id, location_id FROM member_groups WHERE id IN (${placeholders})`)
           .all(...cleanIds);
-        if (found.length !== cleanIds.length) {
+        if (rows.length !== cleanIds.length) {
           return NextResponse.json({ error: '指定的群組不存在' }, { status: 400 });
         }
+        nonMirrorIds = rows.filter((r) => !r.location_id).map((r) => r.id);
       }
-      // Replace assignments
-      await db.prepare('DELETE FROM member_group_assignments WHERE member_id = ?').run(id);
-      for (const gid of cleanIds) {
+      // Replace only the non-mirror assignments; keep the mirror one untouched
+      // (it will be re-synced below if location_id changed).
+      await db
+        .prepare(
+          `DELETE mga FROM member_group_assignments mga
+             JOIN member_groups g ON g.id = mga.group_id
+            WHERE mga.member_id = ? AND g.location_id IS NULL`
+        )
+        .run(id);
+      for (const gid of nonMirrorIds) {
         await db
           .prepare('INSERT INTO member_group_assignments (member_id, group_id) VALUES (?, ?)')
           .run(id, gid);
       }
+    }
+
+    // Sync mirror group if location_id was touched.
+    if (sets.some((s) => s.startsWith('location_id'))) {
+      try { await syncMirrorGroup(id); }
+      catch (err) { console.error('mirror sync failed:', err); }
     }
 
     return NextResponse.json({ success: true });

@@ -29,8 +29,15 @@ export default async function AdminAnnouncementsPage() {
       )
       .all(a.id);
   }
+  // Locations (mirror groups) first, then regular tag groups; preserves the
+  // mental model that 道場 are the primary segmentation.
   const groups = await db
-    .prepare('SELECT id, name, color, sort_order FROM member_groups WHERE active = 1 ORDER BY sort_order, id')
+    .prepare(
+      `SELECT id, name, color, sort_order, location_id
+         FROM member_groups
+        WHERE active = 1
+        ORDER BY (location_id IS NULL), sort_order, id`
+    )
     .all();
 
   return (

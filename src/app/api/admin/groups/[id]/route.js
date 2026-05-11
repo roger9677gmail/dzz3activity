@@ -6,7 +6,16 @@ export const PUT = withPermission('groups:manage', async (request, { params }) =
   try {
     const id = parseInt(params.id);
     if (!id) return NextResponse.json({ error: '無效的 ID' }, { status: 400 });
+    const cur = await db.prepare('SELECT id, location_id FROM member_groups WHERE id = ?').get(id);
+    if (!cur) return NextResponse.json({ error: '群組不存在' }, { status: 404 });
+
     const body = await request.json();
+    const isMirror = cur.location_id != null;
+    // Mirror groups: name is owned by the corresponding location, can't be
+    // renamed here. active is also auto (always 1).
+    if (isMirror && (body.name !== undefined || body.active !== undefined)) {
+      return NextResponse.json({ error: '道場鏡射群組的名稱與啟用狀態由道場主檔同步，無法在此修改' }, { status: 400 });
+    }
     const sets = [];
     const args = [];
     if (body.name !== undefined) {
@@ -47,11 +56,13 @@ export const PUT = withPermission('groups:manage', async (request, { params }) =
 export const DELETE = withPermission('groups:manage', async (request, { params }) => {
   const id = parseInt(params.id);
   if (!id) return NextResponse.json({ error: '無效的 ID' }, { status: 400 });
-  // Refuse to delete the seeded "全體師兄姐" — it's the default broadcast target.
-  const g = await db.prepare('SELECT id, name FROM member_groups WHERE id = ?').get(id);
+  const g = await db.prepare('SELECT id, name, location_id FROM member_groups WHERE id = ?').get(id);
   if (!g) return NextResponse.json({ error: '群組不存在' }, { status: 404 });
   if (g.name === '全體師兄姐') {
     return NextResponse.json({ error: '預設群組「全體師兄姐」無法刪除' }, { status: 400 });
+  }
+  if (g.location_id != null) {
+    return NextResponse.json({ error: '道場鏡射群組無法直接刪除，請至「道場管理」刪除對應道場' }, { status: 400 });
   }
   await db.prepare('DELETE FROM member_groups WHERE id = ?').run(id);
   return NextResponse.json({ success: true });

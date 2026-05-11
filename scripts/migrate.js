@@ -214,7 +214,9 @@ CREATE TABLE IF NOT EXISTS member_groups (
   color       VARCHAR(20) NOT NULL DEFAULT '#8B1A1A',
   sort_order  INT NOT NULL DEFAULT 0,
   active      TINYINT(1) NOT NULL DEFAULT 1,
-  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  location_id INT UNSIGNED NULL UNIQUE,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_mg_location FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS member_group_assignments (
@@ -497,6 +499,70 @@ CREATE TABLE IF NOT EXISTS event_attendance_answers (
       } else {
         console.log(`ℹ️  Location exists: ${name}`);
       }
+    }
+
+    // Mirror-group integration: each `locations` row gets a corresponding
+    // `member_groups` row (location_id NOT NULL), so admins can target
+    // announcements at a 道場 via the same group system.
+    console.log('— Locations ↔ groups mirror —');
+    try {
+      await conn.query('ALTER TABLE member_groups ADD COLUMN location_id INT UNSIGNED NULL AFTER active');
+      console.log('✅ Applied: ADD member_groups.location_id');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD member_groups.location_id');
+      } else {
+        throw err;
+      }
+    }
+    try {
+      await conn.query('ALTER TABLE member_groups ADD UNIQUE KEY uk_mg_location (location_id)');
+      console.log('✅ Applied: UNIQUE member_groups.location_id');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_KEYNAME' || /Duplicate key name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (index exists): uk_mg_location');
+      } else {
+        throw err;
+      }
+    }
+    try {
+      await conn.query(
+        'ALTER TABLE member_groups ADD CONSTRAINT fk_mg_location ' +
+        'FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE'
+      );
+      console.log('✅ Applied: FK member_groups.location_id → locations.id');
+    } catch (err) {
+      if (err && (err.code === 'ER_FK_DUP_NAME' || err.code === 'ER_DUP_KEYNAME' || /Duplicate (?:foreign key|key)/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (FK exists): fk_mg_location');
+      } else {
+        console.log('ℹ️  Skipped (likely exists): fk_mg_location -', err.code || err.message);
+      }
+    }
+    // Seed mirror group for each existing location (idempotent — UNIQUE on
+    // location_id protects).
+    try {
+      const [r] = await conn.query(`
+        INSERT IGNORE INTO member_groups (name, color, sort_order, location_id)
+        SELECT l.name, '#8B1A1A', l.sort_order, l.id
+          FROM locations l
+         WHERE NOT EXISTS (SELECT 1 FROM member_groups g WHERE g.location_id = l.id)
+      `);
+      console.log(`✅ Mirror groups created: ${r.affectedRows}`);
+    } catch (err) {
+      console.log('ℹ️  Skipped mirror-group seed -', err.code || err.message);
+    }
+    // Backfill assignments: every member with a location → mirror group.
+    try {
+      const [r] = await conn.query(`
+        INSERT IGNORE INTO member_group_assignments (member_id, group_id)
+        SELECT m.id, g.id
+          FROM members m
+          JOIN member_groups g ON g.location_id = m.location_id
+         WHERE m.location_id IS NOT NULL
+      `);
+      console.log(`✅ Mirror assignments backfilled: ${r.affectedRows}`);
+    } catch (err) {
+      console.log('ℹ️  Skipped mirror-assignment backfill -', err.code || err.message);
     }
 
     // Seed default member group "全體師兄姐" and backfill assignments for all

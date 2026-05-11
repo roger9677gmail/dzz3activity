@@ -11,7 +11,7 @@ export default async function AdminGroupsPage() {
 
   const groups = await db
     .prepare(
-      `SELECT g.id, g.name, g.color, g.sort_order, g.active, g.created_at,
+      `SELECT g.id, g.name, g.color, g.sort_order, g.active, g.location_id, g.created_at,
               (SELECT COUNT(*) FROM member_group_assignments a
                  JOIN members m ON m.id = a.member_id
                 WHERE a.group_id = g.id AND m.is_disabled = 0) AS member_count

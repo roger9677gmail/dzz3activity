@@ -123,23 +123,31 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                     <label className="block text-xs text-gray-500 mb-1">群組標籤</label>
                     <div className="flex flex-wrap gap-2 bg-white rounded-lg p-2 border border-gray-200">
                       {groups.map((g) => {
-                        const checked = draft.group_ids.includes(g.id);
+                        const isMirror = g.location_id != null;
+                        // Mirror chips follow members.location_id (above) and
+                        // can't be hand-toggled here. Show as locked.
+                        const checked = isMirror
+                          ? Number(draft.location_id) === Number(g.location_id)
+                          : draft.group_ids.includes(g.id);
                         return (
                           <button
                             key={g.id} type="button"
-                            onClick={() => toggleGroup(g.id)}
+                            onClick={() => isMirror ? null : toggleGroup(g.id)}
+                            disabled={isMirror}
+                            title={isMirror ? '此標籤依「所屬道場」自動套用' : ''}
                             className={`text-xs px-2 py-1 rounded-full border ${
                               checked
                                 ? 'text-white border-transparent'
                                 : 'text-gray-600 bg-white border-gray-300'
-                            }`}
+                            } ${isMirror ? 'opacity-70 cursor-not-allowed' : ''}`}
                             style={checked ? { backgroundColor: g.color || '#8B1A1A' } : {}}
                           >
-                            {g.name}
+                            {isMirror ? `🏯 ${g.name}` : g.name}
                           </button>
                         );
                       })}
                     </div>
+                    <p className="text-[11px] text-gray-400 mt-1">🏯 道場標籤依上面的「所屬道場」自動套用，無法手動調整</p>
                   </div>
                 )}
                 <div className="text-[11px] text-gray-400">
@@ -174,7 +182,7 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                     {m.groups.map((g) => (
                       <span key={g.id} className="text-[10px] px-1.5 py-0.5 rounded-full text-white"
                             style={{ backgroundColor: g.color || '#8B1A1A' }}>
-                        {g.name}
+                        {g.location_id != null ? `🏯 ${g.name}` : g.name}
                       </span>
                     ))}
                   </div>

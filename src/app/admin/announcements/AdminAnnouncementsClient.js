@@ -261,7 +261,7 @@ export default function AdminAnnouncementsClient({ announcements, groups }) {
                 <label key={g.id} className="flex items-center gap-2 text-sm">
                   <input type="checkbox" checked={form.group_ids.includes(g.id)} onChange={() => toggleGroup(g.id)} />
                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: g.color || '#8B1A1A' }} />
-                  <span>{g.name}</span>
+                  <span>{g.location_id != null ? `🏯 ${g.name}` : g.name}</span>
                 </label>
               ))}
               {groups.length === 0 && <div className="text-xs text-gray-400">尚無可用群組</div>}

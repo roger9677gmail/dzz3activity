@@ -110,7 +110,7 @@ done
 | `member_practices` | member_id, practice_id (UNIQUE pair), daily_target, active — 師兄姐訂閱 |
 | `practice_logs` | member_id, practice_id, log_date, value (UNIQUE 三聯) — 每日紀錄；count 為次數、duration 為分鐘 |
 | `practice_notes` | member_id, log_date, content, is_public — 修行筆記 |
-| `member_groups` | id, name (UNIQUE), color, sort_order, active — 群組主檔；預設「全體師兄姐」自動套到所有師兄姐 |
+| `member_groups` | id, name (UNIQUE), color, sort_order, active, `location_id` (UNIQUE NULL, FK→locations) — 群組主檔；預設「全體師兄姐」自動套到所有師兄姐；`location_id` 非 NULL 為道場鏡射群組（依 locations 自動同步） |
 | `member_group_assignments` | member_id, group_id (UNIQUE pair) — 師兄姐 ↔ 群組 |
 | `announcements` | id, title, content, image (data:URL), link_url, attachment_url, pinned, starts_at, ends_at, created_by |
 | `announcement_groups` | announcement_id, group_id (UNIQUE pair) — 公告 ↔ 目標群組 |
@@ -140,6 +140,14 @@ done
 - 功課主檔由 `practices:manage` 管理員在 `/admin/practices` 維護；type=count 存次數、type=duration 存分鐘。
 - 排名指標：近 90 天 `SUM(value)` per member；可切「全體 / 同道場」。
 - `practice_notes.is_public=1` 才會出現在大眾分享 feed (`/api/notes/public`)，作者可隨時切換私人/公開。
+
+### 道場 ↔ 群組鏡射
+
+- 每個 `locations` 自動掛一個對應的 `member_groups` (`location_id` 指向 locations.id)，admin 只在 `/admin/locations` 維護道場
+- 師兄姐 `members.location_id` 變動時，`src/lib/group-sync.js` 的 `syncMirrorGroup(memberId)` 會把舊鏡射 group assignment 移除、加上新道場的鏡射 — 在 register / `/api/auth/me` PUT / `/api/admin/members/[id]` PATCH 都會呼叫
+- `/admin/groups` 看得到鏡射群組（前綴 🏯 + 「道場鏡射」標籤），但無法改名、停用、刪、手動加減成員；color 與 sort_order 仍可改
+- `/admin/announcements` 群組選單一個 list；鏡射群組排在前面 + 🏯 前綴
+- 刪除 location 時 FK CASCADE 連帶清掉鏡射群組與其 assignments；不會刪到師兄姐本身
 
 ### 公告訊息 + 群組標籤
 

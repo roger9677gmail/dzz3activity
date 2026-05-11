@@ -17,7 +17,9 @@ export default async function AdminMembersPage({ searchParams }) {
 
   const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
   const locations = await db.prepare('SELECT id, name FROM locations WHERE active=1 ORDER BY sort_order, id').all();
-  const allGroups = await db.prepare('SELECT id, name, color, sort_order FROM member_groups WHERE active=1 ORDER BY sort_order, id').all();
+  const allGroups = await db.prepare(
+    'SELECT id, name, color, sort_order, location_id FROM member_groups WHERE active=1 ORDER BY (location_id IS NULL), sort_order, id'
+  ).all();
 
   let members;
   if (mode === 'unregistered' && eventId) {
@@ -53,11 +55,11 @@ export default async function AdminMembersPage({ searchParams }) {
   // Attach group tags
   for (const m of members) {
     m.groups = await db.prepare(`
-      SELECT g.id, g.name, g.color
+      SELECT g.id, g.name, g.color, g.location_id
         FROM member_group_assignments a
         JOIN member_groups g ON g.id = a.group_id
        WHERE a.member_id = ?
-       ORDER BY g.sort_order, g.id
+       ORDER BY (g.location_id IS NULL), g.sort_order, g.id
     `).all(m.id);
   }
 
