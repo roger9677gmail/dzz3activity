@@ -111,11 +111,14 @@ export const GET = withPermission('attendance:manage', async (request, { params 
 
   const buf = await wb.xlsx.writeBuffer();
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-  const safeName = String(event.name).replace(/[\\/:*?"<>|]/g, '_');
+  // ASCII fallback for legacy HTTP header parsers; modern browsers prefer
+  // filename* with RFC 5987 percent-encoding for the real (Chinese) name.
+  const asciiFilename = `attendance-${eventId}-${ts}.xlsx`;
+  const prettyName = `${String(event.name).replace(/[\\/:*?"<>|]/g, '_')}-活動登記-${ts}.xlsx`;
   return new NextResponse(buf, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="attendance-${safeName}-${ts}.xlsx"`,
+      'Content-Disposition': `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(prettyName)}`,
     },
   });
 });
