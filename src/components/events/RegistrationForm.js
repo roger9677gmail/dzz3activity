@@ -296,7 +296,10 @@ export default function RegistrationForm({ event, existingRegistration }) {
       if (!res.ok) {
         setError(data.error || (isEditMode ? '修改失敗，請稍後再試' : '報名失敗，請稍後再試'));
       } else {
-        router.push(`/history?registered=${event.id}`);
+        // `/history` was removed when 報名歷史 moved into the event card
+        // (see CLAUDE.md). Send the user back to the event detail page so
+        // they immediately see the saved registration summary inline.
+        router.push(`/events/${event.id}`);
         router.refresh();
       }
     } catch {
