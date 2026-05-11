@@ -69,16 +69,12 @@ export function normalizeAnswer(question, raw) {
     case 'multi_date': {
       // Despite the name, this type now accepts any text per option (dates
       // are just one common case). Storage key stays `dates` for back-compat.
+      // We deliberately do NOT reject values outside opts.dates — admins
+      // sometimes rename options after members submit, and subtle whitespace
+      // / unicode differences would otherwise block legitimate submissions.
+      // Trim + dedup is enough; the UI ensures the values come from opts.dates.
       const arr = raw && Array.isArray(raw.dates) ? raw.dates : (Array.isArray(raw) ? raw : []);
       const cleaned = [...new Set(arr.map((d) => String(d).trim()).filter(Boolean))];
-      const allowed = Array.isArray(opts.dates) ? opts.dates : null;
-      if (allowed && allowed.length > 0) {
-        for (const d of cleaned) {
-          if (!allowed.includes(d)) {
-            return { ok: false, error: `「${question.label}」選項不在允許範圍` };
-          }
-        }
-      }
       if (question.required && cleaned.length === 0) {
         return { ok: false, error: `「${question.label}」至少選一個` };
       }
