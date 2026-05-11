@@ -14,6 +14,17 @@ export default async function EventDetailPage({ params }) {
 
   event.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
 
+  // 是否有活動登記題目（決定要不要顯示「活動登記」入口）
+  const attendanceRow = await db
+    .prepare('SELECT COUNT(*) AS c FROM event_attendance_questions WHERE event_id = ? AND active = 1')
+    .get(event.id);
+  const hasAttendance = (attendanceRow?.c || 0) > 0;
+  const mineAttendance = hasAttendance
+    ? await db
+        .prepare('SELECT id, created_at FROM event_attendance WHERE event_id = ? AND member_id = ?')
+        .get(event.id, session.sub)
+    : null;
+
   const existingRegistration = await db.prepare(`
     SELECT * FROM registrations WHERE event_id = ? AND member_id = ?
   `).get(params.eventId, session.sub);
@@ -61,6 +72,22 @@ export default async function EventDetailPage({ params }) {
             </div>
           </div>
         </div>
+
+        {/* 活動登記入口（若主辦已建題目） */}
+        {hasAttendance && (
+          <Link
+            href={`/events/${event.id}/attendance`}
+            className="card p-4 flex items-center justify-between hover:bg-gray-50"
+          >
+            <div>
+              <div className="text-sm font-bold text-gray-800">📋 活動登記</div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {mineAttendance ? '已登記，可點此修改' : '交通 / 住宿 / 用餐 / 課程登記'}
+              </div>
+            </div>
+            <span className="text-temple-red text-sm">{mineAttendance ? '修改 →' : '前往登記 →'}</span>
+          </Link>
+        )}
 
         {/* Items preview */}
         {event.items.length > 0 && (

@@ -14,6 +14,7 @@ const PERMISSION_OPTIONS = [
   { key: 'practices:manage', label: '功課項目管理' },
   { key: 'announcements:manage', label: '公告訊息管理' },
   { key: 'groups:manage', label: '群組標籤管理' },
+  { key: 'attendance:manage', label: '活動登記管理' },
 ];
 
 function summarize(perms) {

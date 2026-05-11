@@ -258,6 +258,48 @@ CREATE TABLE IF NOT EXISTS announcement_groups (
   CONSTRAINT fk_ag_ann   FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
   CONSTRAINT fk_ag_group FOREIGN KEY (group_id)        REFERENCES member_groups(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_attendance_questions (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id    INT UNSIGNED NOT NULL,
+  label       VARCHAR(200) NOT NULL,
+  type        VARCHAR(20)  NOT NULL,
+  options     JSON         NULL,
+  required    TINYINT(1)   NOT NULL DEFAULT 0,
+  sort_order  INT          NOT NULL DEFAULT 0,
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_eaq_event (event_id, sort_order),
+  CONSTRAINT fk_eaq_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_attendance (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id    INT UNSIGNED NOT NULL,
+  member_id   INT UNSIGNED NOT NULL,
+  notes       TEXT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ea_event_member (event_id, member_id),
+  INDEX idx_ea_event (event_id),
+  INDEX idx_ea_member (member_id),
+  CONSTRAINT fk_ea_event  FOREIGN KEY (event_id)  REFERENCES events(id)  ON DELETE CASCADE,
+  CONSTRAINT fk_ea_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_attendance_answers (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  attendance_id   INT UNSIGNED NOT NULL,
+  question_id     INT UNSIGNED NOT NULL,
+  value           JSON NOT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_eaa_attendance_question (attendance_id, question_id),
+  INDEX idx_eaa_attendance (attendance_id),
+  INDEX idx_eaa_question (question_id),
+  CONSTRAINT fk_eaa_attendance FOREIGN KEY (attendance_id) REFERENCES event_attendance(id)           ON DELETE CASCADE,
+  CONSTRAINT fk_eaa_question   FOREIGN KEY (question_id)   REFERENCES event_attendance_questions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {

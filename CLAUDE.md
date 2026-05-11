@@ -114,6 +114,9 @@ done
 | `member_group_assignments` | member_id, group_id (UNIQUE pair) — 師兄姐 ↔ 群組 |
 | `announcements` | id, title, content, image (data:URL), link_url, attachment_url, pinned, starts_at, ends_at, created_by |
 | `announcement_groups` | announcement_id, group_id (UNIQUE pair) — 公告 ↔ 目標群組 |
+| `event_attendance_questions` | event_id, label, type, options JSON, required, sort_order — 活動登記題目，type: text\|choice\|multi_date\|count\|checkbox |
+| `event_attendance` | event_id, member_id (UNIQUE pair), notes — 每位師兄姐每場活動最多一筆 |
+| `event_attendance_answers` | attendance_id, question_id (UNIQUE pair), value JSON — 每題回覆 |
 
 ### 後台權限模型
 
@@ -125,6 +128,7 @@ done
   - `admins:manage`（含指派/撤銷管理員與權限）
   - `reports:view`、`notifications:send`、`practices:manage`
   - `announcements:manage`、`groups:manage`
+  - `attendance:manage`（每場活動的「活動登記表」題目設計 + 已登記名單 + Excel 匯出）
 - API：用 `withPermission('xxx:yyy', handler)` 或 `withAdminAuth(handler)` 包裝。
 - UI：`AdminSidebar` 依當前 session 的 `permissions` 過濾選單；無權的頁面會 server-side redirect 回 `/admin`。
 - 撤銷管理員不會刪除師兄姐帳號，只是 `is_admin=0` 並清空 `admin_permissions`，報名紀錄全部保留。
@@ -148,6 +152,16 @@ done
   - `starts_at` / `ends_at` 控制可見區間；NULL 等於開放
   - 必須選至少一個目標群組
 - `/api/announcements` (GET) 自動依師兄姐所屬群組過濾，置頂 → 新→舊排序。
+
+### 活動登記表（與報名祈福並存）
+
+同一個 event 下，「報名祈福（付費功德主/蓮位）」與「活動登記（交通/住宿/用餐等）」是兩個獨立子模組，師兄姐可只填其一或兩者皆填。
+
+- Admin 設計題目：`/admin/events/[eventId]/attendance` → 題目設計分頁，支援五種題型：
+  - `text` 單行文字 / `choice` 單選（可加自訂文字欄位，例：車號）/ `multi_date` 多日期勾選 / `count` 數字 / `checkbox` 是否參加
+- Admin 看名單：同頁的「已登記名單」分頁；按右上「📄 匯出 Excel」拿到完整表格（`multi_date` 自動展開為一日一欄、勾選為 1）
+- 師兄姐填表：`/events/[eventId]/attendance`；event 詳情頁有題目時會出現「📋 活動登記」入口
+- 一人一場活動最多一筆 `event_attendance`；修改即覆蓋
 
 ### 報表 (Excel 匯出)
 
