@@ -79,6 +79,33 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
     router.refresh();
   }
 
+  // Inline toggle: add/remove a group for a member. Sends the full new
+  // group_ids array via PATCH (mirror groups are auto-filtered server-side).
+  const [busyChipId, setBusyChipId] = useState(null); // `${memberId}-${groupId}`
+  async function toggleGroupMembership(m, groupId, currentlyMember) {
+    const key = `${m.id}-${groupId}`;
+    if (busyChipId === key) return;
+    setBusyChipId(key);
+    try {
+      const existing = (m.groups || []).map((g) => g.id);
+      const next = currentlyMember
+        ? existing.filter((id) => id !== groupId)
+        : [...existing, groupId];
+      const res = await fetch(`/api/admin/members/${m.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_ids: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) alert(data.error || '更新失敗');
+      else router.refresh();
+    } finally {
+      setBusyChipId(null);
+    }
+  }
+
+  const [addOpenId, setAddOpenId] = useState(null);
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       {members.length === 0 && (
@@ -187,16 +214,60 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                 {(m.location_name || m.address) && (
                   <div className="text-xs text-gray-400">{m.location_name || ''}{m.location_name && m.address ? ' ・ ' : ''}{m.address || ''}</div>
                 )}
-                {m.groups && m.groups.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {m.groups.map((g) => (
-                      <span key={g.id} className="text-[10px] px-1.5 py-0.5 rounded-full text-white"
-                            style={{ backgroundColor: g.color || '#8B1A1A' }}>
-                        {g.location_id != null ? `🏯 ${g.name}` : g.name}
+                <div className="flex flex-wrap gap-1 mt-1 items-center">
+                  {(m.groups || []).map((g) => {
+                    const isMirror = g.location_id != null;
+                    const key = `${m.id}-${g.id}`;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => !isMirror && toggleGroupMembership(m, g.id, true)}
+                        disabled={isMirror || busyChipId === key}
+                        title={isMirror ? '道場鏡射群組依「所屬道場」自動套用' : '點擊將此師兄姐移出群組'}
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full text-white transition-opacity ${
+                          isMirror ? 'cursor-not-allowed opacity-80' : 'hover:opacity-80 cursor-pointer'
+                        } ${busyChipId === key ? 'opacity-50' : ''}`}
+                        style={{ backgroundColor: g.color || '#8B1A1A' }}
+                      >
+                        {isMirror ? `🏯 ${g.name}` : g.name} {!isMirror && '✕'}
+                      </button>
+                    );
+                  })}
+                  {canEdit && (() => {
+                    const memberIds = new Set((m.groups || []).map((g) => g.id));
+                    const available = groups.filter((g) => !memberIds.has(g.id) && g.location_id == null);
+                    if (available.length === 0) return null;
+                    return addOpenId === m.id ? (
+                      <span className="inline-flex flex-wrap gap-1 items-center bg-gray-100 rounded-full px-1.5 py-0.5">
+                        {available.map((g) => {
+                          const key = `${m.id}-${g.id}`;
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={async () => { await toggleGroupMembership(m, g.id, false); setAddOpenId(null); }}
+                              disabled={busyChipId === key}
+                              className="text-[10px] px-1.5 py-0.5 rounded-full text-white hover:opacity-80 disabled:opacity-50"
+                              style={{ backgroundColor: g.color || '#8B1A1A' }}
+                            >
+                              + {g.name}
+                            </button>
+                          );
+                        })}
+                        <button type="button" onClick={() => setAddOpenId(null)} className="text-[10px] text-gray-500 px-1">取消</button>
                       </span>
-                    ))}
-                  </div>
-                )}
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setAddOpenId(m.id)}
+                        className="text-[10px] px-1.5 py-0.5 rounded-full border border-dashed border-gray-300 text-gray-500 hover:border-temple-red hover:text-temple-red"
+                      >
+                        + 加群組
+                      </button>
+                    );
+                  })()}
+                </div>
               </div>
               <div className="flex items-center gap-3 shrink-0 text-sm">
                 {'reg_count' in m && (

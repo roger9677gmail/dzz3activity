@@ -14,6 +14,7 @@ export default async function AdminMembersPage({ searchParams }) {
   const mode = searchParams.mode || 'all'; // 'all' | 'unregistered'
   const search = searchParams.search || '';
   const showDisabled = searchParams.disabled === '1';
+  const groupId = searchParams.group_id ? parseInt(searchParams.group_id) : null;
 
   const events = await db.prepare("SELECT id, name FROM events WHERE status='active' ORDER BY start_date").all();
   const locations = await db.prepare('SELECT id, name FROM locations WHERE active=1 ORDER BY sort_order, id').all();
@@ -39,6 +40,13 @@ export default async function AdminMembersPage({ searchParams }) {
     `).all(...[eventId, ...(search ? [`%${search}%`, `%${search}%`] : [])]);
   } else {
     const disabledFilter = showDisabled ? '' : 'AND m.is_disabled = 0';
+    const groupJoin = groupId
+      ? `AND EXISTS (SELECT 1 FROM member_group_assignments mga
+                      WHERE mga.member_id = m.id AND mga.group_id = ?)`
+      : '';
+    const args = [];
+    if (groupId) args.push(groupId);
+    if (search) args.push(`%${search}%`, `%${search}%`);
     members = await db.prepare(`
       SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.is_admin, m.created_at,
              l.name AS location_name,
@@ -47,9 +55,10 @@ export default async function AdminMembersPage({ searchParams }) {
       LEFT JOIN locations l ON l.id = m.location_id
       WHERE 1=1
         ${disabledFilter}
+        ${groupJoin}
         ${search ? "AND (m.name LIKE ? OR m.phone LIKE ?)" : ""}
       ORDER BY m.is_admin DESC, m.name
-    `).all(...(search ? [`%${search}%`, `%${search}%`] : []));
+    `).all(...args);
   }
 
   // Attach group tags
@@ -105,16 +114,46 @@ export default async function AdminMembersPage({ searchParams }) {
           </div>
         )}
 
+        {mode === 'all' && allGroups.length > 0 && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">群組標籤篩選</label>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`?mode=all${showDisabled ? '&disabled=1' : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  !groupId ? 'bg-temple-red text-white border-temple-red' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                }`}
+              >全部</Link>
+              {allGroups.map((g) => {
+                const active = groupId === g.id;
+                return (
+                  <Link
+                    key={g.id}
+                    href={`?mode=all&group_id=${g.id}${showDisabled ? '&disabled=1' : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`}
+                    className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                      active ? 'text-white border-transparent' : 'text-gray-600 bg-white border-gray-300 hover:bg-gray-50'
+                    }`}
+                    style={active ? { backgroundColor: g.color || '#8B1A1A' } : {}}
+                  >
+                    {g.location_id != null ? `🏯 ${g.name}` : g.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <form className="flex gap-2">
           <input type="hidden" name="mode" value={mode} />
           {eventId && <input type="hidden" name="eventId" value={eventId} />}
           {showDisabled && <input type="hidden" name="disabled" value="1" />}
+          {groupId && <input type="hidden" name="group_id" value={groupId} />}
           <input type="text" name="search" defaultValue={search} className="input-field text-sm flex-1"
             placeholder="搜尋姓名或電話..." />
           <button type="submit" className="btn-primary text-sm whitespace-nowrap">🔍 搜尋</button>
           {search && (
             <Link
-              href={`?mode=${mode}${eventId ? `&eventId=${eventId}` : ''}${showDisabled ? '&disabled=1' : ''}`}
+              href={`?mode=${mode}${eventId ? `&eventId=${eventId}` : ''}${showDisabled ? '&disabled=1' : ''}${groupId ? `&group_id=${groupId}` : ''}`}
               className="btn-secondary text-sm whitespace-nowrap"
             >
               清除
