@@ -304,6 +304,15 @@ CREATE TABLE IF NOT EXISTS event_attendance_answers (
   CONSTRAINT fk_eaa_attendance FOREIGN KEY (attendance_id) REFERENCES event_attendance(id)           ON DELETE CASCADE,
   CONSTRAINT fk_eaa_question   FOREIGN KEY (question_id)   REFERENCES event_attendance_questions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS push_presets (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title       VARCHAR(200) NOT NULL,
+  body        TEXT NOT NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {
@@ -630,6 +639,30 @@ CREATE TABLE IF NOT EXISTS event_attendance_answers (
       } else {
         console.log('ℹ️  Skipped INDEX add -', err.code || err.message);
       }
+    }
+
+    // Push notification presets: seed default templates once.
+    console.log('— Push presets seed —');
+    try {
+      const DEFAULTS = [
+        ['活動提醒', '親愛的師兄姐，法會活動即將舉行，請記得準時參加，阿彌陀佛！'],
+        ['報名截止提醒', '親愛的師兄姐，法會報名即將截止，尚未報名的師兄姐請抓緊時間！'],
+        ['繳款提醒', '親愛的師兄姐，您的報名已確認，請盡快至服務台完成繳款，謝謝！'],
+      ];
+      const [[{ c }]] = await conn.query('SELECT COUNT(*) AS c FROM push_presets');
+      if (c === 0) {
+        for (let i = 0; i < DEFAULTS.length; i++) {
+          await conn.query(
+            'INSERT INTO push_presets (title, body, sort_order) VALUES (?, ?, ?)',
+            [DEFAULTS[i][0], DEFAULTS[i][1], i]
+          );
+        }
+        console.log(`✅ Seeded ${DEFAULTS.length} push preset(s)`);
+      } else {
+        console.log(`ℹ️  Skipped (already has ${c} presets)`);
+      }
+    } catch (err) {
+      console.log('ℹ️  Skipped push presets seed -', err.code || err.message);
     }
 
     // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).

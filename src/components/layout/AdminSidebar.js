@@ -7,14 +7,14 @@ import { APP_VERSION } from '@/lib/version';
 const navItems = [
   { href: '/admin', label: '總覽', exact: true, icon: '📊' },
   { href: '/admin/events', label: '活動管理', icon: '🏛️', perm: 'events:manage' },
+  { href: '/admin/reports', label: '報名查詢', icon: '🔍', perm: 'reports:view' },
   { href: '/admin/registrations', label: '繳款收據登錄', icon: '📋', perm: 'registrations:manage' },
   { href: '/admin/members', label: '師兄姐管理', icon: '👥', perm: 'members:manage' },
   { href: '/admin/locations', label: '道場管理', icon: '🏯', perm: 'locations:manage' },
   { href: '/admin/groups', label: '群組標籤', icon: '🏷️', perm: 'groups:manage' },
   { href: '/admin/practices', label: '功課項目', icon: '📿', perm: 'practices:manage' },
-  { href: '/admin/announcements', label: '公告訊息', icon: '📢', perm: 'announcements:manage' },
   { href: '/admin/admins', label: '管理員設定', icon: '🛡️', perm: 'admins:manage' },
-  { href: '/admin/reports', label: '報名查詢', icon: '🔍', perm: 'reports:view' },
+  { href: '/admin/announcements', label: '公告訊息', icon: '📢', perm: 'announcements:manage' },
   { href: '/admin/notifications', label: '推播通知', icon: '🔔', perm: 'notifications:send' },
 ];
 

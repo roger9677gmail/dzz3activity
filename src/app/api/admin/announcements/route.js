@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
 import { parseDateTime, validateImage, validateUrl } from '@/lib/announcements';
+import { broadcastPush } from '@/lib/push';
 
 const MAX_TITLE = 200;
 
@@ -85,7 +86,46 @@ export const POST = withPermission('announcements:manage', async (request) => {
         .prepare('INSERT INTO announcement_groups (announcement_id, group_id) VALUES (?, ?)')
         .run(annId, gid);
     }
-    return NextResponse.json({ success: true, id: annId });
+
+    // Optional: also fire a push notification to the targeted groups so
+    // members are nudged about the new announcement.
+    let pushReport = null;
+    if (body.send_push) {
+      try {
+        const placeholders = groupIds.map(() => '?').join(',');
+        const subs = await db
+          .prepare(
+            `SELECT ps.* FROM push_subscriptions ps
+               JOIN members m ON m.id = ps.member_id
+               JOIN member_group_assignments mga ON mga.member_id = ps.member_id
+              WHERE mga.group_id IN (${placeholders}) AND m.is_disabled = 0
+              GROUP BY ps.id`
+          )
+          .all(...groupIds);
+        if (subs.length > 0) {
+          const previewBody = (content || title).replace(/\s+/g, ' ').trim().slice(0, 80);
+          const results = await broadcastPush(subs, {
+            title: `📢 ${title}`,
+            body: previewBody || title,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/icon-192x192.png',
+            url: '/announcements',
+            tag: `ann-${annId}`,
+          });
+          const expired = results.filter((x) => x.expired);
+          for (const e of expired) {
+            await db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(e.endpoint);
+          }
+          pushReport = { sent: results.filter((x) => x.success).length, total: subs.length };
+        } else {
+          pushReport = { sent: 0, total: 0 };
+        }
+      } catch (pushErr) {
+        console.error('announcement push failed:', pushErr);
+        pushReport = { error: '推播發送失敗（但公告已建立）' };
+      }
+    }
+    return NextResponse.json({ success: true, id: annId, push: pushReport });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });

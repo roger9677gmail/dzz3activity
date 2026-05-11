@@ -29,6 +29,7 @@ const EMPTY_FORM = {
   title: '', content: '', image: '',
   link_url: '', attachment_url: '', attachment_name: '',
   pinned: false, starts_at: '', ends_at: '', group_ids: [],
+  send_push: false,
 };
 
 export default function AdminAnnouncementsClient({ announcements, groups }) {
@@ -115,6 +116,10 @@ export default function AdminAnnouncementsClient({ announcements, groups }) {
         setShowForm(false);
         setEditingId(null);
         setForm({ ...EMPTY_FORM });
+        if (data.push) {
+          if (data.push.error) alert(`公告已建立，但 ${data.push.error}`);
+          else alert(`✅ 公告已建立，推播已發送給 ${data.push.sent} / ${data.push.total} 人`);
+        }
         router.refresh();
       }
     } catch { setError('網路錯誤'); }
@@ -255,6 +260,22 @@ export default function AdminAnnouncementsClient({ announcements, groups }) {
               onChange={(e) => setForm((p) => ({ ...p, pinned: e.target.checked }))} />
             置頂顯示
           </label>
+
+          {!editingId && (
+            <label className="flex items-start gap-2 text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+              <input
+                type="checkbox"
+                checked={form.send_push}
+                onChange={(e) => setForm((p) => ({ ...p, send_push: e.target.checked }))}
+              />
+              <span>
+                🔔 建立後同時發送推播通知給目標群組
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  通知標題會自動加上 📢，內容取自公告前 80 字；點推播會跳到「公告訊息」頁
+                </span>
+              </span>
+            </label>
+          )}
 
           <div>
             <label className="block text-xs text-gray-500 mb-1">目標群組 * (至少一個)</label>
