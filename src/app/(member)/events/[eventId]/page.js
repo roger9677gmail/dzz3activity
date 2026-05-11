@@ -78,18 +78,24 @@ export default async function EventDetailPage({ params }) {
 
         {/* 活動登記入口（若主辦已建題目） */}
         {hasAttendance && (
-          <Link
-            href={`/events/${event.id}/attendance`}
-            className="card p-4 flex items-center justify-between hover:bg-gray-50"
-          >
-            <div>
-              <div className="text-sm font-bold text-gray-800">📋 活動登記</div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {hasAnyEntry ? `已登記 ${mineAttendance.c} 筆，可點此修改或新增親友` : '本人 / 親友皆可登記（交通 / 住宿 / 用餐）'}
+          <div className="card p-4">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div>
+                <div className="text-sm font-bold text-gray-800">📋 活動登記</div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {hasAnyEntry
+                    ? `已登記 ${mineAttendance.c} 筆，可點此修改或新增親友`
+                    : '本人 / 親友皆可登記（交通 / 住宿 / 用餐）'}
+                </div>
               </div>
             </div>
-            <span className="text-temple-red text-sm">{hasAnyEntry ? '管理 →' : '前往登記 →'}</span>
-          </Link>
+            <Link
+              href={`/events/${event.id}/attendance`}
+              className="btn-primary w-full text-center block"
+            >
+              {hasAnyEntry ? '管理登記 / 新增親友' : '前往活動登記'}
+            </Link>
+          </div>
         )}
 
         {/* Items preview */}
