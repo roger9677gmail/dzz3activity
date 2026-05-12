@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import RegistrationForm from '@/components/events/RegistrationForm';
-import { formatDate, isDeadlinePassed, formatMoney, formatEventDateRange, formatDeadline } from '@/lib/utils';
+import { formatDate, isDeadlinePassed, formatMoney, formatEventDateRange, formatDeadline, googleMapsUrl } from '@/lib/utils';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -108,7 +108,21 @@ export default async function EventDetailPage({ params }) {
           {event.description && <p className="text-gray-600 text-sm mb-3">{event.description}</p>}
           <div className="space-y-2 text-sm">
             <div className="flex gap-2"><span>📅</span><span>{formatEventDateRange(event.start_date, event.end_date)}</span></div>
-            {event.location && <div className="flex gap-2"><span>📍</span><span>{event.location}</span></div>}
+            {event.location && (
+              <div className="flex gap-2">
+                <span>📍</span>
+                <a
+                  href={googleMapsUrl(event.location)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-temple-red hover:underline inline-flex items-center gap-1"
+                  aria-label={`在 Google 地圖開啟 ${event.location}`}
+                >
+                  {event.location}
+                  <span aria-hidden="true" className="text-xs">🗺️</span>
+                </a>
+              </div>
+            )}
             <div className="flex gap-2">
               <span>⏰</span>
               <span>報名截止：{formatDeadline(event.registration_deadline)}

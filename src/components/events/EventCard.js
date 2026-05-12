@@ -9,6 +9,7 @@ import {
   safeParseJSON,
   formatEventDateRange,
   formatDeadline,
+  googleMapsUrl,
 } from '@/lib/utils';
 
 export default function EventCard({ event, isRegistered = false, registration = null, attendance = [], isStaff = false }) {
@@ -61,7 +62,17 @@ export default function EventCard({ event, isRegistered = false, registration = 
           {event.location && (
             <div className="flex items-center gap-1.5">
               <span>📍</span>
-              <span>{event.location}</span>
+              <a
+                href={googleMapsUrl(event.location)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-temple-red hover:underline inline-flex items-center gap-1"
+                aria-label={`在 Google 地圖開啟 ${event.location}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {event.location}
+                <span aria-hidden="true" className="text-xs">🗺️</span>
+              </a>
             </div>
           )}
           {!isRegistered && (

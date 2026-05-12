@@ -97,6 +97,14 @@ export function formatMoney(amount) {
   return `NT$ ${Number(amount).toLocaleString('zh-TW')}`;
 }
 
+// Build a Google Maps "search" URL for any free-text place / address. Works
+// on both web (opens maps.google.com) and on phones with the Maps app
+// installed (the OS picks up the universal link and launches the app).
+export function googleMapsUrl(query) {
+  if (!query) return '';
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 export function isDeadlinePassed(deadline) {
   const d = parseDbDateLike(deadline);
   if (!d) return false;
