@@ -60,17 +60,18 @@ export default function EventCard({ event, isRegistered = false, registration = 
             <span>{formatEventDateRange(event.start_date, event.end_date)}</span>
           </div>
           {event.location && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span>📍</span>
+              <span className="text-gray-700">{event.location}</span>
               <a
                 href={event.map_url || googleMapsUrl(event.location)}
                 target="_blank"
                 rel="noreferrer"
-                className="text-temple-red hover:underline inline-flex items-center gap-1"
+                className="inline-flex items-center gap-0.5 text-xs bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 transition-colors"
                 aria-label={`在 Google 地圖開啟 ${event.location}`}
               >
-                {event.location}
-                <span aria-hidden="true" className="text-xs">🗺️</span>
+                打開地圖
+                <span aria-hidden="true">↗</span>
               </a>
             </div>
           )}
