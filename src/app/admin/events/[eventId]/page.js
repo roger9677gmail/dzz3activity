@@ -19,22 +19,40 @@ export default async function EditEventPage({ params }) {
   const canRegistrations = hasPermission(session, 'registrations:manage');
 
   // Pre-load staff + role suggestions for the staff editor.
-  const staff = await db.prepare(
-    `SELECT s.id, s.event_id, s.role_name, s.member_id, s.sort_order,
-            m.name AS member_name, m.email AS member_email, m.phone AS member_phone,
-            l.name AS location_name
-       FROM event_staff s
-       JOIN members m ON m.id = s.member_id
-  LEFT JOIN locations l ON l.id = m.location_id
-      WHERE s.event_id = ?
-      ORDER BY s.sort_order, s.id`
-  ).all(event.id);
-  const suggestionRows = await db.prepare(
-    `SELECT DISTINCT s.role_name FROM event_staff s
-      WHERE s.event_id IN (SELECT id FROM events ORDER BY created_at DESC LIMIT 5)
-      ORDER BY s.role_name`
-  ).all();
-  const suggestions = suggestionRows.map((r) => r.role_name);
+  // Wrapped defensively — if migrate hasn't run yet (event_staff missing),
+  // fall back to empty state instead of 500-ing the whole edit page.
+  let staff = [];
+  let suggestions = [];
+  try {
+    staff = await db.prepare(
+      `SELECT s.id, s.event_id, s.role_name, s.member_id, s.sort_order,
+              m.name AS member_name, m.email AS member_email, m.phone AS member_phone,
+              l.name AS location_name
+         FROM event_staff s
+         JOIN members m ON m.id = s.member_id
+    LEFT JOIN locations l ON l.id = m.location_id
+        WHERE s.event_id = ?
+        ORDER BY s.sort_order, s.id`
+    ).all(event.id);
+
+    // Two-step instead of `IN (SELECT ... LIMIT 5)` — some MySQL builds
+    // still choke on LIMIT inside a subquery used with IN.
+    const recentEvents = await db.prepare(
+      'SELECT id FROM events ORDER BY created_at DESC LIMIT 5'
+    ).all();
+    if (recentEvents.length > 0) {
+      const ids = recentEvents.map((r) => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const suggestionRows = await db.prepare(
+        `SELECT DISTINCT role_name FROM event_staff
+          WHERE event_id IN (${placeholders})
+          ORDER BY role_name`
+      ).all(...ids);
+      suggestions = suggestionRows.map((r) => r.role_name);
+    }
+  } catch (err) {
+    console.error('[admin/events edit] staff load failed:', err);
+  }
   // Eligible members (any active member, including admins — admins can be staff too).
   const candidates = await db.prepare(
     `SELECT m.id, m.name, m.email, m.phone, l.name AS location_name

@@ -83,10 +83,15 @@ export default async function EventsPage() {
   }
 
   // Which events am I staff for? (set of event_ids)
-  const staffRows = await db
-    .prepare('SELECT DISTINCT event_id FROM event_staff WHERE member_id = ?')
-    .all(session.sub);
-  const myStaffEventIds = new Set(staffRows.map((r) => r.event_id));
+  let myStaffEventIds = new Set();
+  try {
+    const staffRows = await db
+      .prepare('SELECT DISTINCT event_id FROM event_staff WHERE member_id = ?')
+      .all(session.sub);
+    myStaffEventIds = new Set(staffRows.map((r) => r.event_id));
+  } catch (err) {
+    console.error('[events list] staff lookup failed:', err);
+  }
 
   const upcoming = events.filter((e) => e.status === 'active');
   const past = events.filter((e) => e.status !== 'active');

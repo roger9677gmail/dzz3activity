@@ -37,24 +37,33 @@ export default async function EventDetailPage({ params }) {
     .join('、');
 
   // Am I staff for this event? (admins always see staff info too.)
-  const myStaffRow = await db
-    .prepare('SELECT 1 FROM event_staff WHERE event_id = ? AND member_id = ? LIMIT 1')
-    .get(event.id, session.sub);
-  const isStaff = !!myStaffRow || !!session.is_admin;
+  let myStaffRow = null;
   let staffList = [];
+  try {
+    myStaffRow = await db
+      .prepare('SELECT 1 FROM event_staff WHERE event_id = ? AND member_id = ? LIMIT 1')
+      .get(event.id, session.sub);
+  } catch (err) {
+    console.error('[event detail] staff lookup failed:', err);
+  }
+  const isStaff = !!myStaffRow || !!session.is_admin;
   if (isStaff) {
-    staffList = await db
-      .prepare(
-        `SELECT s.id, s.role_name, s.member_id,
-                m.name AS member_name, m.phone AS member_phone, m.avatar AS member_avatar,
-                l.name AS location_name
-           FROM event_staff s
-           JOIN members m ON m.id = s.member_id
-      LEFT JOIN locations l ON l.id = m.location_id
-          WHERE s.event_id = ?
-          ORDER BY s.sort_order, s.role_name, m.name`
-      )
-      .all(event.id);
+    try {
+      staffList = await db
+        .prepare(
+          `SELECT s.id, s.role_name, s.member_id,
+                  m.name AS member_name, m.phone AS member_phone, m.avatar AS member_avatar,
+                  l.name AS location_name
+             FROM event_staff s
+             JOIN members m ON m.id = s.member_id
+        LEFT JOIN locations l ON l.id = m.location_id
+            WHERE s.event_id = ?
+            ORDER BY s.sort_order, s.role_name, m.name`
+        )
+        .all(event.id);
+    } catch (err) {
+      console.error('[event detail] staff list failed:', err);
+    }
   }
 
   const existingRegistration = await db.prepare(`
