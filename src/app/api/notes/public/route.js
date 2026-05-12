@@ -7,6 +7,7 @@ const PAGE_SIZE = 20;
 // Public-notes feed (any signed-in user can read).
 //   /api/notes/public?cursor=<id>   → next page (notes with id < cursor)
 export const GET = withAuth(async (request) => {
+  const memberId = request.session.sub;
   const { searchParams } = new URL(request.url);
   const cursor = parseInt(searchParams.get('cursor') || '0');
 
@@ -31,7 +32,54 @@ export const GET = withAuth(async (request) => {
 
   const hasMore = rows.length > PAGE_SIZE;
   const notes = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
-  const nextCursor = hasMore ? notes[notes.length - 1].id : null;
 
+  // Batch-load reaction aggregates + my reactions + comment counts for the
+  // visible page so the feed renders in one round-trip per axis.
+  if (notes.length > 0) {
+    const ids = notes.map((n) => n.id);
+    const placeholders = ids.map(() => '?').join(',');
+
+    const reactRows = await db
+      .prepare(
+        `SELECT note_id, emoji, COUNT(*) AS count
+           FROM practice_note_reactions
+          WHERE note_id IN (${placeholders})
+          GROUP BY note_id, emoji`
+      )
+      .all(...ids);
+    const myReactRows = await db
+      .prepare(
+        `SELECT note_id, emoji FROM practice_note_reactions
+          WHERE member_id = ? AND note_id IN (${placeholders})`
+      )
+      .all(memberId, ...ids);
+    const commentRows = await db
+      .prepare(
+        `SELECT note_id, COUNT(*) AS count FROM practice_note_comments
+          WHERE note_id IN (${placeholders}) GROUP BY note_id`
+      )
+      .all(...ids);
+
+    const byReact = new Map();
+    for (const r of reactRows) {
+      if (!byReact.has(r.note_id)) byReact.set(r.note_id, {});
+      byReact.get(r.note_id)[r.emoji] = r.count;
+    }
+    const byMyReact = new Map();
+    for (const r of myReactRows) {
+      if (!byMyReact.has(r.note_id)) byMyReact.set(r.note_id, []);
+      byMyReact.get(r.note_id).push(r.emoji);
+    }
+    const byComment = new Map();
+    for (const r of commentRows) byComment.set(r.note_id, r.count);
+
+    for (const n of notes) {
+      n.reactions = byReact.get(n.id) || {};
+      n.my_reactions = byMyReact.get(n.id) || [];
+      n.comment_count = byComment.get(n.id) || 0;
+    }
+  }
+
+  const nextCursor = hasMore ? notes[notes.length - 1].id : null;
   return NextResponse.json({ notes, nextCursor });
 });

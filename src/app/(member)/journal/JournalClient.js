@@ -689,24 +689,11 @@ function PublicNotesTab() {
         </div>
       )}
       {notes.map((n) => (
-        <div key={n.id} className="card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            {n.member_avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={n.member_avatar} alt={n.member_name} className="w-7 h-7 rounded-full object-cover" />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-temple-red flex items-center justify-center text-white text-xs">
-                {n.member_name?.[0] || '?'}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-800">{n.member_name}</div>
-              <div className="text-[11px] text-gray-400">{n.location_name || ''} ・ {n.log_date}</div>
-            </div>
-          </div>
-          <div className="text-sm whitespace-pre-wrap break-words text-gray-700">{n.content}</div>
-          <NoteAttachments image={n.image} linkUrl={n.link_url} />
-        </div>
+        <PublicNoteCard
+          key={n.id}
+          note={n}
+          onMutate={(patch) => setNotes((prev) => prev.map((x) => x.id === n.id ? { ...x, ...patch } : x))}
+        />
       ))}
       {hasMore && (
         <button onClick={loadMore} className="w-full btn-secondary text-sm">載入更多</button>
@@ -853,6 +840,164 @@ function NoteAttachments({ image, linkUrl }) {
           rel="noreferrer"
           className="inline-flex items-center gap-1 text-xs text-temple-red underline break-all"
         >🔗 {linkUrl}</a>
+      )}
+    </div>
+  );
+}
+
+const REACTION_EMOJIS = ['🙏', '👍', '❤️', '😊', '🎉'];
+
+function PublicNoteCard({ note, onMutate }) {
+  const [reactions, setReactions] = useState(note.reactions || {});
+  const [mine, setMine] = useState(new Set(note.my_reactions || []));
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState(null);
+  const [commentCount, setCommentCount] = useState(note.comment_count || 0);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [posting, setPosting] = useState(false);
+
+  async function toggle(emoji) {
+    const res = await fetch(`/api/notes/public/${note.id}/reactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji }),
+    });
+    const data = await res.json();
+    if (!res.ok) return;
+    setReactions((r) => ({ ...r, [emoji]: data.count }));
+    setMine((prev) => {
+      const next = new Set(prev);
+      if (data.mine) next.add(emoji); else next.delete(emoji);
+      return next;
+    });
+  }
+
+  async function loadComments() {
+    const res = await fetch(`/api/notes/public/${note.id}/comments`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setComments(data.comments || []);
+  }
+  async function openComments() {
+    if (!showComments && comments === null) await loadComments();
+    setShowComments((v) => !v);
+  }
+  async function postComment(e) {
+    e.preventDefault();
+    const text = commentDraft.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    const res = await fetch(`/api/notes/public/${note.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text }),
+    });
+    if (res.ok) {
+      setCommentDraft('');
+      setCommentCount((c) => c + 1);
+      await loadComments();
+    }
+    setPosting(false);
+  }
+  async function deleteComment(c) {
+    const res = await fetch(`/api/notes/public/${note.id}/comments/${c.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setComments((prev) => prev.filter((x) => x.id !== c.id));
+      setCommentCount((n) => Math.max(0, n - 1));
+    }
+  }
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-2 mb-2">
+        {note.member_avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={note.member_avatar} alt={note.member_name} className="w-7 h-7 rounded-full object-cover" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-temple-red flex items-center justify-center text-white text-xs">
+            {note.member_name?.[0] || '?'}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-800">{note.member_name}</div>
+          <div className="text-[11px] text-gray-400">{note.location_name || ''} ・ {note.log_date}</div>
+        </div>
+      </div>
+      <div className="text-sm whitespace-pre-wrap break-words text-gray-700">{note.content}</div>
+      <NoteAttachments image={note.image} linkUrl={note.link_url} />
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {REACTION_EMOJIS.map((e) => {
+          const count = reactions[e] || 0;
+          const isMine = mine.has(e);
+          return (
+            <button
+              key={e}
+              type="button"
+              onClick={() => toggle(e)}
+              aria-label={`${isMine ? '取消' : ''}${e} 表情`}
+              className={`text-sm px-2.5 py-1 rounded-full border transition-colors ${
+                isMine
+                  ? 'bg-amber-50 border-amber-300 text-amber-800'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {e} <span className="text-xs ml-0.5">{count || ''}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={openComments}
+          aria-expanded={showComments}
+          className="text-sm px-2.5 py-1 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 ml-auto"
+        >💬 {commentCount}</button>
+      </div>
+
+      {showComments && (
+        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+          {comments === null && <div className="text-xs text-gray-400">載入中…</div>}
+          {comments?.map((c) => (
+            <div key={c.id} className="flex items-start gap-2">
+              {c.member_avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.member_avatar} alt={c.member_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-temple-red text-white text-[10px] flex items-center justify-center shrink-0">
+                  {c.member_name?.[0] || '?'}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-500">
+                  <span className="font-medium text-gray-700">{c.member_name}</span>
+                  <span className="ml-2 text-gray-400">{String(c.created_at).slice(0, 16).replace('T', ' ')}</span>
+                </div>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{c.content}</div>
+              </div>
+              {c.can_delete && (
+                <button
+                  type="button"
+                  onClick={() => deleteComment(c)}
+                  aria-label="刪除留言"
+                  className="text-xs text-gray-400 hover:text-red-500"
+                >刪除</button>
+              )}
+            </div>
+          ))}
+          <form onSubmit={postComment} className="flex gap-2 pt-1">
+            <input
+              type="text"
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              placeholder="留言…"
+              maxLength={500}
+              className="input-field text-sm flex-1"
+            />
+            <button type="submit" disabled={posting || !commentDraft.trim()} className="btn-primary text-xs px-3">
+              {posting ? '送出中…' : '送出'}
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );

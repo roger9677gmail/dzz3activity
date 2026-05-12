@@ -315,6 +315,29 @@ CREATE TABLE IF NOT EXISTS push_presets (
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_note_reactions (
+  note_id    INT UNSIGNED NOT NULL,
+  member_id  INT UNSIGNED NOT NULL,
+  emoji      VARCHAR(8) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (note_id, member_id, emoji),
+  INDEX idx_pnr_note (note_id),
+  CONSTRAINT fk_pnr_note   FOREIGN KEY (note_id)   REFERENCES practice_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pnr_member FOREIGN KEY (member_id) REFERENCES members(id)        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_note_comments (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  note_id    INT UNSIGNED NOT NULL,
+  member_id  INT UNSIGNED NOT NULL,
+  content    TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_pnc_note (note_id, created_at),
+  CONSTRAINT fk_pnc_note   FOREIGN KEY (note_id)   REFERENCES practice_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pnc_member FOREIGN KEY (member_id) REFERENCES members(id)        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {
