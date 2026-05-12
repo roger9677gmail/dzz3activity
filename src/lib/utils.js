@@ -105,6 +105,40 @@ export function googleMapsUrl(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+// Whitelist of URL schemes we accept for the admin-controlled map_url field.
+// `javascript:` and `data:` URLs in an <a href> would let a rogue admin XSS
+// every member who taps the location button — block at API level so DB never
+// stores anything dangerous.
+const SAFE_URL_SCHEMES = ['http:', 'https:', 'geo:'];
+
+// Validate (and gently normalize) a URL provided by an admin. Returns the
+// trimmed value if it parses to a safe scheme, null if blank, throws if it
+// fails — caller is expected to translate the throw into a 400.
+export function sanitizeAdminUrl(value, { fieldName = '連結' } = {}) {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  if (trimmed === '') return null;
+  if (trimmed.length > 1000) {
+    const e = new Error(`${fieldName}過長（上限 1000 字）`);
+    e.code = 'BAD_URL';
+    throw e;
+  }
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    const e = new Error(`${fieldName}格式不正確（需為完整 URL）`);
+    e.code = 'BAD_URL';
+    throw e;
+  }
+  if (!SAFE_URL_SCHEMES.includes(parsed.protocol)) {
+    const e = new Error(`${fieldName}不允許 ${parsed.protocol} 開頭，請用 http(s):// 連結`);
+    e.code = 'BAD_URL';
+    throw e;
+  }
+  return trimmed;
+}
+
 export function isDeadlinePassed(deadline) {
   const d = parseDbDateLike(deadline);
   if (!d) return false;

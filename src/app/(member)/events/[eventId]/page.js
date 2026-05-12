@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import RegistrationForm from '@/components/events/RegistrationForm';
-import { formatDate, isDeadlinePassed, formatMoney, formatEventDateRange, formatDeadline, googleMapsUrl } from '@/lib/utils';
+import { isDeadlinePassed, formatMoney, formatEventDateRange, formatDeadline, googleMapsUrl } from '@/lib/utils';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -39,12 +39,14 @@ export default async function EventDetailPage({ params }) {
   // Am I staff for this event? (admins always see staff info too.)
   let myStaffRow = null;
   let staffList = [];
+  let staffLoadError = '';
   try {
     myStaffRow = await db
       .prepare('SELECT 1 FROM event_staff WHERE event_id = ? AND member_id = ? LIMIT 1')
       .get(event.id, session.sub);
   } catch (err) {
-    console.error('[event detail] staff lookup failed:', err);
+    console.error(`[event detail eid=${event.id} uid=${session.sub}] staff lookup failed:`, err);
+    staffLoadError = err?.code || err?.message || '工作人員查詢失敗';
   }
   const isStaff = !!myStaffRow || !!session.is_admin;
   if (isStaff) {
@@ -62,7 +64,8 @@ export default async function EventDetailPage({ params }) {
         )
         .all(event.id);
     } catch (err) {
-      console.error('[event detail] staff list failed:', err);
+      console.error(`[event detail eid=${event.id}] staff list failed:`, err);
+      staffLoadError = err?.code || err?.message || '工作人員名單載入失敗';
     }
   }
 
@@ -133,18 +136,28 @@ export default async function EventDetailPage({ params }) {
           </div>
         </div>
 
-        {/* 工作人員 (僅 staff/admin 可見) */}
-        {isStaff && staffList.length > 0 && (
+        {/* 工作人員 (僅 staff/admin 可見) — load 失敗也要讓 admin 看到，避免靜默缺資料 */}
+        {isStaff && (staffList.length > 0 || (staffLoadError && session.is_admin)) && (
           <div className="card p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-bold text-gray-800">🛠️ 工作人員</div>
               <span className="text-[11px] text-gray-400">{staffList.length} 位</span>
             </div>
-            <StaffByRole staffList={staffList} />
-            <Link
-              href={`/events/${event.id}/staff-view`}
-              className="mt-3 btn-secondary w-full text-center block text-sm"
-            >📊 查看祈福 / 活動報名名單</Link>
+            {staffLoadError && session.is_admin && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-2 mb-2">
+                ⚠ 工作人員名單載入失敗：{staffLoadError}
+                <div className="text-[11px] text-amber-700 mt-1">
+                  通常是 schema 還沒升級。請至 Cloud Shell 跑 <code>npm run db:migrate</code>。
+                </div>
+              </div>
+            )}
+            {staffList.length > 0 && <StaffByRole staffList={staffList} />}
+            {staffList.length > 0 && (
+              <Link
+                href={`/events/${event.id}/staff-view`}
+                className="mt-3 btn-secondary w-full text-center block text-sm"
+              >📊 查看祈福 / 活動報名名單</Link>
+            )}
           </div>
         )}
 

@@ -1,12 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 // Inline manager for one event's staff (法會工作人員).
 // Rows are flat (event_id, role_name, member_id); UI groups by role_name.
 export default function EventStaffEditor({ eventId, initialStaff, initialSuggestions, candidates }) {
-  const router = useRouter();
   const confirm = useConfirm();
   const [staff, setStaff] = useState(initialStaff || []);
   const [suggestions, setSuggestions] = useState(initialSuggestions || []);
