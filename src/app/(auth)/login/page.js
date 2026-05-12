@@ -1,8 +1,10 @@
 'use client';
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { APP_NAME, APP_VERSION } from '@/lib/version';
+
+const REMEMBERED_EMAIL_KEY = 'dzz3activity:last_login_email';
 
 export default function LoginPage() {
   return (
@@ -20,6 +22,31 @@ function LoginPageInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  // Track whether we recovered an email from localStorage so we can land
+  // focus on the password field instead of email (faster login).
+  const [hasRememberedEmail, setHasRememberedEmail] = useState(false);
+
+  // Prefill email from a previous successful login (client-only — never
+  // persists a password). Runs once on mount.
+  useEffect(() => {
+    try {
+      const remembered = window.localStorage?.getItem(REMEMBERED_EMAIL_KEY);
+      if (remembered) {
+        setForm((p) => ({ ...p, email: remembered }));
+        setHasRememberedEmail(true);
+      }
+    } catch {
+      // Private mode / storage disabled — silently skip.
+    }
+  }, []);
+
+  // Send focus to password field if we already have an email; otherwise email.
+  useEffect(() => {
+    if (hasRememberedEmail) passwordInputRef.current?.focus();
+    else emailInputRef.current?.focus();
+  }, [hasRememberedEmail]);
 
   // When the layout bounced a disabled-account session here, clear the stale
   // cookie immediately so it doesn't keep re-redirecting on the next nav.
@@ -43,6 +70,11 @@ function LoginPageInner() {
       if (!res.ok) {
         setError(data.error || '登入失敗');
       } else {
+        try {
+          window.localStorage?.setItem(REMEMBERED_EMAIL_KEY, form.email.trim());
+        } catch {
+          // Storage disabled — login still succeeds, just no convenience.
+        }
         window.location.href = data.is_admin ? '/admin' : '/events';
       }
     } catch {
@@ -67,6 +99,7 @@ function LoginPageInner() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
             <input
+              ref={emailInputRef}
               type="email"
               required
               autoComplete="email"
@@ -80,8 +113,10 @@ function LoginPageInner() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼</label>
             <input
+              ref={passwordInputRef}
               type="password"
               required
+              autoComplete="current-password"
               className="input-field"
               placeholder="輸入密碼"
               value={form.password}
