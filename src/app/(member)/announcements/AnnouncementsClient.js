@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { formatDateTime as fmt } from '@/lib/utils';
+import ImageLightbox from '@/components/ui/ImageLightbox';
 
 export default function AnnouncementsClient({ announcements }) {
   const [openId, setOpenId] = useState(null);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
 
   return (
     <div>
@@ -46,8 +48,15 @@ export default function AnnouncementsClient({ announcements }) {
               {isOpen && (
                 <div id={`ann-body-${a.id}`} className="px-4 pb-4 space-y-3">
                   {a.image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={a.image} alt="" className="w-full rounded-lg" />
+                    <button
+                      type="button"
+                      onClick={() => setLightboxSrc(a.image)}
+                      className="block w-full rounded-lg overflow-hidden cursor-zoom-in focus-visible:outline focus-visible:outline-2 focus-visible:outline-temple-red"
+                      aria-label="放大檢視圖片"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={a.image} alt="" className="w-full block" />
+                    </button>
                   )}
                   {a.content && (
                     <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">{a.content}</div>
@@ -79,6 +88,10 @@ export default function AnnouncementsClient({ announcements }) {
           );
         })}
       </div>
+
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
     </div>
   );
 }
