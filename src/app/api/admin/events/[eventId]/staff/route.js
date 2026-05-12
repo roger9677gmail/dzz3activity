@@ -9,37 +9,57 @@ const MAX_ROLE_NAME = 50;
 // "role suggestions" list (top distinct role names this admin has used
 // across the most recent 5 events for the datalist autocomplete).
 export const GET = withPermission('events:manage', async (request, { params }) => {
-  const eventId = parseInt(params.eventId);
-  if (!eventId) return NextResponse.json({ error: '無效的活動 ID' }, { status: 400 });
+  try {
+    const eventId = parseInt(params.eventId);
+    if (!eventId) return NextResponse.json({ error: '無效的活動 ID' }, { status: 400 });
 
-  const rows = await db
-    .prepare(
-      `SELECT s.id, s.event_id, s.role_name, s.member_id, s.sort_order,
-              m.name AS member_name, m.email AS member_email, m.phone AS member_phone,
-              l.name AS location_name
-         FROM event_staff s
-         JOIN members m ON m.id = s.member_id
-    LEFT JOIN locations l ON l.id = m.location_id
-        WHERE s.event_id = ?
-        ORDER BY s.sort_order, s.id`
-    )
-    .all(eventId);
-
-  // Role name suggestions: distinct role_name across this admin's last 5 events.
-  const suggestionRows = await db
-    .prepare(
-      `SELECT DISTINCT s.role_name
-         FROM event_staff s
-         JOIN events e ON e.id = s.event_id
-        WHERE s.event_id IN (
-          SELECT id FROM events ORDER BY created_at DESC LIMIT 5
+    let rows = [];
+    try {
+      rows = await db
+        .prepare(
+          `SELECT s.id, s.event_id, s.role_name, s.member_id, s.sort_order,
+                  m.name AS member_name, m.email AS member_email, m.phone AS member_phone,
+                  l.name AS location_name
+             FROM event_staff s
+             JOIN members m ON m.id = s.member_id
+        LEFT JOIN locations l ON l.id = m.location_id
+            WHERE s.event_id = ?
+            ORDER BY s.sort_order, s.id`
         )
-        ORDER BY s.role_name`
-    )
-    .all();
-  const suggestions = suggestionRows.map((r) => r.role_name);
+        .all(eventId);
+    } catch (err) {
+      console.error('[staff GET] list query failed:', err);
+    }
 
-  return NextResponse.json({ staff: rows, suggestions });
+    // Role name suggestions: distinct role_name across the most recent 5 events.
+    // Two-step (rather than `IN (SELECT ... LIMIT 5)`) — some MySQL 8 builds
+    // still choke on LIMIT inside a subquery used with IN.
+    let suggestions = [];
+    try {
+      const recentEvents = await db
+        .prepare('SELECT id FROM events ORDER BY created_at DESC LIMIT 5')
+        .all();
+      if (recentEvents.length > 0) {
+        const ids = recentEvents.map((r) => r.id);
+        const placeholders = ids.map(() => '?').join(',');
+        const suggestionRows = await db
+          .prepare(
+            `SELECT DISTINCT role_name FROM event_staff
+              WHERE event_id IN (${placeholders})
+              ORDER BY role_name`
+          )
+          .all(...ids);
+        suggestions = suggestionRows.map((r) => r.role_name);
+      }
+    } catch (err) {
+      console.error('[staff GET] suggestions query failed:', err);
+    }
+
+    return NextResponse.json({ staff: rows, suggestions });
+  } catch (err) {
+    console.error('[staff GET] unexpected:', err);
+    return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });
+  }
 });
 
 // POST — admin: bulk-add members to a role for this event.

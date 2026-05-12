@@ -19,11 +19,21 @@ export default function EventStaffEditor({ eventId, initialStaff, initialSuggest
   const [error, setError] = useState('');
 
   async function refresh() {
-    const res = await fetch(`/api/admin/events/${eventId}/staff`);
-    const data = await res.json();
-    if (res.ok) {
+    // Defensive: a 500 from the GET endpoint can return an empty / non-JSON
+    // body. Calling res.json() on that would throw "Unexpected end of JSON
+    // input", which bubbled up into the submitAdd catch and surfaced as a
+    // misleading "網路錯誤" alert AFTER a successful add. Swallow parse errors
+    // and just leave the list as-is; the next interaction will re-fetch.
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/staff`);
+      const text = await res.text();
+      if (!res.ok || !text) return;
+      let data;
+      try { data = JSON.parse(text); } catch { return; }
       setStaff(data.staff || []);
       setSuggestions(data.suggestions || []);
+    } catch (err) {
+      console.error('staff refresh failed:', err);
     }
   }
 
