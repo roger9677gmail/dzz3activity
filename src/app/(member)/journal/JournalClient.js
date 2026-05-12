@@ -13,6 +13,19 @@ const TABS = [
   { key: 'leaderboard', label: '排名' },
 ];
 
+// Client-side resize to keep practice_notes.image inline (~MEDIUMTEXT
+// friendly). Reused for both add-form and inline edit.
+async function resizeImage(file, maxSize = 1280, quality = 0.85) {
+  const bitmap = await createImageBitmap(file);
+  const ratio = Math.min(maxSize / bitmap.width, maxSize / bitmap.height, 1);
+  const w = Math.max(1, Math.round(bitmap.width * ratio));
+  const h = Math.max(1, Math.round(bitmap.height * ratio));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
 function logsByDateForPractice(rangeLogs, practiceId) {
   const out = {};
   for (const r of rangeLogs) {
@@ -54,6 +67,8 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
   const [notes, setNotes] = useState(dayNotes);
   const [newNote, setNewNote] = useState('');
   const [newNotePublic, setNewNotePublic] = useState(false);
+  const [newNoteImage, setNewNoteImage] = useState('');
+  const [newNoteLink, setNewNoteLink] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState('');
 
@@ -121,7 +136,13 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
       const res = await fetch('/api/me/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ log_date: date, content: newNote, is_public: newNotePublic }),
+        body: JSON.stringify({
+          log_date: date,
+          content: newNote,
+          image: newNoteImage || null,
+          link_url: newNoteLink.trim() || null,
+          is_public: newNotePublic,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -129,6 +150,8 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
       } else {
         setNewNote('');
         setNewNotePublic(false);
+        setNewNoteImage('');
+        setNewNoteLink('');
         router.refresh();
         setNotesVersion((v) => v + 1);
       }
@@ -136,6 +159,21 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
       setNoteError('網路錯誤');
     }
     setNoteSaving(false);
+  }
+
+  async function handleNoteImagePick(file) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
+      setNoteError('請選 PNG / JPG / WebP 圖片');
+      return;
+    }
+    try {
+      const dataUrl = await resizeImage(file, 1280, 0.85);
+      setNewNoteImage(dataUrl);
+      setNoteError('');
+    } catch {
+      setNoteError('圖片處理失敗');
+    }
   }
 
   async function toggleNotePublic(note) {
@@ -310,8 +348,36 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
                 placeholder="寫下今天的修行心得…"
                 className="input-field text-sm"
               />
-              <div className="flex items-center justify-between gap-2">
-                <label className="flex items-center gap-2 text-sm text-gray-600">
+              {newNoteImage && (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={newNoteImage} alt="" className="w-full max-h-60 object-cover rounded-lg" />
+                  <button
+                    type="button"
+                    onClick={() => setNewNoteImage('')}
+                    aria-label="移除圖片"
+                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-7 h-7 text-sm"
+                  >✕</button>
+                </div>
+              )}
+              <input
+                type="url"
+                value={newNoteLink}
+                onChange={(e) => setNewNoteLink(e.target.value)}
+                placeholder="附加連結（選填，例：https://...）"
+                className="input-field text-sm"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer">
+                  📷 加圖片
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => handleNoteImagePick(e.target.files?.[0])}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-600 ml-1">
                   <input
                     type="checkbox"
                     checked={newNotePublic}
@@ -319,11 +385,11 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
                   />
                   公開分享
                 </label>
-                <button type="submit" disabled={noteSaving || !newNote.trim()} className="btn-primary text-sm">
+                <button type="submit" disabled={noteSaving || !newNote.trim()} className="btn-primary text-sm ml-auto">
                   {noteSaving ? '儲存中…' : '新增筆記'}
                 </button>
               </div>
-              {noteError && <div className="text-sm text-red-600">{noteError}</div>}
+              {noteError && <div role="alert" className="text-sm text-red-600">{noteError}</div>}
             </form>
             <div className="space-y-2">
               {notes.map((n) => (
@@ -346,6 +412,7 @@ export default function JournalClient({ session, subscriptions, dayLogs, rangeLo
                   ) : (
                     <>
                       <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
+                      <NoteAttachments image={n.image} linkUrl={n.link_url} />
                       <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                         <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
                         <div className="flex gap-3">
@@ -550,6 +617,7 @@ function MyNotesSection({ version, onMutate }) {
             ) : (
               <>
                 <div className="text-sm whitespace-pre-wrap break-words text-gray-800">{n.content}</div>
+                <NoteAttachments image={n.image} linkUrl={n.link_url} />
                 <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                   <span>{n.is_public ? '🌐 已公開' : '🔒 私人'}</span>
                   <div className="flex gap-3">
@@ -637,6 +705,7 @@ function PublicNotesTab() {
             </div>
           </div>
           <div className="text-sm whitespace-pre-wrap break-words text-gray-700">{n.content}</div>
+          <NoteAttachments image={n.image} linkUrl={n.link_url} />
         </div>
       ))}
       {hasMore && (
@@ -763,6 +832,27 @@ function LeaderboardTab({ subscriptions, session }) {
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+
+function NoteAttachments({ image, linkUrl }) {
+  if (!image && !linkUrl) return null;
+  return (
+    <div className="mt-2 space-y-2">
+      {image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="" className="w-full max-h-72 object-cover rounded-lg" />
+      )}
+      {linkUrl && (
+        <a
+          href={linkUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-temple-red underline break-all"
+        >🔗 {linkUrl}</a>
       )}
     </div>
   );

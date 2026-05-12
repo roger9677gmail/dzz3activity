@@ -200,6 +200,8 @@ CREATE TABLE IF NOT EXISTS practice_notes (
   member_id   INT UNSIGNED NOT NULL,
   log_date    DATE NOT NULL,
   content     TEXT NOT NULL,
+  image       MEDIUMTEXT NULL,
+  link_url    VARCHAR(500) NULL,
   is_public   TINYINT(1) NOT NULL DEFAULT 0,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -663,6 +665,23 @@ CREATE TABLE IF NOT EXISTS push_presets (
       }
     } catch (err) {
       console.log('ℹ️  Skipped push presets seed -', err.code || err.message);
+    }
+
+    // Practice notes: image (data: URL inline like announcements) + link_url
+    console.log('— Practice notes image/link —');
+    const NOTE_COLS = [
+      ['practice_notes.image', "ALTER TABLE practice_notes ADD COLUMN image MEDIUMTEXT NULL AFTER content"],
+      ['practice_notes.link_url', "ALTER TABLE practice_notes ADD COLUMN link_url VARCHAR(500) NULL AFTER image"],
+    ];
+    for (const [label, sql] of NOTE_COLS) {
+      try {
+        await conn.query(sql);
+        console.log(`✅ Applied: ADD ${label}`);
+      } catch (err) {
+        if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+          console.log(`ℹ️  Skipped (already applied): ADD ${label}`);
+        } else { throw err; }
+      }
     }
 
     // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).

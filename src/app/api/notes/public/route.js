@@ -17,7 +17,7 @@ export const GET = withAuth(async (request) => {
   const rows = await db
     .prepare(
       `SELECT n.id, DATE_FORMAT(n.log_date, '%Y-%m-%d') AS log_date,
-              n.content, n.created_at,
+              n.content, n.image, n.link_url, n.created_at,
               m.id AS member_id, m.name AS member_name, m.avatar AS member_avatar,
               l.name AS location_name
          FROM practice_notes n
