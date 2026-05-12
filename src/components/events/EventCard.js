@@ -68,7 +68,6 @@ export default function EventCard({ event, isRegistered = false, registration = 
                 rel="noreferrer"
                 className="text-temple-red hover:underline inline-flex items-center gap-1"
                 aria-label={`在 Google 地圖開啟 ${event.location}`}
-                onClick={(e) => e.stopPropagation()}
               >
                 {event.location}
                 <span aria-hidden="true" className="text-xs">🗺️</span>
