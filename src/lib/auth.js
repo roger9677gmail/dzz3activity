@@ -34,16 +34,33 @@ const COOKIE_OPTIONS = {
 
 // Build a session payload for a member row. Carries is_admin + permissions
 // so middleware can authorize without an extra DB hit on every request.
-export function buildSessionPayload(member) {
+// When `imp` is passed, this is an impersonation session — `sub` is the
+// target user, `imp` records the original admin so we can restore later
+// and so the UI can show a banner.
+export function buildSessionPayload(member, imp = null) {
   const perms = parsePermissions(member.admin_permissions);
-  return {
+  const payload = {
     sub: member.id,
     name: member.name,
     email: member.email,
     is_admin: member.is_admin ? 1 : 0,
     permissions: perms,
   };
+  if (imp) payload.imp = imp;
+  return payload;
 }
+
+// True if this session is an admin currently impersonating someone else.
+// Callers should not gate writes purely on this — middleware handles the
+// read-only enforcement based on imp.mode.
+export function isImpersonating(session) {
+  return !!session?.imp?.admin_id;
+}
+
+// Impersonation sessions get a shorter cookie lifetime so a forgotten-open
+// tab eventually drops back to the original admin's normal flow. The /end
+// endpoint also explicitly restores the cookie when invoked.
+export const IMPERSONATION_TTL = '2h';
 
 export function parsePermissions(value) {
   if (!value) return [];
@@ -63,10 +80,15 @@ export function hasPermission(session, perm) {
 }
 
 // Use this in Route Handlers — attaches the unified session cookie.
-export async function createSessionResponse(payload, responseBody) {
-  const token = await signToken(payload);
+// `opts.expiresIn` lets callers override the JWT lifetime; impersonation
+// sessions pass IMPERSONATION_TTL so a forgotten tab eventually drops.
+export async function createSessionResponse(payload, responseBody, opts = {}) {
+  const expiresIn = opts.expiresIn || '7d';
+  const token = await signToken(payload, expiresIn);
   const res = NextResponse.json(responseBody);
-  res.cookies.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
+  const cookieOpts = { ...COOKIE_OPTIONS };
+  if (opts.maxAge != null) cookieOpts.maxAge = opts.maxAge;
+  res.cookies.set(SESSION_COOKIE, token, cookieOpts);
   return res;
 }
 

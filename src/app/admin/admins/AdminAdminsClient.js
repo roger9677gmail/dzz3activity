@@ -8,6 +8,7 @@ const PERMISSION_OPTIONS = [
   { key: 'events:manage', label: '活動管理' },
   { key: 'registrations:manage', label: '繳款收據登錄' },
   { key: 'members:manage', label: '師兄姐管理' },
+  { key: 'members:impersonate', label: '模擬師兄姐身分（檢視 / 代操作）' },
   { key: 'locations:manage', label: '道場管理' },
   { key: 'admins:manage', label: '管理員設定（含權限指派）' },
   { key: 'reports:view', label: '報名查詢' },

@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminMembersPage({ searchParams }) {
   const session = await getSession();
   if (!hasPermission(session, 'members:manage')) redirect('/admin');
+  const canImpersonate = hasPermission(session, 'members:impersonate');
 
   const search = searchParams.search || '';
   const showDisabled = searchParams.disabled === '1';
@@ -151,6 +152,7 @@ export default async function AdminMembersPage({ searchParams }) {
         locations={locations}
         groups={allGroups}
         canEdit={true}
+        canImpersonate={canImpersonate}
         emptyMessage="無符合條件的師兄姐"
       />
     </div>

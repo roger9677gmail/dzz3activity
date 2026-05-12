@@ -353,6 +353,21 @@ CREATE TABLE IF NOT EXISTS practice_note_comments (
   CONSTRAINT fk_pnc_note   FOREIGN KEY (note_id)   REFERENCES practice_notes(id) ON DELETE CASCADE,
   CONSTRAINT fk_pnc_member FOREIGN KEY (member_id) REFERENCES members(id)        ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS impersonation_logs (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  admin_id    INT UNSIGNED NOT NULL,
+  target_id   INT UNSIGNED NOT NULL,
+  mode        VARCHAR(10)  NOT NULL,
+  started_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ended_at    DATETIME     NULL,
+  ip          VARCHAR(45)  NULL,
+  user_agent  VARCHAR(500) NULL,
+  INDEX idx_il_admin  (admin_id, started_at),
+  INDEX idx_il_target (target_id, started_at),
+  CONSTRAINT fk_il_admin  FOREIGN KEY (admin_id)  REFERENCES members(id) ON DELETE CASCADE,
+  CONSTRAINT fk_il_target FOREIGN KEY (target_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
 (async () => {

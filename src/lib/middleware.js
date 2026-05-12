@@ -21,11 +21,27 @@ async function loadActiveMember(session) {
   return { member };
 }
 
+// Impersonation read-only guard. When an admin is impersonating in read mode,
+// reject any mutating request so accidental clicks can't fire writes "as" the
+// target user. /api/admin/impersonate/end deliberately bypasses these wrappers
+// — it must work even in read mode so the admin can exit.
+function readOnlyBlock(session, request) {
+  if (session?.imp?.mode !== 'read') return null;
+  const m = (request.method || '').toUpperCase();
+  if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return null;
+  return NextResponse.json(
+    { error: '目前為唯讀模擬模式，無法執行寫入動作' },
+    { status: 403 }
+  );
+}
+
 export function withAuth(handler) {
   return async function (request, context) {
     const session = await getSession();
     const { error } = await loadActiveMember(session);
     if (error) return error;
+    const ro = readOnlyBlock(session, request);
+    if (ro) return ro;
     request.session = session;
     return handler(request, context);
   };
@@ -40,6 +56,8 @@ export function withAdminAuth(handler) {
     if (!session?.is_admin) {
       return NextResponse.json({ error: '無管理員權限' }, { status: 403 });
     }
+    const ro = readOnlyBlock(session, request);
+    if (ro) return ro;
     request.session = session;
     return handler(request, context);
   };
@@ -56,6 +74,8 @@ export function withPermission(perm, handler) {
     if (!hasPermission(session, perm)) {
       return NextResponse.json({ error: '權限不足' }, { status: 403 });
     }
+    const ro = readOnlyBlock(session, request);
+    if (ro) return ro;
     request.session = session;
     return handler(request, context);
   };

@@ -3,13 +3,46 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
-export default function AdminMembersClient({ members, locations, groups = [], canEdit, emptyMessage }) {
+export default function AdminMembersClient({ members, locations, groups = [], canEdit, canImpersonate = false, emptyMessage }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [impersonating, setImpersonating] = useState(null); // member id currently being launched
+
+  async function startImpersonate(m, mode) {
+    const isWrite = mode === 'write';
+    const ok = await confirm({
+      title: `${isWrite ? '✏️ 可寫' : '👁️ 唯讀'}模擬：${m.name}`,
+      message: isWrite
+        ? '進入【可寫】模式後，你按下的所有按鈕、填的表單都會以該師兄姐名義執行（會留 audit log）。確定？'
+        : '進入【唯讀】模式後，可看到該師兄姐看到的畫面；任何寫入動作（報名、點讚、留言…）都會被擋下。確定？',
+      confirmText: isWrite ? '進入可寫模式' : '進入唯讀模式',
+      danger: isWrite,
+    });
+    if (!ok) return;
+    setImpersonating(m.id);
+    try {
+      const res = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: m.id, mode: isWrite ? 'write' : 'read' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || '無法進入模擬');
+        setImpersonating(null);
+        return;
+      }
+      window.location.href = '/events';
+    } catch (err) {
+      console.error('start impersonate failed:', err);
+      alert('網路錯誤，請稍後再試');
+      setImpersonating(null);
+    }
+  }
 
   function startEdit(m) {
     setEditingId(m.id);
@@ -242,9 +275,25 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                   })}
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 text-sm">
+              <div className="flex items-center gap-3 shrink-0 text-sm flex-wrap justify-end">
                 {'reg_count' in m && (
                   <span className="text-xs text-gray-400">{m.reg_count} 次報名</span>
+                )}
+                {canImpersonate && !m.is_disabled && (
+                  <>
+                    <button
+                      onClick={() => startImpersonate(m, 'read')}
+                      disabled={impersonating === m.id}
+                      title="以該師兄姐身分檢視（唯讀，安全）"
+                      className="text-amber-700 hover:text-amber-900 disabled:opacity-40"
+                    >👁️ 唯讀模擬</button>
+                    <button
+                      onClick={() => startImpersonate(m, 'write')}
+                      disabled={impersonating === m.id}
+                      title="以該師兄姐身分代為操作（會留 audit log）"
+                      className="text-red-700 hover:text-red-900 disabled:opacity-40"
+                    >✏️ 可寫模擬</button>
+                  </>
                 )}
                 {canEdit && (
                   <>
