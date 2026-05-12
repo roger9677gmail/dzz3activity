@@ -49,7 +49,9 @@ export default function EventStaffEditor({ eventId, initialStaff, initialSuggest
 
   async function submitAdd() {
     setError('');
-    const roleName = (addingTo === '__new__' ? newRoleName : addingTo).trim();
+    // Defensive: addingTo can in theory be null mid-render. Guard the trim().
+    const rawRole = addingTo === '__new__' ? newRoleName : (addingTo || '');
+    const roleName = String(rawRole).trim();
     if (!roleName) { setError('請輸入工作組名稱'); return; }
     if (selectedIds.length === 0) { setError('請選擇要加入的師兄姐'); return; }
     setBusy(true);
@@ -59,19 +61,31 @@ export default function EventStaffEditor({ eventId, initialStaff, initialSuggest
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role_name: roleName, member_ids: selectedIds, notify }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || '加入失敗'); setBusy(false); return; }
-      if (data.push?.error) alert(`已新增 ${data.added} 位，但 ${data.push.error}`);
-      else if (data.push?.sent != null) {
-        // Quiet success: only alert when something noteworthy
-        if (notify) {
-          // small toast-ish line via state would be nicer; alert is OK for now
-        }
+      const text = await res.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { /* non-JSON response */ }
+      if (!res.ok) {
+        const msg = data.error || `加入失敗 (HTTP ${res.status})`;
+        setError(msg);
+        alert(msg);
+        setBusy(false);
+        return;
+      }
+      if (data.push?.error) {
+        alert(`已新增 ${data.added} 位，但 ${data.push.error}`);
+      } else if (data.push?.sent != null && notify) {
+        // Brief feedback so the admin knows the push fired.
+        alert(`✅ 已新增 ${data.added} 位，推播已送出 ${data.push.sent} / ${data.push.total}`);
+      } else {
+        alert(`✅ 已新增 ${data.added || 0} 位`);
       }
       cancelAdd();
       await refresh();
-    } catch {
-      setError('網路錯誤');
+    } catch (err) {
+      console.error('submitAdd failed:', err);
+      const msg = `網路錯誤：${err?.message || ''}`;
+      setError(msg);
+      alert(msg);
     }
     setBusy(false);
   }
