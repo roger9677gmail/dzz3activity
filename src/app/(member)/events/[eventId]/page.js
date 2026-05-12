@@ -112,7 +112,7 @@ export default async function EventDetailPage({ params }) {
               <div className="flex gap-2">
                 <span>📍</span>
                 <a
-                  href={googleMapsUrl(event.location)}
+                  href={event.map_url || googleMapsUrl(event.location)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-temple-red hover:underline inline-flex items-center gap-1"

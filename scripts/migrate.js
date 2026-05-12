@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS events (
   end_date                DATETIME     NOT NULL,
   registration_deadline   DATETIME     NOT NULL,
   location                VARCHAR(255),
+  map_url                 VARCHAR(1000) NULL,
   status                  VARCHAR(20)  NOT NULL DEFAULT 'active',
   banner_color            VARCHAR(20)  DEFAULT '#8B1A1A',
   created_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -725,6 +726,18 @@ CREATE TABLE IF NOT EXISTS practice_note_comments (
       } catch (err) {
         console.log(`ℹ️  Skipped ${label} -`, err.code || err.message);
       }
+    }
+
+    // events.map_url: optional Google Maps share link (e.g. https://maps.app.goo.gl/...)
+    // so admins can pin the exact location instead of relying on a free-text search.
+    console.log('— events.map_url —');
+    try {
+      await conn.query("ALTER TABLE events ADD COLUMN map_url VARCHAR(1000) NULL AFTER location");
+      console.log('✅ Applied: ADD events.map_url');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD events.map_url');
+      } else { throw err; }
     }
 
     // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).

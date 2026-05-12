@@ -42,7 +42,7 @@ export async function GET(request) {
 
 export const POST = withPermission('events:manage', async (request) => {
   try {
-    const { name, description, start_date, end_date, registration_deadline, location, status, banner_color, items } = await request.json();
+    const { name, description, start_date, end_date, registration_deadline, location, map_url, status, banner_color, items } = await request.json();
 
     if (!name || !start_date || !end_date || !registration_deadline) {
       return NextResponse.json({ error: '活動名稱、日期及報名截止日為必填' }, { status: 400 });
@@ -50,9 +50,9 @@ export const POST = withPermission('events:manage', async (request) => {
 
     const eventId = await db.transaction(async (tx) => {
       const result = await tx.prepare(`
-        INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, status, banner_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status || 'active', banner_color || '#8B1A1A');
+        INSERT INTO events (name, description, start_date, end_date, registration_deadline, location, map_url, status, banner_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(name, description || null, start_date, end_date, registration_deadline, location || null, map_url || null, status || 'active', banner_color || '#8B1A1A');
 
       const newId = result.lastInsertRowid;
 

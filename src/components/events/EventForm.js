@@ -16,6 +16,7 @@ export default function EventForm({ event = null }) {
     end_date: toDateTimeLocalValue(event?.end_date),
     registration_deadline: toDateTimeLocalValue(event?.registration_deadline),
     location: event?.location || '',
+    map_url: event?.map_url || '',
     status: event?.status || 'active',
     banner_color: event?.banner_color || '#8B1A1A',
   });
@@ -189,6 +190,21 @@ export default function EventForm({ event = null }) {
           <label className="block text-sm font-medium text-gray-700 mb-1">地點</label>
           <input type="text" className="input-field" placeholder="活動地點（選填）"
             value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Google 地圖連結</label>
+          <input
+            type="url"
+            className="input-field"
+            placeholder="https://maps.app.goo.gl/... 或完整 Google Maps 連結"
+            value={form.map_url}
+            onChange={(e) => setForm((p) => ({ ...p, map_url: e.target.value }))}
+            maxLength={1000}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Google Maps → 找到地點 → 分享 → 複製連結，貼到這裡。師兄姐端點地點會直接打開這個 pin。留空則自動用上方「地點」文字當搜尋。
+          </p>
         </div>
 
         <div>

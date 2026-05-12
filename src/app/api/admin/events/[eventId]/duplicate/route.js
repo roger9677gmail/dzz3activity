@@ -22,8 +22,8 @@ export const POST = withPermission('events:manage', async (request, { params }) 
       const r = await tx
         .prepare(
           `INSERT INTO events (name, description, start_date, end_date, registration_deadline,
-                               location, status, banner_color)
-           VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)`
+                               location, map_url, status, banner_color)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)`
         )
         .run(
           newName,
@@ -32,6 +32,7 @@ export const POST = withPermission('events:manage', async (request, { params }) 
           src.end_date,
           src.registration_deadline,
           src.location || null,
+          src.map_url || null,
           src.banner_color || '#8B1A1A'
         );
       const nid = r.lastInsertRowid;
