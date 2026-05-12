@@ -533,23 +533,10 @@ CREATE TABLE IF NOT EXISTS practice_note_comments (
       }
     }
 
-    // Seed default locations (idempotent — UNIQUE on name protects).
-    const DEFAULT_LOCATIONS = [
-      ['明心禪苑(永和)', 1],
-      ['靜心禪苑(新竹)', 2],
-      ['台中禪林', 3],
-    ];
-    for (const [name, sort] of DEFAULT_LOCATIONS) {
-      const [r] = await conn.query(
-        `INSERT IGNORE INTO locations (name, sort_order) VALUES (?, ?)`,
-        [name, sort]
-      );
-      if (r.affectedRows > 0) {
-        console.log(`✅ Seeded location: ${name}`);
-      } else {
-        console.log(`ℹ️  Location exists: ${name}`);
-      }
-    }
+    // (No default-location seeding here — locations are managed entirely
+    // through /admin/locations.  Previously this block re-inserted a hard-
+    // coded list each migrate, which had the obnoxious side effect of
+    // resurrecting locations the admin had intentionally deleted.)
 
     // Mirror-group integration: each `locations` row gets a corresponding
     // `member_groups` row (location_id NOT NULL), so admins can target
