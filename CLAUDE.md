@@ -205,6 +205,12 @@ gcloud auth login
 gcloud auth application-default login
 ```
 
+⚠️ **ADC token 會過期**（Cloud Shell 每次重開、本機約 1 小時）。如果跑 `npm run db:migrate` 看到「could not find default credentials」或「invalid_grant」之類錯誤，重跑這條再來：
+
+```bash
+gcloud auth application-default login
+```
+
 確認當前帳號在專案內擁有：
 
 - `roles/cloudsql.client`（連線 Cloud SQL）
