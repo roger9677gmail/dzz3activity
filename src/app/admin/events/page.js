@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
-import { formatDate, getEventStatusLabel } from '@/lib/utils';
+import { formatDate, getEventStatusLabel, formatEventDateRange, formatDeadline } from '@/lib/utils';
 import Link from 'next/link';
 import DeleteEventButton from '@/components/events/DeleteEventButton';
 import DuplicateEventButton from '@/components/events/DuplicateEventButton';
@@ -53,9 +53,9 @@ export default async function AdminEventsPage() {
                 <div>
                   <h3 className="font-bold text-gray-800">{ev.name}</h3>
                   <div className="text-sm text-gray-500 mt-1">
-                    {formatDate(ev.start_date)}{ev.start_date !== ev.end_date ? ` ～ ${formatDate(ev.end_date)}` : ''}
+                    {formatEventDateRange(ev.start_date, ev.end_date)}
                   </div>
-                  <div className="text-sm text-gray-400">報名截止：{formatDate(ev.registration_deadline)}</div>
+                  <div className="text-sm text-gray-400">報名截止：{formatDeadline(ev.registration_deadline)}</div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${

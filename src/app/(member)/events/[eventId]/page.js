@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import RegistrationForm from '@/components/events/RegistrationForm';
-import { formatDate, isDeadlinePassed, formatMoney } from '@/lib/utils';
+import { formatDate, isDeadlinePassed, formatMoney, formatEventDateRange, formatDeadline } from '@/lib/utils';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -107,11 +107,11 @@ export default async function EventDetailPage({ params }) {
           <div className="h-1 rounded mb-3" style={{ backgroundColor: event.banner_color || '#8B1A1A' }} />
           {event.description && <p className="text-gray-600 text-sm mb-3">{event.description}</p>}
           <div className="space-y-2 text-sm">
-            <div className="flex gap-2"><span>📅</span><span>{formatDate(event.start_date)}{event.start_date !== event.end_date ? ` ～ ${formatDate(event.end_date)}` : ''}</span></div>
+            <div className="flex gap-2"><span>📅</span><span>{formatEventDateRange(event.start_date, event.end_date)}</span></div>
             {event.location && <div className="flex gap-2"><span>📍</span><span>{event.location}</span></div>}
             <div className="flex gap-2">
               <span>⏰</span>
-              <span>報名截止：{formatDate(event.registration_deadline)}
+              <span>報名截止：{formatDeadline(event.registration_deadline)}
                 {deadlinePassed && <span className="text-red-500 ml-1">（已截止）</span>}
               </span>
             </div>

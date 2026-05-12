@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toDateTimeLocalValue } from '@/lib/utils';
 
 const DEFAULT_COLORS = ['#8B1A1A', '#1A4A8B', '#1A6B2A', '#7A1A8B', '#8B5E1A'];
 
@@ -11,9 +12,9 @@ export default function EventForm({ event = null }) {
   const [form, setForm] = useState({
     name: event?.name || '',
     description: event?.description || '',
-    start_date: event?.start_date || '',
-    end_date: event?.end_date || '',
-    registration_deadline: event?.registration_deadline || '',
+    start_date: toDateTimeLocalValue(event?.start_date),
+    end_date: toDateTimeLocalValue(event?.end_date),
+    registration_deadline: toDateTimeLocalValue(event?.registration_deadline),
     location: event?.location || '',
     status: event?.status || 'active',
     banner_color: event?.banner_color || '#8B1A1A',
@@ -166,21 +167,22 @@ export default function EventForm({ event = null }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">開始日期 *</label>
-            <input type="date" required className="input-field"
+            <label className="block text-sm font-medium text-gray-700 mb-1">開始時間 *</label>
+            <input type="datetime-local" required className="input-field"
               value={form.start_date} onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">結束日期 *</label>
-            <input type="date" required className="input-field"
+            <label className="block text-sm font-medium text-gray-700 mb-1">結束時間 *</label>
+            <input type="datetime-local" required className="input-field"
               value={form.end_date} onChange={(e) => setForm((p) => ({ ...p, end_date: e.target.value }))} />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">報名截止日期 *</label>
-          <input type="date" required className="input-field"
+          <label className="block text-sm font-medium text-gray-700 mb-1">報名截止時間 *</label>
+          <input type="datetime-local" required className="input-field"
             value={form.registration_deadline} onChange={(e) => setForm((p) => ({ ...p, registration_deadline: e.target.value }))} />
+          <p className="text-xs text-gray-400 mt-1">含時間點，師兄姐介面會顯示完整截止時間。</p>
         </div>
 
         <div>

@@ -46,9 +46,9 @@ CREATE TABLE IF NOT EXISTS events (
   id                      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name                    VARCHAR(255) NOT NULL,
   description             TEXT,
-  start_date              DATE         NOT NULL,
-  end_date                DATE         NOT NULL,
-  registration_deadline   DATE         NOT NULL,
+  start_date              DATETIME     NOT NULL,
+  end_date                DATETIME     NOT NULL,
+  registration_deadline   DATETIME     NOT NULL,
   location                VARCHAR(255),
   status                  VARCHAR(20)  NOT NULL DEFAULT 'active',
   banner_color            VARCHAR(20)  DEFAULT '#8B1A1A',
@@ -705,6 +705,25 @@ CREATE TABLE IF NOT EXISTS practice_note_comments (
         if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
           console.log(`ℹ️  Skipped (already applied): ADD ${label}`);
         } else { throw err; }
+      }
+    }
+
+    // events.start_date / end_date / registration_deadline: DATE → DATETIME so admins
+    // can specify hour:minute (e.g. 兩小時的法會、報名截止精確到時間點). MODIFY COLUMN
+    // is safe: existing DATE values get auto-promoted to 00:00:00 same day. Idempotent
+    // because re-running on already-DATETIME is a no-op (MySQL just rewrites the same type).
+    console.log('— events date columns → DATETIME —');
+    const EVENT_DT_COLS = [
+      ['events.start_date',            'ALTER TABLE events MODIFY COLUMN start_date DATETIME NOT NULL'],
+      ['events.end_date',              'ALTER TABLE events MODIFY COLUMN end_date DATETIME NOT NULL'],
+      ['events.registration_deadline', 'ALTER TABLE events MODIFY COLUMN registration_deadline DATETIME NOT NULL'],
+    ];
+    for (const [label, sql] of EVENT_DT_COLS) {
+      try {
+        await conn.query(sql);
+        console.log(`✅ Applied: MODIFY ${label} → DATETIME`);
+      } catch (err) {
+        console.log(`ℹ️  Skipped ${label} -`, err.code || err.message);
       }
     }
 

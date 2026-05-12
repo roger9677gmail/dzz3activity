@@ -7,6 +7,8 @@ import {
   getStatusLabel,
   getPaymentStatusLabel,
   safeParseJSON,
+  formatEventDateRange,
+  formatDeadline,
 } from '@/lib/utils';
 
 export default function EventCard({ event, isRegistered = false, registration = null, attendance = [], isStaff = false }) {
@@ -54,7 +56,7 @@ export default function EventCard({ event, isRegistered = false, registration = 
         <div className="mt-3 space-y-1.5 text-sm text-gray-600">
           <div className="flex items-center gap-1.5">
             <span>📅</span>
-            <span>{formatDate(event.start_date)}{event.start_date !== event.end_date ? ` ～ ${formatDate(event.end_date)}` : ''}</span>
+            <span>{formatEventDateRange(event.start_date, event.end_date)}</span>
           </div>
           {event.location && (
             <div className="flex items-center gap-1.5">
@@ -66,7 +68,7 @@ export default function EventCard({ event, isRegistered = false, registration = 
             <div className="flex items-center gap-1.5">
               <span>⏰</span>
               <span>
-                報名截止：{formatDate(event.registration_deadline)}
+                報名截止：{formatDeadline(event.registration_deadline)}
                 {!deadlinePassed && daysLeft <= 7 && (
                   <span className="ml-1 text-orange-600 font-medium">（剩{daysLeft}天）</span>
                 )}
