@@ -95,6 +95,24 @@ export const POST = withPermission('events:manage', async (request, { params }) 
           );
       }
 
+      // Staff (法會工作人員): duplicate same roles + members. No push fires
+      // here — the new event is a draft until the admin publishes; staff
+      // will only see it once status flips to 'active'.
+      const staffRows = await tx
+        .prepare('SELECT role_name, member_id, sort_order FROM event_staff WHERE event_id = ?')
+        .all(srcId);
+      for (const s of staffRows) {
+        try {
+          await tx
+            .prepare(
+              'INSERT INTO event_staff (event_id, role_name, member_id, sort_order) VALUES (?, ?, ?, ?)'
+            )
+            .run(nid, s.role_name, s.member_id, s.sort_order || 0);
+        } catch (err) {
+          if (err.code !== 'ER_DUP_ENTRY') throw err;
+        }
+      }
+
       return nid;
     });
 

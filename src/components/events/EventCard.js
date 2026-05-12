@@ -9,7 +9,7 @@ import {
   safeParseJSON,
 } from '@/lib/utils';
 
-export default function EventCard({ event, isRegistered = false, registration = null, attendance = [] }) {
+export default function EventCard({ event, isRegistered = false, registration = null, attendance = [], isStaff = false }) {
   const deadlinePassed = isDeadlinePassed(event.registration_deadline);
   const daysLeft = daysUntil(event.registration_deadline);
   const hasAttendance = attendance.length > 0;
@@ -26,17 +26,24 @@ export default function EventCard({ event, isRegistered = false, registration = 
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-bold text-temple-dark text-base leading-tight">{event.name}</h3>
-          {isRegistered && registration ? (
-            <span className={`shrink-0 ${registration.payment_status === 'paid' ? 'badge-paid' : 'badge-unpaid'}`}>
-              {getPaymentStatusLabel(registration.payment_status)}
-            </span>
-          ) : isRegistered ? (
-            <span className="shrink-0 badge-confirmed">已報名</span>
-          ) : event.status === 'closed' || deadlinePassed ? (
-            <span className="shrink-0 badge-closed">已截止</span>
-          ) : (
-            <span className="shrink-0 badge-active">報名中</span>
-          )}
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {isStaff && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">
+                🛠️ 工作人員
+              </span>
+            )}
+            {isRegistered && registration ? (
+              <span className={`${registration.payment_status === 'paid' ? 'badge-paid' : 'badge-unpaid'}`}>
+                {getPaymentStatusLabel(registration.payment_status)}
+              </span>
+            ) : isRegistered ? (
+              <span className="badge-confirmed">已報名</span>
+            ) : event.status === 'closed' || deadlinePassed ? (
+              <span className="badge-closed">已截止</span>
+            ) : (
+              <span className="badge-active">報名中</span>
+            )}
+          </div>
         </div>
 
         {/* Description only shown when NOT registered (registered view is detail-focused) */}

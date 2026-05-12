@@ -82,6 +82,12 @@ export default async function EventsPage() {
     attendanceByEventId.get(a.event_id).push(a);
   }
 
+  // Which events am I staff for? (set of event_ids)
+  const staffRows = await db
+    .prepare('SELECT DISTINCT event_id FROM event_staff WHERE member_id = ?')
+    .all(session.sub);
+  const myStaffEventIds = new Set(staffRows.map((r) => r.event_id));
+
   const upcoming = events.filter((e) => e.status === 'active');
   const past = events.filter((e) => e.status !== 'active');
 
@@ -110,6 +116,7 @@ export default async function EventsPage() {
                   isRegistered={myRegistrationIds.has(ev.id)}
                   registration={regByEventId.get(ev.id) || null}
                   attendance={attendanceByEventId.get(ev.id) || []}
+                  isStaff={myStaffEventIds.has(ev.id)}
                 />
               ))}
             </div>
@@ -126,6 +133,7 @@ export default async function EventsPage() {
                   isRegistered={myRegistrationIds.has(ev.id)}
                   registration={regByEventId.get(ev.id) || null}
                   attendance={attendanceByEventId.get(ev.id) || []}
+                  isStaff={myStaffEventIds.has(ev.id)}
                 />
               ))}
             </div>

@@ -36,6 +36,27 @@ export default async function EventDetailPage({ params }) {
     .map((e) => (e.attendee_name ? `${e.attendee_name}${e.attendee_relation ? `（${e.attendee_relation}）` : ''}` : '本人'))
     .join('、');
 
+  // Am I staff for this event? (admins always see staff info too.)
+  const myStaffRow = await db
+    .prepare('SELECT 1 FROM event_staff WHERE event_id = ? AND member_id = ? LIMIT 1')
+    .get(event.id, session.sub);
+  const isStaff = !!myStaffRow || !!session.is_admin;
+  let staffList = [];
+  if (isStaff) {
+    staffList = await db
+      .prepare(
+        `SELECT s.id, s.role_name, s.member_id,
+                m.name AS member_name, m.phone AS member_phone, m.avatar AS member_avatar,
+                l.name AS location_name
+           FROM event_staff s
+           JOIN members m ON m.id = s.member_id
+      LEFT JOIN locations l ON l.id = m.location_id
+          WHERE s.event_id = ?
+          ORDER BY s.sort_order, s.role_name, m.name`
+      )
+      .all(event.id);
+  }
+
   const existingRegistration = await db.prepare(`
     SELECT * FROM registrations WHERE event_id = ? AND member_id = ?
   `).get(params.eventId, session.sub);
@@ -87,6 +108,21 @@ export default async function EventDetailPage({ params }) {
             </div>
           </div>
         </div>
+
+        {/* 工作人員 (僅 staff/admin 可見) */}
+        {isStaff && staffList.length > 0 && (
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-bold text-gray-800">🛠️ 工作人員</div>
+              <span className="text-[11px] text-gray-400">{staffList.length} 位</span>
+            </div>
+            <StaffByRole staffList={staffList} />
+            <Link
+              href={`/events/${event.id}/staff-view`}
+              className="mt-3 btn-secondary w-full text-center block text-sm"
+            >📊 查看祈福 / 活動報名名單</Link>
+          </div>
+        )}
 
         {/* 活動登記入口（若主辦已建題目） */}
         {hasAttendance && (
@@ -175,6 +211,26 @@ export default async function EventDetailPage({ params }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StaffByRole({ staffList }) {
+  const byRole = new Map();
+  for (const s of staffList) {
+    if (!byRole.has(s.role_name)) byRole.set(s.role_name, []);
+    byRole.get(s.role_name).push(s);
+  }
+  return (
+    <div className="space-y-2">
+      {[...byRole.entries()].map(([role, members]) => (
+        <div key={role} className="text-xs">
+          <span className="text-gray-500">{role}：</span>
+          <span className="text-gray-800">
+            {members.map((m) => m.member_name).join('、')}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

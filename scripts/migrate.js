@@ -316,6 +316,20 @@ CREATE TABLE IF NOT EXISTS push_presets (
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS event_staff (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id    INT UNSIGNED NOT NULL,
+  role_name   VARCHAR(50) NOT NULL,
+  member_id   INT UNSIGNED NOT NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_staff (event_id, role_name, member_id),
+  INDEX idx_staff_event (event_id),
+  INDEX idx_staff_member (member_id),
+  CONSTRAINT fk_staff_event  FOREIGN KEY (event_id)  REFERENCES events(id)  ON DELETE CASCADE,
+  CONSTRAINT fk_staff_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS practice_note_reactions (
   note_id    INT UNSIGNED NOT NULL,
   member_id  INT UNSIGNED NOT NULL,
