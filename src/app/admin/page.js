@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminDashboard() {
   const session = await getSession();
 
-  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_admin=0 AND is_disabled=0").get()).count;
+  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_disabled=0").get()).count;
   const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
   const totalRegistrations = (await db.prepare(`
     SELECT COUNT(*) as count FROM registrations r

@@ -179,9 +179,12 @@ export default function AdminMembersClient({ members, locations, canEdit, canDel
           return (
             <div key={m.id} className="px-4 py-3 flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-gray-400 mr-1">{idx + 1}.</span>
                   <span className="font-medium text-gray-800">{m.name}</span>
+                  {m.is_admin ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-temple-red text-white">管理員</span>
+                  ) : null}
                   {m.is_disabled ? (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">已停用</span>
                   ) : null}
@@ -198,15 +201,17 @@ export default function AdminMembersClient({ members, locations, canEdit, canDel
                 {canEdit && (
                   <>
                     <button onClick={() => startEdit(m)} className="text-blue-600">編輯</button>
-                    <button
-                      onClick={() => toggleDisabled(m)}
-                      className={m.is_disabled ? 'text-temple-red' : 'text-red-500'}
-                    >
-                      {m.is_disabled ? '啟用' : '停用'}
-                    </button>
+                    {!m.is_admin && (
+                      <button
+                        onClick={() => toggleDisabled(m)}
+                        className={m.is_disabled ? 'text-temple-red' : 'text-red-500'}
+                      >
+                        {m.is_disabled ? '啟用' : '停用'}
+                      </button>
+                    )}
                   </>
                 )}
-                {canDelete && (
+                {canDelete && !m.is_admin && (
                   <button onClick={() => openDelete(m)} className="text-red-700 font-medium">
                     刪除
                   </button>

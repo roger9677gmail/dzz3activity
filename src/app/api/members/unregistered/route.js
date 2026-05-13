@@ -13,7 +13,7 @@ export const GET = withPermission('members:manage', async (request) => {
   const members = await db.prepare(`
     SELECT m.id, m.name, m.phone, m.email, m.created_at
     FROM members m
-    WHERE m.is_admin = 0
+    WHERE m.is_disabled = 0
       AND m.id NOT IN (
         SELECT r.member_id FROM registrations r
         WHERE r.event_id = ? AND r.status != 'cancelled'
