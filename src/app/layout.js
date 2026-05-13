@@ -1,5 +1,7 @@
 import './globals.css';
 import { APP_NAME, APP_SHORT_NAME } from '@/lib/version';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
+import ImpersonationBanner from '@/components/layout/ImpersonationBanner';
 
 export const metadata = {
   title: APP_NAME,
@@ -30,7 +32,15 @@ export default function RootLayout({ children }) {
         <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body>{children}</body>
+      <body>
+        <ConfirmProvider>
+          {/* Sticky top warning whenever an admin is impersonating a user.
+              Server component reads the cookie; renders nothing when not
+              in an impersonation session. */}
+          <ImpersonationBanner />
+          {children}
+        </ConfirmProvider>
+      </body>
     </html>
   );
 }

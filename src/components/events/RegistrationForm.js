@@ -1,15 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, safeParseJSON } from '@/lib/utils';
 
 function safeParseArray(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) return v;
-  try {
-    const p = JSON.parse(v);
-    return Array.isArray(p) ? p : [];
-  } catch { return []; }
+  const p = safeParseJSON(v, []);
+  return Array.isArray(p) ? p : [];
 }
 
 // Reconstruct form state from a saved registration so the user can edit it.
@@ -300,7 +296,10 @@ export default function RegistrationForm({ event, existingRegistration }) {
       if (!res.ok) {
         setError(data.error || (isEditMode ? '修改失敗，請稍後再試' : '報名失敗，請稍後再試'));
       } else {
-        router.push(`/history?registered=${event.id}`);
+        // `/history` was removed when 報名歷史 moved into the event card
+        // (see CLAUDE.md). Send the user back to the event detail page so
+        // they immediately see the saved registration summary inline.
+        router.push(`/events/${event.id}`);
         router.refresh();
       }
     } catch {
@@ -480,7 +479,7 @@ export default function RegistrationForm({ event, existingRegistration }) {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
+        <div role="alert" aria-live="polite" className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
           {error}
         </div>
       )}

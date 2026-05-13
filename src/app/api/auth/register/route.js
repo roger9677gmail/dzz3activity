@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { createSessionResponse } from '@/lib/auth';
 import { verifyAndConsume } from '@/lib/email-verify';
+import { syncMirrorGroup } from '@/lib/group-sync';
 
 export async function POST(request) {
   try {
@@ -61,6 +62,25 @@ export async function POST(request) {
     const result = await db
       .prepare('INSERT INTO members (name, email, phone, location_id, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(name, normalizedEmail, phoneVal, locationVal, addressVal, hash, 'member');
+
+    // Auto-assign the new member to the default broadcast group so they receive
+    // future announcements targeted at "全體師兄姐".
+    try {
+      const defaultGroup = await db
+        .prepare('SELECT id FROM member_groups WHERE name = ?')
+        .get('全體師兄姐');
+      if (defaultGroup?.id) {
+        await db
+          .prepare('INSERT IGNORE INTO member_group_assignments (member_id, group_id) VALUES (?, ?)')
+          .run(result.lastInsertRowid, defaultGroup.id);
+      }
+    } catch (err) {
+      console.error('Failed to assign default group:', err);
+    }
+
+    // Mirror group for their chosen 道場
+    try { await syncMirrorGroup(result.lastInsertRowid); }
+    catch (err) { console.error('Failed to sync mirror group:', err); }
 
     return createSessionResponse(
       { sub: result.lastInsertRowid, name, email: normalizedEmail, is_admin: 0, permissions: [] },

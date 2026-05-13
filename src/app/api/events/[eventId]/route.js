@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
+import { validateEventPayload } from '@/lib/event-validation';
 
 export async function GET(request, { params }) {
   const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);
@@ -12,13 +13,16 @@ export async function GET(request, { params }) {
 
 export const PUT = withPermission('events:manage', async (request, { params }) => {
   try {
-    const { name, description, start_date, end_date, registration_deadline, location, status, banner_color } = await request.json();
+    const body = await request.json();
+    const v = validateEventPayload(body);
+    if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
+    const { name, description, start_date, end_date, registration_deadline, location, map_url, status, banner_color } = v.value;
 
     await db.prepare(`
       UPDATE events SET name=?, description=?, start_date=?, end_date=?, registration_deadline=?,
-        location=?, status=?, banner_color=?, updated_at=NOW()
+        location=?, map_url=?, status=?, banner_color=?, updated_at=NOW()
       WHERE id=?
-    `).run(name, description || null, start_date, end_date, registration_deadline, location || null, status, banner_color || '#8B1A1A', params.eventId);
+    `).run(name, description, start_date, end_date, registration_deadline, location, map_url, status, banner_color, params.eventId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

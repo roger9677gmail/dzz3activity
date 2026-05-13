@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
+import { syncMirrorGroup } from '@/lib/group-sync';
 
 // Hard-delete a member and every artefact connected to them. Gated behind
 // `members:delete` (separate from `members:manage`) because the action is
@@ -119,16 +120,60 @@ export const PATCH = withPermission('members:manage', async (request, { params }
       args.push(body.is_disabled ? 1 : 0);
     }
 
-    if (sets.length === 0) return NextResponse.json({ error: '沒有可更新的欄位' }, { status: 400 });
-    args.push(id);
+    // group_ids handled separately below.
+    const groupIds = Array.isArray(body.group_ids) ? body.group_ids : null;
 
-    try {
-      await db.prepare(`UPDATE members SET ${sets.join(', ')} WHERE id = ?`).run(...args);
-    } catch (err) {
-      if (err.code === 'ER_DUP_ENTRY' || /Duplicate entry/i.test(err.message || '')) {
-        return NextResponse.json({ error: '此電話號碼已被其他帳號使用' }, { status: 409 });
+    if (sets.length === 0 && groupIds === null) {
+      return NextResponse.json({ error: '沒有可更新的欄位' }, { status: 400 });
+    }
+
+    if (sets.length > 0) {
+      args.push(id);
+      try {
+        await db.prepare(`UPDATE members SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+      } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY' || /Duplicate entry/i.test(err.message || '')) {
+          return NextResponse.json({ error: '此電話號碼已被其他帳號使用' }, { status: 409 });
+        }
+        throw err;
       }
-      throw err;
+    }
+
+    if (groupIds !== null) {
+      const cleanIds = [...new Set(groupIds.map((g) => parseInt(g)).filter((n) => Number.isInteger(n) && n > 0))];
+      // Validate IDs exist and filter out mirror groups (those are auto-managed
+      // from members.location_id and can't be hand-picked by admin).
+      let nonMirrorIds = [];
+      if (cleanIds.length > 0) {
+        const placeholders = cleanIds.map(() => '?').join(',');
+        const rows = await db
+          .prepare(`SELECT id, location_id FROM member_groups WHERE id IN (${placeholders})`)
+          .all(...cleanIds);
+        if (rows.length !== cleanIds.length) {
+          return NextResponse.json({ error: '指定的群組不存在' }, { status: 400 });
+        }
+        nonMirrorIds = rows.filter((r) => !r.location_id).map((r) => r.id);
+      }
+      // Replace only the non-mirror assignments; keep the mirror one untouched
+      // (it will be re-synced below if location_id changed).
+      await db
+        .prepare(
+          `DELETE mga FROM member_group_assignments mga
+             JOIN member_groups g ON g.id = mga.group_id
+            WHERE mga.member_id = ? AND g.location_id IS NULL`
+        )
+        .run(id);
+      for (const gid of nonMirrorIds) {
+        await db
+          .prepare('INSERT INTO member_group_assignments (member_id, group_id) VALUES (?, ?)')
+          .run(id, gid);
+      }
+    }
+
+    // Sync mirror group if location_id was touched.
+    if (sets.some((s) => s.startsWith('location_id'))) {
+      try { await syncMirrorGroup(id); }
+      catch (err) { console.error('mirror sync failed:', err); }
     }
 
     return NextResponse.json({ success: true });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession, parsePermissions } from '@/lib/auth';
 import db from '@/lib/db';
+import { syncMirrorGroup } from '@/lib/group-sync';
 
 const ME_QUERY = `
   SELECT m.id, m.name, m.phone, m.email, m.role, m.is_admin, m.admin_permissions,
@@ -98,6 +99,12 @@ export async function PUT(request) {
         return NextResponse.json({ error: '此電話號碼已被其他帳號使用' }, { status: 409 });
       }
       throw err;
+    }
+
+    // Re-sync the location mirror group when location may have changed.
+    if (sets.some((s) => s.startsWith('location_id'))) {
+      try { await syncMirrorGroup(session.sub); }
+      catch (err) { console.error('mirror sync failed:', err); }
     }
 
     const user = await db.prepare(ME_QUERY).get(session.sub);

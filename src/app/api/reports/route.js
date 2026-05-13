@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
+import { safeParseJSON } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,14 +20,6 @@ const HEADERS = [
   '道場',
 ];
 
-function safeParse(val) {
-  if (!val) return [];
-  try {
-    const v = JSON.parse(val);
-    return Array.isArray(v) ? v : [];
-  } catch { return []; }
-}
-
 function fmtDate(d) {
   if (!d) return '';
   const s = (d instanceof Date) ? d.toISOString() : String(d);
@@ -42,7 +35,7 @@ function safeCell(v) {
   return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 }
 
-async function loadRows({ eventId, paymentStatus, status }) {
+async function loadRows({ eventId, paymentStatus, status, groupIds }) {
   let query = `
     SELECT r.id, r.event_id, r.created_at, r.payment_status, r.status,
            r.receipt_number, r.notes,
@@ -60,6 +53,12 @@ async function loadRows({ eventId, paymentStatus, status }) {
   if (eventId) { query += ' AND r.event_id = ?'; params.push(eventId); }
   if (paymentStatus) { query += ' AND r.payment_status = ?'; params.push(paymentStatus); }
   if (status) { query += ' AND r.status = ?'; params.push(status); }
+  if (Array.isArray(groupIds) && groupIds.length > 0) {
+    const placeholders = groupIds.map(() => '?').join(',');
+    query += ` AND EXISTS (SELECT 1 FROM member_group_assignments mga
+                            WHERE mga.member_id = m.id AND mga.group_id IN (${placeholders}))`;
+    params.push(...groupIds);
+  }
   query += ' ORDER BY e.name, r.created_at, m.name, r.id';
 
   const regs = await db.prepare(query).all(...params);
@@ -76,8 +75,8 @@ async function loadRows({ eventId, paymentStatus, status }) {
 
     let giftCounter = 0;
     for (const it of items) {
-      const namesArr = safeParse(it.names);
-      const contentsArr = safeParse(it.contents);
+      const namesArr = safeParseJSON(it.names);
+      const contentsArr = safeParseJSON(it.contents);
       const qty = it.quantity || 1;
       const unit = qty > 0 ? Math.round((it.subtotal || 0) / qty) : (it.subtotal || 0);
       for (let i = 0; i < qty; i++) {
@@ -141,8 +140,10 @@ export const GET = withPermission('reports:view', async (request) => {
   const eventId = searchParams.get('eventId');
   const paymentStatus = searchParams.get('payment_status');
   const status = searchParams.get('status');
+  const groupIds = (searchParams.get('group_ids') || '')
+    .split(',').map((s) => parseInt(s)).filter((n) => Number.isInteger(n) && n > 0);
 
-  const rows = await loadRows({ eventId, paymentStatus, status });
+  const rows = await loadRows({ eventId, paymentStatus, status, groupIds });
   const buf = await buildXlsx(rows);
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
   return new NextResponse(buf, {

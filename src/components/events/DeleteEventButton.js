@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 export default function DeleteEventButton({ eventId, eventName, regCount = 0, paidCount = 0 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
 
   async function handleDelete() {
@@ -14,11 +16,15 @@ export default function DeleteEventButton({ eventId, eventName, regCount = 0, pa
     }
 
     const unpaidCount = Math.max(0, regCount - paidCount);
-    const warning = unpaidCount > 0
-      ? `確定要刪除「${eventName}」？\n此動作無法復原，將一併刪除：\n  • 活動及所有項目\n  • ${unpaidCount} 筆未繳款報名紀錄`
-      : `確定要刪除「${eventName}」？\n此動作無法復原，活動及所有項目將一併刪除。`;
-    const confirmed = window.confirm(warning);
-    if (!confirmed) return;
+    const message = unpaidCount > 0
+      ? `此動作無法復原，將一併刪除：\n  • 活動及所有項目\n  • ${unpaidCount} 筆未繳款報名紀錄`
+      : '此動作無法復原，活動及所有項目將一併刪除。';
+    if (!(await confirm({
+      title: `刪除「${eventName}」`,
+      message,
+      confirmText: '永久刪除',
+      danger: true,
+    }))) return;
 
     setLoading(true);
     try {

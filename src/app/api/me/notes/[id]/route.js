@@ -3,6 +3,8 @@ import db from '@/lib/db';
 import { withAuth } from '@/lib/middleware';
 
 const MAX_CONTENT = 5000;
+const MAX_IMAGE = 1_400_000;
+const URL_RE = /^https?:\/\/\S+$/i;
 
 export const PUT = withAuth(async (request, { params }) => {
   const memberId = request.session.sub;
@@ -26,6 +28,26 @@ export const PUT = withAuth(async (request, { params }) => {
       }
       sets.push('content = ?');
       args.push(text);
+    }
+    if (body.image !== undefined) {
+      if (body.image === null || body.image === '') {
+        sets.push('image = ?'); args.push(null);
+      } else {
+        const v = String(body.image);
+        if (!v.startsWith('data:image/')) return NextResponse.json({ error: '圖片格式不正確' }, { status: 400 });
+        if (v.length > MAX_IMAGE) return NextResponse.json({ error: '圖片太大，請壓縮後再上傳' }, { status: 400 });
+        sets.push('image = ?'); args.push(v);
+      }
+    }
+    if (body.link_url !== undefined) {
+      if (body.link_url === null || body.link_url === '') {
+        sets.push('link_url = ?'); args.push(null);
+      } else {
+        const v = String(body.link_url).trim();
+        if (!URL_RE.test(v)) return NextResponse.json({ error: '連結需以 http:// 或 https:// 開頭' }, { status: 400 });
+        if (v.length > 500) return NextResponse.json({ error: '連結過長' }, { status: 400 });
+        sets.push('link_url = ?'); args.push(v);
+      }
     }
     if (body.is_public !== undefined) {
       sets.push('is_public = ?');
