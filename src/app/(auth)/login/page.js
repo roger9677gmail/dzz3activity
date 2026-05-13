@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { APP_NAME, APP_VERSION } from '@/lib/version';
+import InstallAppButtons from '@/components/pwa/InstallAppButtons';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -96,7 +97,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-8 mb-4 text-center">
+        <InstallAppButtons />
+
+        <div className="mt-6 mb-4 text-center">
           <p className="text-[10px] text-gray-300">{APP_VERSION}</p>
         </div>
       </div>
