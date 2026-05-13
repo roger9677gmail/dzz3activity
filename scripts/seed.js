@@ -99,25 +99,47 @@ const events = [
     console.error('Missing DB env vars: DB_USER, DB_NAME, DB_PASSWORD, and DB_HOST or DB_SOCKET_PATH.');
     process.exit(1);
   }
+  // Seed-admin credentials must be provided explicitly to prevent shipping
+  // a well-known default password to any environment that runs this script.
+  const seedAdminEmail = process.env.SEED_ADMIN_EMAIL;
+  const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!seedAdminEmail || !seedAdminPassword) {
+    console.error('Missing SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD. Set both to seed the initial admin.');
+    process.exit(1);
+  }
+  if (seedAdminPassword.length < 8) {
+    console.error('SEED_ADMIN_PASSWORD must be at least 8 characters.');
+    process.exit(1);
+  }
+  const seedDemoMembers = process.env.SEED_DEMO_MEMBERS === '1';
   const conn = await mysql.createConnection(config);
   try {
-    if (await ensureMember(conn, { name: '管理員', email: 'admin@example.com', phone: '0900000000', password: 'admin1234', role: 'admin' })) {
-      console.log('✅ 管理員帳號建立: admin@example.com / admin1234');
+    if (await ensureMember(conn, { name: '管理員', email: seedAdminEmail, phone: '0900000000', password: seedAdminPassword, role: 'admin' })) {
+      console.log(`✅ 管理員帳號建立: ${seedAdminEmail}`);
     } else {
       console.log('ℹ️  管理員帳號已存在');
     }
 
-    const demoMembers = [
-      { name: '王師兄', email: 'wang@example.com', phone: '0911111111' },
-      { name: '李師姐', email: 'lee@example.com', phone: '0922222222' },
-      { name: '張師兄', email: 'chang@example.com', phone: '0933333333' },
-      { name: '陳師姐', email: 'chen@example.com', phone: '0944444444' },
-      { name: '林師兄', email: 'lin@example.com', phone: '0955555555' },
-    ];
-    for (const m of demoMembers) {
-      if (await ensureMember(conn, { ...m, password: 'member123', role: 'member' })) {
-        console.log(`✅ 師兄姐帳號: ${m.name} / ${m.email} / member123`);
+    if (seedDemoMembers) {
+      const demoPassword = process.env.SEED_DEMO_PASSWORD;
+      if (!demoPassword || demoPassword.length < 8) {
+        console.error('SEED_DEMO_MEMBERS=1 requires SEED_DEMO_PASSWORD (>= 8 chars).');
+        process.exit(1);
       }
+      const demoMembers = [
+        { name: '王師兄', email: 'wang@example.com', phone: '0911111111' },
+        { name: '李師姐', email: 'lee@example.com', phone: '0922222222' },
+        { name: '張師兄', email: 'chang@example.com', phone: '0933333333' },
+        { name: '陳師姐', email: 'chen@example.com', phone: '0944444444' },
+        { name: '林師兄', email: 'lin@example.com', phone: '0955555555' },
+      ];
+      for (const m of demoMembers) {
+        if (await ensureMember(conn, { ...m, password: demoPassword, role: 'member' })) {
+          console.log(`✅ 師兄姐帳號: ${m.name} / ${m.email}`);
+        }
+      }
+    } else {
+      console.log('ℹ️  Skipping demo members (set SEED_DEMO_MEMBERS=1 to enable)');
     }
 
     for (const ev of events) {

@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 
@@ -6,8 +7,9 @@ const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 const MAX_ATTEMPTS = 5;
 
 export function generateCode() {
-  // 6-digit numeric, zero-padded
-  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+  // 6-digit numeric, zero-padded. randomInt uses a CSPRNG; Math.random is
+  // predictable and must not be used for security-relevant tokens.
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
 export async function issueCode(memberId) {

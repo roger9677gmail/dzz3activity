@@ -26,6 +26,15 @@ function fmtDate(d) {
   return s.slice(0, 10);
 }
 
+// Prefix a single quote in front of any cell value that Excel would try to
+// interpret as a formula. Without this a member named `=cmd|'/c calc'!A1`
+// would execute when the admin opens the xlsx.
+function safeCell(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 async function loadRows({ eventId, paymentStatus, status, groupIds }) {
   let query = `
     SELECT r.id, r.event_id, r.created_at, r.payment_status, r.status,
@@ -75,16 +84,16 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
         if (isGift) giftCounter += 1;
         out.push({
           報名日期: fmtDate(r.created_at),
-          '功德主(陽上)': namesArr[i] || '',
-          超度內容: contentsArr[i] || '',
+          '功德主(陽上)': safeCell(namesArr[i] || ''),
+          超度內容: safeCell(contentsArr[i] || ''),
           金額: isGift ? `贈${giftCounter}` : unit,
-          項目: it.item_name,
-          收據編號: r.receipt_number || '',
-          收據抬頭: r.member_receipt_title,
-          連絡人: r.member_name,
-          電話: r.member_phone || '',
-          地址: r.member_address || '',
-          道場: r.location_name || '',
+          項目: safeCell(it.item_name),
+          收據編號: safeCell(r.receipt_number || ''),
+          收據抬頭: safeCell(r.member_receipt_title),
+          連絡人: safeCell(r.member_name),
+          電話: safeCell(r.member_phone || ''),
+          地址: safeCell(r.member_address || ''),
+          道場: safeCell(r.location_name || ''),
         });
       }
     }

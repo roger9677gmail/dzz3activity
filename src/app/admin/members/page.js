@@ -10,6 +10,7 @@ export default async function AdminMembersPage({ searchParams }) {
   const session = await getSession();
   if (!hasPermission(session, 'members:manage')) redirect('/admin');
   const canImpersonate = hasPermission(session, 'members:impersonate');
+  const canDelete = hasPermission(session, 'members:delete');
 
   const search = searchParams.search || '';
   const showDisabled = searchParams.disabled === '1';
@@ -153,6 +154,7 @@ export default async function AdminMembersPage({ searchParams }) {
         groups={allGroups}
         canEdit={true}
         canImpersonate={canImpersonate}
+        canDelete={canDelete}
         emptyMessage="無符合條件的師兄姐"
       />
     </div>

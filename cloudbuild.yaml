@@ -11,6 +11,8 @@
 #   smtp-password       Gmail App Password for outbound mail
 #   vapid-public        Web Push VAPID public key (NEXT_PUBLIC_VAPID_PUBLIC_KEY)
 #   vapid-private       Web Push VAPID private key
+#   jwt-secret          random >= 32-byte string used to sign session JWTs
+#                       generate with: openssl rand -base64 48
 # Substitutions you can override:
 #   _SMTP_USER          Gmail address used as the SMTP login / default sender
 #   _SMTP_FROM          Display "From" header (defaults to _SMTP_USER if blank)
@@ -72,7 +74,7 @@ steps:
       - --allow-unauthenticated
       - --add-cloudsql-instances=${_CLOUDSQL_INSTANCE}
       - --set-env-vars=DB_SOCKET_PATH=/cloudsql/${_CLOUDSQL_INSTANCE},DB_USER=${_DB_USER},DB_NAME=${_DB_NAME},SMTP_USER=${_SMTP_USER},SMTP_FROM=${_SMTP_FROM},VAPID_EMAIL=${_VAPID_EMAIL}
-      - --set-secrets=DB_PASSWORD=db-password:latest,SMTP_PASSWORD=smtp-password:latest,VAPID_PRIVATE_KEY=vapid-private:latest,NEXT_PUBLIC_VAPID_PUBLIC_KEY=vapid-public:latest
+      - --set-secrets=DB_PASSWORD=db-password:latest,SMTP_PASSWORD=smtp-password:latest,VAPID_PRIVATE_KEY=vapid-private:latest,NEXT_PUBLIC_VAPID_PUBLIC_KEY=vapid-public:latest,JWT_SECRET=jwt-secret:latest
 
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}

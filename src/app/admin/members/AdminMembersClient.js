@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
-export default function AdminMembersClient({ members, locations, groups = [], canEdit, canImpersonate = false, emptyMessage }) {
+export default function AdminMembersClient({ members, locations, groups = [], canEdit, canImpersonate = false, canDelete = false, emptyMessage }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [editingId, setEditingId] = useState(null);
@@ -11,6 +11,12 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [impersonating, setImpersonating] = useState(null); // member id currently being launched
+  // Delete dialog state. We require the admin to retype the member's email
+  // before the destructive call fires, so misclicks can't nuke an account.
+  const [deletingMember, setDeletingMember] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   async function startImpersonate(m, mode) {
     const isWrite = mode === 'write';
@@ -41,6 +47,53 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
       console.error('start impersonate failed:', err);
       alert('網路錯誤，請稍後再試');
       setImpersonating(null);
+    }
+  }
+
+  function openDelete(m) {
+    setDeletingMember(m);
+    setDeleteConfirm('');
+    setDeleteError('');
+  }
+
+  function closeDelete() {
+    if (deleting) return;
+    setDeletingMember(null);
+    setDeleteConfirm('');
+    setDeleteError('');
+  }
+
+  async function confirmDelete() {
+    if (!deletingMember) return;
+    if (deleteConfirm.trim().toLowerCase() !== String(deletingMember.email || '').toLowerCase()) {
+      setDeleteError('輸入的 Email 與此帳號不符');
+      return;
+    }
+    setDeleteError('');
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/members/${deletingMember.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteError(data.error || '刪除失敗');
+        setDeleting(false);
+        return;
+      }
+      const counts = data.counts || {};
+      const summary = [
+        counts.member ? `師兄姐 1` : null,
+        counts.registrations ? `報名 ${counts.registrations}` : null,
+        counts.email_verifications ? `驗證碼 ${counts.email_verifications}` : null,
+        counts.login_attempts ? `登入紀錄 ${counts.login_attempts}` : null,
+      ].filter(Boolean).join('、');
+      alert(`已刪除：${summary || '無資料'}`);
+      setDeletingMember(null);
+      setDeleteConfirm('');
+      setDeleting(false);
+      router.refresh();
+    } catch {
+      setDeleteError('網路錯誤');
+      setDeleting(false);
     }
   }
 
@@ -308,11 +361,62 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
                     </button>
                   </>
                 )}
+                {canDelete && (
+                  <button onClick={() => openDelete(m)} className="text-red-700 font-medium">
+                    刪除
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {deletingMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-5 space-y-3">
+            <h3 className="text-lg font-bold text-red-700">⚠️ 永久刪除帳號</h3>
+            <p className="text-sm text-gray-700">
+              即將永久刪除「<strong>{deletingMember.name}</strong>」
+              （{deletingMember.email}）及其所有相關資料：
+            </p>
+            <ul className="text-xs text-gray-600 list-disc pl-5 space-y-0.5">
+              <li>個人資料、頭像</li>
+              <li>所有報名紀錄、報名項目、繳費紀錄、收據編號</li>
+              <li>修行訂閱、每日修行紀錄、修行筆記（含公開分享）</li>
+              <li>推播訂閱、密碼重設碼、Email 驗證碼、登入失敗紀錄</li>
+            </ul>
+            <p className="text-sm text-red-600 font-medium">
+              此操作 <u>不可復原</u>。請輸入此帳號 Email 以確認：
+            </p>
+            <div>
+              <code className="text-xs text-gray-500 break-all">{deletingMember.email}</code>
+              <input
+                type="text"
+                autoFocus
+                className="input-field text-sm mt-1"
+                placeholder="輸入 Email 確認"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                disabled={deleting}
+              />
+            </div>
+            {deleteError && <div className="text-sm text-red-600">{deleteError}</div>}
+            <div className="flex gap-2 pt-1">
+              <button onClick={closeDelete} disabled={deleting} className="btn-secondary flex-1 text-sm">
+                取消
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 text-sm py-2 rounded-lg bg-red-700 text-white font-medium disabled:opacity-50"
+              >
+                {deleting ? '刪除中…' : '確認永久刪除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

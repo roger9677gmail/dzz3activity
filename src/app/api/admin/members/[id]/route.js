@@ -3,6 +3,71 @@ import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
 import { syncMirrorGroup } from '@/lib/group-sync';
 
+// Hard-delete a member and every artefact connected to them. Gated behind
+// `members:delete` (separate from `members:manage`) because the action is
+// irreversible — registrations, payment receipts, practice logs/notes,
+// uploaded avatar, push subscriptions, reset codes, login-attempt history
+// and pending email verification codes all go away with the member row.
+//
+// We can't delete admins through here on purpose: revoke `is_admin` via
+// `/admin/admins` first, then come back to delete. Same with self-delete.
+export const DELETE = withPermission('members:delete', async (request, { params }) => {
+  try {
+    const id = parseInt(params.id);
+    if (!id) return NextResponse.json({ error: '無效的 ID' }, { status: 400 });
+    if (Number(request.session.sub) === id) {
+      return NextResponse.json({ error: '不能刪除自己的帳號' }, { status: 400 });
+    }
+    const target = await db.prepare(
+      'SELECT id, name, email, is_admin FROM members WHERE id = ?'
+    ).get(id);
+    if (!target) return NextResponse.json({ error: '師兄姐不存在' }, { status: 404 });
+    if (target.is_admin) {
+      return NextResponse.json(
+        { error: '不能直接刪除管理員，請先撤銷管理員權限後再刪除' },
+        { status: 400 }
+      );
+    }
+
+    const counts = await db.transaction(async (tx) => {
+      // 1) registrations (no CASCADE on member FK) — registration_items
+      //    cascade-deletes from this.
+      const reg = await tx.prepare(
+        'DELETE FROM registrations WHERE member_id = ?'
+      ).run(id);
+
+      // 2) member row — CASCADE cleans up password_reset_codes,
+      //    push_subscriptions, member_practices, practice_logs,
+      //    practice_notes (and the inlined avatar in members.avatar).
+      const member = await tx.prepare('DELETE FROM members WHERE id = ?').run(id);
+
+      // 3) non-FK leftovers keyed by email / identifier.
+      const ev = await tx.prepare(
+        'DELETE FROM email_verifications WHERE email = ?'
+      ).run(target.email);
+      const la = await tx.prepare(
+        'DELETE FROM login_attempts WHERE identifier = ?'
+      ).run(`email:${target.email}`);
+
+      return {
+        registrations: reg.changes || 0,
+        member: member.changes || 0,
+        email_verifications: ev.changes || 0,
+        login_attempts: la.changes || 0,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      deleted: { id: target.id, name: target.name, email: target.email },
+      counts,
+    });
+  } catch (err) {
+    console.error('DELETE /api/admin/members/[id] failed:', err);
+    return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });
+  }
+});
+
 // PATCH: edit member basic info AND/OR toggle suspension.
 // Body fields (all optional): name, phone, location_id, address, is_disabled
 // Admin accounts (is_admin=1) can be edited here too, but suspending an admin
