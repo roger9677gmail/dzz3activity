@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminMembersPage({ searchParams }) {
   const session = await getSession();
   if (!hasPermission(session, 'members:manage')) redirect('/admin');
+  const canDelete = hasPermission(session, 'members:delete');
 
   const eventId = searchParams.eventId || '';
   const mode = searchParams.mode || 'all'; // 'all' | 'unregistered'
@@ -119,6 +120,7 @@ export default async function AdminMembersPage({ searchParams }) {
         members={members}
         locations={locations}
         canEdit={mode === 'all'}
+        canDelete={canDelete && mode === 'all'}
         emptyMessage={mode === 'unregistered' ? '所有師兄姐均已報名此活動 🎉' : '無師兄姐資料'}
       />
     </div>

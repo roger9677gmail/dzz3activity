@@ -170,8 +170,8 @@ export default function RegisterPage() {
               value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼 *（至少6碼）</label>
-            <input type="password" required minLength={6} className="input-field" placeholder="設定密碼"
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼 *（至少 8 碼）</label>
+            <input type="password" required minLength={8} className="input-field" placeholder="設定密碼"
               value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
           </div>
           <div>

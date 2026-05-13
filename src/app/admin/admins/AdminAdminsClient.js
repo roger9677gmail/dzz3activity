@@ -7,6 +7,7 @@ const PERMISSION_OPTIONS = [
   { key: 'events:manage', label: '活動管理' },
   { key: 'registrations:manage', label: '報名管理' },
   { key: 'members:manage', label: '師兄姐管理' },
+  { key: 'members:delete', label: '師兄姐帳號刪除（高風險）' },
   { key: 'locations:manage', label: '道場管理' },
   { key: 'admins:manage', label: '管理員設定（含權限指派）' },
   { key: 'reports:view', label: '報表匯出' },
@@ -115,8 +116,8 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
       setPwError('新密碼兩次輸入不一致');
       return;
     }
-    if (pwForm.new_password.length < 6) {
-      setPwError('新密碼至少需 6 碼');
+    if (pwForm.new_password.length < 8) {
+      setPwError('新密碼至少需 8 碼');
       return;
     }
     setPwSubmitting(true);
@@ -246,9 +247,9 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">新密碼（至少 6 碼）</label>
+                    <label className="block text-xs text-gray-500 mb-1">新密碼（至少 8 碼）</label>
                     <input
-                      type="password" required minLength={6} autoComplete="new-password"
+                      type="password" required minLength={8} autoComplete="new-password"
                       className="input-field text-sm"
                       value={pwForm.new_password}
                       onChange={(e) => setPwForm((p) => ({ ...p, new_password: e.target.value }))}
@@ -304,9 +305,9 @@ export default function AdminAdminsClient({ admins, currentAdminId }) {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">密碼 *（至少 6 碼）</label>
+            <label className="block text-xs text-gray-500 mb-1">密碼 *（至少 8 碼）</label>
             <input
-              type="password" required minLength={6} className="input-field text-sm"
+              type="password" required minLength={8} className="input-field text-sm"
               value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
             />
           </div>

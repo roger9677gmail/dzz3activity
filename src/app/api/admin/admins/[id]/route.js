@@ -8,6 +8,7 @@ const KNOWN_PERMS = new Set([
   'events:manage',
   'registrations:manage',
   'members:manage',
+  'members:delete',
   'locations:manage',
   'admins:manage',
   'reports:view',
@@ -71,8 +72,8 @@ export const PATCH = withAuth(async (request, { params }) => {
       if (!old_password || !new_password) {
         return NextResponse.json({ error: '請輸入舊密碼與新密碼' }, { status: 400 });
       }
-      if (String(new_password).length < 6) {
-        return NextResponse.json({ error: '新密碼至少需 6 碼' }, { status: 400 });
+      if (String(new_password).length < 8) {
+        return NextResponse.json({ error: '新密碼至少需 8 碼' }, { status: 400 });
       }
       const me = await db.prepare('SELECT id, password FROM members WHERE id = ?').get(targetId);
       if (!me) return NextResponse.json({ error: '帳號不存在' }, { status: 404 });

@@ -195,6 +195,14 @@ CREATE TABLE IF NOT EXISTS practice_logs (
   CONSTRAINT fk_log_practice FOREIGN KEY (practice_id) REFERENCES practices(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  identifier   VARCHAR(255) NOT NULL,
+  attempted_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  success      TINYINT(1)   NOT NULL DEFAULT 0,
+  INDEX idx_la_identifier_time (identifier, attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS practice_notes (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   member_id   INT UNSIGNED NOT NULL,

@@ -9,6 +9,7 @@ const KNOWN_PERMS = new Set([
   'events:manage',
   'registrations:manage',
   'members:manage',
+  'members:delete',
   'locations:manage',
   'admins:manage',
   'reports:view',
@@ -42,8 +43,8 @@ export const POST = withPermission('admins:manage', async (request) => {
     if (!name || !email || !password) {
       return NextResponse.json({ error: '姓名、Email、密碼為必填' }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: '密碼至少需 6 碼' }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: '密碼至少需 8 碼' }, { status: 400 });
     }
     const normalized = String(email).trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(normalized)) {
