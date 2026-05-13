@@ -37,15 +37,21 @@ export default async function EventRegistrationsPage({ params }) {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-2">
+      <Link
+        href="/admin/events"
+        className="inline-flex items-center gap-1.5 text-sm text-temple-red hover:bg-red-50 px-3 py-1.5 -ml-1 rounded-lg font-medium border border-temple-red/30 transition-colors mb-3"
+      >
+        <span className="text-base leading-none">←</span>
+        返回活動列表
+      </Link>
+      <div className="flex items-center justify-between mb-2 gap-3">
         <div>
-          <Link href="/admin/events" className="text-sm text-gray-400 hover:text-gray-600">← 返回活動列表</Link>
-          <h1 className="text-2xl font-bold text-gray-800 mt-1">{event.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-800">{event.name}</h1>
           <p className="text-sm text-gray-500">報名名單 ・ {formatDate(event.start_date)}</p>
         </div>
         <a
           href={`/api/reports?format=xlsx&eventId=${event.id}`}
-          className="btn-secondary text-sm px-4 py-2"
+          className="btn-secondary text-sm px-4 py-2 shrink-0"
         >
           📥 匯出 Excel
         </a>
