@@ -2,25 +2,33 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-if (!process.env.JWT_SECRET) {
-  // Fail loudly at startup instead of silently using a weak fallback —
-  // a forgeable session token compromises the entire system.
-  throw new Error('JWT_SECRET environment variable is required');
-}
-const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const SESSION_COOKIE = 'temple_session';
+
+// Resolve the signing key lazily so `next build` (which imports route modules
+// without a runtime env) doesn't crash. The first call at runtime will throw
+// if JWT_SECRET isn't configured — that's a clear, immediate failure rather
+// than silently signing tokens with a guessable fallback.
+let _secret;
+function getSecret() {
+  if (_secret) return _secret;
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  _secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  return _secret;
+}
 
 export async function signToken(payload, expiresIn = '7d') {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(expiresIn)
-    .sign(SECRET);
+    .sign(getSecret());
 }
 
 export async function verifyToken(token) {
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload;
   } catch {
     return null;
