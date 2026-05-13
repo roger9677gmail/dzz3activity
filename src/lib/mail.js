@@ -44,6 +44,37 @@ export async function sendVerificationCode(toEmail, code) {
   await transport.sendMail({ from: fromAddress(), to: toEmail, subject, text, html });
 }
 
+// Sent when someone tries to register with an email that already has an
+// account. We deliberately don't tell the client this happened (that would
+// leak which emails are registered), so the notice goes via email instead.
+export async function sendAlreadyRegisteredNotice(toEmail) {
+  const transport = getTransport();
+  const subject = `【${APP_NAME}】此 Email 已有帳號`;
+  const text = `您好，
+
+我們收到使用此 Email 申請註冊的請求，但此 Email 已有帳號。
+
+若是您本人想登入，請至登入頁直接登入。
+若忘記密碼，請使用「忘記密碼」功能重設。
+若非您本人操作，請忽略此信。
+
+— ${APP_NAME}`;
+  const html = `
+    <div style="font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 480px; margin: 0 auto; padding: 24px;">
+      <h2 style="color: #8B1A1A; border-bottom: 2px solid #8B1A1A; padding-bottom: 8px;">此 Email 已有帳號</h2>
+      <p>您好，</p>
+      <p>我們收到使用此 Email 申請註冊的請求，但此 Email 已有帳號。</p>
+      <ul style="color:#555;">
+        <li>若是您本人想登入，請至登入頁直接登入。</li>
+        <li>若忘記密碼，請使用「忘記密碼」功能重設。</li>
+        <li>若非您本人操作，請忽略此信。</li>
+      </ul>
+      <p style="color: #999; font-size: 12px; margin-top: 32px; border-top: 1px solid #eee; padding-top: 16px;">— ${APP_NAME}</p>
+    </div>
+  `;
+  await transport.sendMail({ from: fromAddress(), to: toEmail, subject, text, html });
+}
+
 export async function sendRegisterVerificationCode(toEmail, code) {
   const transport = getTransport();
   const subject = `【${APP_NAME}】註冊驗證碼`;

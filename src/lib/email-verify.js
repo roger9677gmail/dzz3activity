@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 
@@ -6,7 +7,8 @@ const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 const MAX_ATTEMPTS = 5;
 
 export function generateCode() {
-  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+  // CSPRNG-backed 6-digit numeric code.
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
 export async function issueCode(email) {

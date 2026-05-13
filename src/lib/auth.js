@@ -2,9 +2,12 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-secret-change-me'
-);
+if (!process.env.JWT_SECRET) {
+  // Fail loudly at startup instead of silently using a weak fallback —
+  // a forgeable session token compromises the entire system.
+  throw new Error('JWT_SECRET environment variable is required');
+}
+const SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const SESSION_COOKIE = 'temple_session';
 
 export async function signToken(payload, expiresIn = '7d') {

@@ -9,8 +9,8 @@ export async function POST(request) {
     if (!email || !code || !password) {
       return NextResponse.json({ error: '欄位不可為空' }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: '新密碼至少需 6 碼' }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: '新密碼至少需 8 碼' }, { status: 400 });
     }
     const normalized = String(email).trim().toLowerCase();
     const member = await db.prepare('SELECT id FROM members WHERE email = ?').get(normalized);
