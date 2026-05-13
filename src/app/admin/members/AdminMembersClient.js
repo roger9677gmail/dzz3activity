@@ -282,90 +282,92 @@ export default function AdminMembersClient({ members, locations, groups = [], ca
             );
           }
           return (
-            <div key={m.id} className="px-4 py-3 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400 mr-1">{idx + 1}.</span>
-                  <span className="font-medium text-gray-800">{m.name}</span>
-                  {m.is_admin ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-temple-red text-white">👑 管理員</span>
-                  ) : null}
-                  {m.is_disabled ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">已停用</span>
-                  ) : null}
+            <div key={m.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400 mr-1">{idx + 1}.</span>
+                    <span className="font-medium text-gray-800">{m.name}</span>
+                    {m.is_admin ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-temple-red text-white">👑 管理員</span>
+                    ) : null}
+                    {m.is_disabled ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500">已停用</span>
+                    ) : null}
+                  </div>
+                  <div className="text-sm text-gray-500 break-all">{m.phone || '—'}{m.email ? ` ・ ${m.email}` : ''}</div>
+                  {(m.location_name || m.address) && (
+                    <div className="text-xs text-gray-400">{m.location_name || ''}{m.location_name && m.address ? ' ・ ' : ''}{m.address || ''}</div>
+                  )}
                 </div>
-                <div className="text-sm text-gray-500 break-all">{m.phone || '—'}{m.email ? ` ・ ${m.email}` : ''}</div>
-                {(m.location_name || m.address) && (
-                  <div className="text-xs text-gray-400">{m.location_name || ''}{m.location_name && m.address ? ' ・ ' : ''}{m.address || ''}</div>
-                )}
-                <div className="flex flex-wrap gap-1 mt-1 items-center">
-                  {groups.map((g) => {
-                    const isMirror = g.location_id != null;
-                    const isMember = (m.groups || []).some((mg) => mg.id === g.id);
-                    const key = `${m.id}-${g.id}`;
-                    const busy = busyChipId === key;
-                    return (
+                <div className="flex items-center gap-3 shrink-0 text-sm flex-wrap justify-end">
+                  {'reg_count' in m && (
+                    <span className="text-xs text-gray-400">{m.reg_count} 次報名</span>
+                  )}
+                  {canImpersonate && !m.is_disabled && (
+                    <>
                       <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => !isMirror && toggleGroupMembership(m, g.id, isMember)}
-                        disabled={isMirror || busy}
-                        title={isMirror
-                          ? '道場鏡射群組依「所屬道場」自動套用'
-                          : (isMember ? '點擊將此師兄姐移出群組' : '點擊將此師兄姐加入群組')}
-                        className={`text-xs px-3 py-1.5 min-h-[32px] rounded-full border transition-opacity ${
-                          isMember
-                            ? 'text-white border-transparent'
-                            : 'text-gray-600 bg-white border-gray-300 hover:bg-gray-50'
-                        } ${isMirror ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${
-                          busy ? 'opacity-50' : ''
-                        }`}
-                        style={isMember ? { backgroundColor: g.color || '#8B1A1A' } : {}}
+                        onClick={() => startImpersonate(m, 'read')}
+                        disabled={impersonating === m.id}
+                        title="以該師兄姐身分檢視（唯讀，安全）"
+                        className="text-amber-700 hover:text-amber-900 disabled:opacity-40"
+                      >👁️ 唯讀模擬</button>
+                      <button
+                        onClick={() => startImpersonate(m, 'write')}
+                        disabled={impersonating === m.id}
+                        title="以該師兄姐身分代為操作（會留 audit log）"
+                        className="text-red-700 hover:text-red-900 disabled:opacity-40"
+                      >✏️ 可寫模擬</button>
+                    </>
+                  )}
+                  {canEdit && (
+                    <>
+                      <button onClick={() => startEdit(m)} className="text-blue-600">編輯</button>
+                      <button
+                        onClick={() => toggleDisabled(m)}
+                        disabled={!!m.is_admin}
+                        title={m.is_admin ? '請先到「管理員設定」撤銷後台權限再停用帳號' : ''}
+                        className={`${m.is_disabled ? 'text-temple-red' : 'text-red-500'} disabled:text-gray-300 disabled:cursor-not-allowed`}
                       >
-                        {isMirror ? `🏯 ${g.name}` : g.name}
+                        {m.is_disabled ? '啟用' : '停用'}
                       </button>
-                    );
-                  })}
+                    </>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => openDelete(m)} className="text-red-700 font-medium">
+                      刪除
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 text-sm flex-wrap justify-end">
-                {'reg_count' in m && (
-                  <span className="text-xs text-gray-400">{m.reg_count} 次報名</span>
-                )}
-                {canImpersonate && !m.is_disabled && (
-                  <>
+              <div className="flex flex-wrap gap-1 mt-2 items-center">
+                {groups.map((g) => {
+                  const isMirror = g.location_id != null;
+                  const isMember = (m.groups || []).some((mg) => mg.id === g.id);
+                  const key = `${m.id}-${g.id}`;
+                  const busy = busyChipId === key;
+                  return (
                     <button
-                      onClick={() => startImpersonate(m, 'read')}
-                      disabled={impersonating === m.id}
-                      title="以該師兄姐身分檢視（唯讀，安全）"
-                      className="text-amber-700 hover:text-amber-900 disabled:opacity-40"
-                    >👁️ 唯讀模擬</button>
-                    <button
-                      onClick={() => startImpersonate(m, 'write')}
-                      disabled={impersonating === m.id}
-                      title="以該師兄姐身分代為操作（會留 audit log）"
-                      className="text-red-700 hover:text-red-900 disabled:opacity-40"
-                    >✏️ 可寫模擬</button>
-                  </>
-                )}
-                {canEdit && (
-                  <>
-                    <button onClick={() => startEdit(m)} className="text-blue-600">編輯</button>
-                    <button
-                      onClick={() => toggleDisabled(m)}
-                      disabled={!!m.is_admin}
-                      title={m.is_admin ? '請先到「管理員設定」撤銷後台權限再停用帳號' : ''}
-                      className={`${m.is_disabled ? 'text-temple-red' : 'text-red-500'} disabled:text-gray-300 disabled:cursor-not-allowed`}
+                      key={g.id}
+                      type="button"
+                      onClick={() => !isMirror && toggleGroupMembership(m, g.id, isMember)}
+                      disabled={isMirror || busy}
+                      title={isMirror
+                        ? '道場鏡射群組依「所屬道場」自動套用'
+                        : (isMember ? '點擊將此師兄姐移出群組' : '點擊將此師兄姐加入群組')}
+                      className={`text-xs px-3 py-1.5 min-h-[32px] rounded-full border transition-opacity ${
+                        isMember
+                          ? 'text-white border-transparent'
+                          : 'text-gray-600 bg-white border-gray-300 hover:bg-gray-50'
+                      } ${isMirror ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${
+                        busy ? 'opacity-50' : ''
+                      }`}
+                      style={isMember ? { backgroundColor: g.color || '#8B1A1A' } : {}}
                     >
-                      {m.is_disabled ? '啟用' : '停用'}
+                      {isMirror ? `🏯 ${g.name}` : g.name}
                     </button>
-                  </>
-                )}
-                {canDelete && (
-                  <button onClick={() => openDelete(m)} className="text-red-700 font-medium">
-                    刪除
-                  </button>
-                )}
+                  );
+                })}
               </div>
             </div>
           );
