@@ -116,11 +116,13 @@ done
 - 任何 `is_admin=1` 的師兄姐都可以從 `/profile`「進入後台」。
 - 細權限存在 `members.admin_permissions` JSON 陣列。`['*']` 代表全部權限；其餘可組合：
   - `events:manage`、`registrations:manage`、`members:manage`、`locations:manage`
+  - `members:delete`（**永久刪除師兄姐帳號+全部相關資料**，高風險、與 `members:manage` 獨立授權）
   - `admins:manage`（含指派/撤銷管理員與權限）
   - `reports:view`、`notifications:send`、`practices:manage`
 - API：用 `withPermission('xxx:yyy', handler)` 或 `withAdminAuth(handler)` 包裝。
 - UI：`AdminSidebar` 依當前 session 的 `permissions` 過濾選單；無權的頁面會 server-side redirect 回 `/admin`。
 - 撤銷管理員不會刪除師兄姐帳號，只是 `is_admin=0` 並清空 `admin_permissions`，報名紀錄全部保留。
+- **刪除師兄姐帳號**（`DELETE /api/admin/members/[id]`，需 `members:delete`）為硬刪：移除 `members` 列（同時帶走 avatar）、`registrations` + `registration_items`、`practice_logs`、`practice_notes`、`member_practices`、`push_subscriptions`、`password_reset_codes`、以該 email 為 key 的 `email_verifications` 與 `login_attempts`。不可刪自己；管理員必須先撤銷管理員權限才能刪。前端有「輸入 Email 確認」二次防呆。
 
 ### 修行日誌
 

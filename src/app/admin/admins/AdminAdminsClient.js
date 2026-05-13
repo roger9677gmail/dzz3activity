@@ -7,6 +7,7 @@ const PERMISSION_OPTIONS = [
   { key: 'events:manage', label: '活動管理' },
   { key: 'registrations:manage', label: '報名管理' },
   { key: 'members:manage', label: '師兄姐管理' },
+  { key: 'members:delete', label: '師兄姐帳號刪除（高風險）' },
   { key: 'locations:manage', label: '道場管理' },
   { key: 'admins:manage', label: '管理員設定（含權限指派）' },
   { key: 'reports:view', label: '報表匯出' },

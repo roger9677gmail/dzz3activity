@@ -9,6 +9,7 @@ const KNOWN_PERMS = new Set([
   'events:manage',
   'registrations:manage',
   'members:manage',
+  'members:delete',
   'locations:manage',
   'admins:manage',
   'reports:view',
