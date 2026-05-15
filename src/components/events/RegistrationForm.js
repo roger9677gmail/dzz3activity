@@ -14,26 +14,19 @@ function safeParseArray(v) {
 
 // Reconstruct form state from a saved registration so the user can edit it.
 function buildInitialFromRegistration(reg, eventItems) {
-  const init = {
-    selectedItems: {}, names: {}, contents: {}, customPrices: {},
-    giftNames: {}, giftContents: {},
-    receiptTitles: {}, giftReceiptTitles: {},
-  };
+  const init = { selectedItems: {}, names: {}, contents: {}, customPrices: {}, giftNames: {}, giftContents: {} };
   if (!reg || !Array.isArray(reg.items)) return init;
   for (const ri of reg.items) {
     const ei = eventItems.find((e) => Number(e.id) === Number(ri.event_item_id));
     if (!ei) continue;
     const ns = safeParseArray(ri.names);
     const cs = safeParseArray(ri.contents);
-    const rt = ri.receipt_title || '';
     if (ri.is_gift) {
       // Find the parent item that gifts to this event_item.
       const parent = eventItems.find((e) => Number(e.gift_event_item_id) === Number(ri.event_item_id) && (e.gift_quantity || 0) > 0);
       if (!parent) continue;
       init.giftNames[parent.id] = (init.giftNames[parent.id] || []).concat(ns);
       init.giftContents[parent.id] = (init.giftContents[parent.id] || []).concat(cs);
-      // Gift sub-row → one receipt_title per parent line; first non-empty wins.
-      if (!init.giftReceiptTitles[parent.id]) init.giftReceiptTitles[parent.id] = rt;
       continue;
     }
     if (ei.allow_custom_price) {
@@ -53,23 +46,19 @@ function buildInitialFromRegistration(reg, eventItems) {
       init.customPrices[ri.event_item_id] = cpArr;
       init.names[ri.event_item_id] = nArr;
       init.contents[ri.event_item_id] = cArr;
-      // Custom-price split into multiple rows; collapse back to one input per item line.
-      if (!init.receiptTitles[ri.event_item_id]) init.receiptTitles[ri.event_item_id] = rt;
     } else {
       init.selectedItems[ri.event_item_id] = ri.quantity;
       init.names[ri.event_item_id] = ns;
       init.contents[ri.event_item_id] = cs;
-      init.receiptTitles[ri.event_item_id] = rt;
     }
   }
   return init;
 }
 
-export default function RegistrationForm({ event, existingRegistration, currentUser }) {
+export default function RegistrationForm({ event, existingRegistration }) {
   const router = useRouter();
   const isEditMode = !!(existingRegistration && existingRegistration.payment_status !== 'paid' && Array.isArray(existingRegistration.items));
   const initial = isEditMode ? buildInitialFromRegistration(existingRegistration, event.items) : null;
-  const memberDefaultTitle = (currentUser?.receipt_title || currentUser?.name || '').trim();
 
   const [selectedItems, setSelectedItems] = useState(initial?.selectedItems || {});
   const [names, setNames] = useState(initial?.names || {});
@@ -79,10 +68,8 @@ export default function RegistrationForm({ event, existingRegistration, currentU
   // Gift slots are keyed by the parent event_item id; arrays sized parent.qty * parent.gift_quantity.
   const [giftNames, setGiftNames] = useState(initial?.giftNames || {});
   const [giftContents, setGiftContents] = useState(initial?.giftContents || {});
-  // One receipt_title per item line. Default = member's receipt_title (fallback to name).
-  const [receiptTitles, setReceiptTitles] = useState(initial?.receiptTitles || {});
-  const [giftReceiptTitles, setGiftReceiptTitles] = useState(initial?.giftReceiptTitles || {});
   const [notes, setNotes] = useState(isEditMode ? (existingRegistration.notes || '') : '');
+  const [receiptTitle, setReceiptTitle] = useState(isEditMode ? (existingRegistration.receipt_title || '') : '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -123,12 +110,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
       const nextCP = { ...customPrices };
       delete nextCP[itemId];
       setCustomPrices(nextCP);
-      const nextRT = { ...receiptTitles };
-      delete nextRT[itemId];
-      setReceiptTitles(nextRT);
-      const nextGRT = { ...giftReceiptTitles };
-      delete nextGRT[itemId];
-      setGiftReceiptTitles(nextGRT);
     } else {
       setSelectedItems((prev) => ({ ...prev, [itemId]: qty }));
       setNames((prev) => {
@@ -156,24 +137,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
         const current = prev[itemId] || [];
         return { ...prev, [itemId]: Array.from({ length: giftSlots }, (_, i) => current[i] || '') };
       });
-      // Seed receipt_title for newly-added lines from the member default; preserve any existing edit.
-      setReceiptTitles((prev) => (
-        prev[itemId] !== undefined ? prev : { ...prev, [itemId]: memberDefaultTitle }
-      ));
-      if (giftSlots > 0) {
-        setGiftReceiptTitles((prev) => (
-          prev[itemId] !== undefined ? prev : { ...prev, [itemId]: memberDefaultTitle }
-        ));
-      }
     }
-  }
-
-  function updateReceiptTitle(itemId, val) {
-    setReceiptTitles((prev) => ({ ...prev, [itemId]: val }));
-  }
-
-  function updateGiftReceiptTitle(parentId, val) {
-    setGiftReceiptTitles((prev) => ({ ...prev, [parentId]: val }));
   }
 
   function updateGiftName(parentId, idx, val) {
@@ -224,9 +188,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
     for (const [itemId, qty] of Object.entries(selectedItems)) {
       const ei = itemById(itemId);
       if (!ei) continue;
-      // One receipt_title per item line; empty string lets the API substitute the member default.
-      const rtRaw = receiptTitles[itemId];
-      const rt = (rtRaw == null ? memberDefaultTitle : String(rtRaw).trim()) || memberDefaultTitle;
       if (ei.allow_custom_price) {
         // Each unit becomes its own row so the per-unit amount can be stored
         // in registration_items.subtotal and surfaced cleanly in the report.
@@ -240,7 +201,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
             quantity: 1,
             names: [ns[i] || ''],
             contents: [cs[i] || ''],
-            receipt_title: rt,
             unit_price: Number.isFinite(v) ? v : 0,
           });
         }
@@ -250,7 +210,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
           quantity: qty,
           names: names[itemId] || [],
           contents: contents[itemId] || [],
-          receipt_title: rt,
         });
       }
     }
@@ -313,14 +272,11 @@ export default function RegistrationForm({ event, existingRegistration, currentU
           return;
         }
       }
-      const grtRaw = giftReceiptTitles[itemId];
-      const grt = (grtRaw == null ? memberDefaultTitle : String(grtRaw).trim()) || memberDefaultTitle;
       items.push({
         eventItemId: parent.gift_event_item_id,
         quantity: giftSlots,
         names: gNames,
         contents: gContents,
-        receipt_title: grt,
         is_gift: true,
         source_event_item_id: parent.id,
       });
@@ -333,8 +289,8 @@ export default function RegistrationForm({ event, existingRegistration, currentU
         : '/api/registrations';
       const method = isEditMode ? 'PATCH' : 'POST';
       const body = isEditMode
-        ? { items, notes }
-        : { eventId: event.id, items, notes };
+        ? { items, notes, receipt_title: receiptTitle }
+        : { eventId: event.id, items, notes, receipt_title: receiptTitle };
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -456,20 +412,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                   </div>
                 ) : null}
 
-                {qty > 0 ? (
-                  <div className="mt-2">
-                    <label className="block text-xs text-gray-500 mb-1">收據抬頭</label>
-                    <input
-                      type="text"
-                      maxLength={100}
-                      className="input-field text-sm"
-                      placeholder={memberDefaultTitle ? `預設：${memberDefaultTitle}` : '請輸入收據抬頭'}
-                      value={receiptTitles[item.id] ?? memberDefaultTitle}
-                      onChange={(e) => updateReceiptTitle(item.id, e.target.value)}
-                    />
-                  </div>
-                ) : null}
-
                 {qty > 0 && item.gift_event_item_id && item.gift_quantity > 0 ? (() => {
                   const gift = itemById(item.gift_event_item_id);
                   if (!gift) return null;
@@ -504,17 +446,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                           )}
                         </div>
                       ))}
-                      <div>
-                        <label className="block text-xs text-amber-700 mb-1">贈送收據抬頭</label>
-                        <input
-                          type="text"
-                          maxLength={100}
-                          className="input-field text-sm"
-                          placeholder={memberDefaultTitle ? `預設：${memberDefaultTitle}` : '請輸入收據抬頭'}
-                          value={giftReceiptTitles[item.id] ?? memberDefaultTitle}
-                          onChange={(e) => updateGiftReceiptTitle(item.id, e.target.value)}
-                        />
-                      </div>
                     </div>
                   );
                 })() : null}
@@ -525,6 +456,17 @@ export default function RegistrationForm({ event, existingRegistration, currentU
       </div>
 
       <div className="card p-4 space-y-3">
+        <div>
+          <label className="block font-medium text-sm mb-1.5">收據抬頭（選填）</label>
+          <input
+            type="text"
+            maxLength={100}
+            className="input-field"
+            placeholder="不填預設用您的姓名；可填公司、捐贈者等"
+            value={receiptTitle}
+            onChange={(e) => setReceiptTitle(e.target.value)}
+          />
+        </div>
         <div>
           <label className="block font-medium text-sm mb-1.5">備註（選填）</label>
           <textarea
