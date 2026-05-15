@@ -27,6 +27,15 @@ export default async function AdminDashboard() {
     JOIN members m ON m.id = r.member_id
     WHERE r.payment_status='unpaid' AND r.status != 'cancelled' AND m.is_disabled = 0
   `).get()).count;
+  // 祈福項次數：所有未取消報名底下 registration_items 的 quantity 總和
+  // （含贈送項；以 fan-out 後的單位數為準）。
+  const totalBlessingItems = (await db.prepare(`
+    SELECT COALESCE(SUM(ri.quantity), 0) as count
+    FROM registration_items ri
+    JOIN registrations r ON r.id = ri.registration_id
+    JOIN members m ON m.id = r.member_id
+    WHERE r.status != 'cancelled' AND m.is_disabled = 0
+  `).get()).count;
 
   const eventStats = await db.prepare(`
     SELECT e.id, e.name, e.start_date, e.status, e.banner_color,
@@ -46,6 +55,7 @@ export default async function AdminDashboard() {
     { label: '師兄姐總數', value: totalMembers, icon: '👥', color: 'bg-blue-50 text-blue-700' },
     { label: '進行中活動', value: totalEvents, icon: '🏛️', color: 'bg-purple-50 text-purple-700' },
     { label: '總報名數', value: totalRegistrations, icon: '📋', color: 'bg-green-50 text-green-700' },
+    { label: '祈福項次數', value: totalBlessingItems, icon: '🕯️', color: 'bg-orange-50 text-orange-700' },
     { label: '待繳款', value: unpaidCount, icon: '💰', color: 'bg-yellow-50 text-yellow-700' },
   ];
 
