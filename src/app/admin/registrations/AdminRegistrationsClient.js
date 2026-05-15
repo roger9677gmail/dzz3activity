@@ -4,6 +4,63 @@ import { useRouter, usePathname } from 'next/navigation';
 import { formatMoney, safeParseJSON } from '@/lib/utils';
 import PaymentForm from '@/components/registrations/PaymentForm';
 
+function ItemQtyEditor({ item, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(item.quantity);
+  const [saving, setSaving] = useState(false);
+  const canEdit = !item.is_gift && !item.allow_custom_price;
+
+  if (!canEdit) return <span>× {item.quantity}</span>;
+
+  async function save() {
+    const n = parseInt(val);
+    if (!Number.isFinite(n) || n < 1) return;
+    if (n === item.quantity) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/registrations/items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: n }),
+      });
+      if (res.ok) {
+        onSaved && onSaved(n);
+        setEditing(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '修改失敗');
+      }
+    } catch {
+      alert('網路錯誤');
+    }
+    setSaving(false);
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        × <input
+          type="number"
+          min={1}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          className="w-16 border border-gray-300 rounded px-1 text-sm"
+          autoFocus
+        />
+        <button onClick={save} disabled={saving} className="text-xs text-temple-red px-1">{saving ? '...' : '✓'}</button>
+        <button onClick={() => { setVal(item.quantity); setEditing(false); }} className="text-xs text-gray-400 px-1">✕</button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      × {item.quantity}
+      <button onClick={() => setEditing(true)} className="text-xs text-gray-400 hover:text-temple-red ml-1" title="修改數量">✏️</button>
+    </span>
+  );
+}
+
 export default function AdminRegistrationsClient({ registrations, events, initialFilters }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -108,7 +165,11 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                       return (
                         <div key={item.id} className="text-sm">
                           <div>
-                            <span>{item.item_name} × {item.quantity}</span>
+                            <span>{item.item_name} </span>
+                            <ItemQtyEditor
+                              item={item}
+                              onSaved={() => router.refresh()}
+                            />
                             {names.length > 0 && <span className="text-gray-400 ml-1">（{names.join('、')}）</span>}
                           </div>
                           {contents.length > 0 && contents.some((c) => c && c.trim()) && (

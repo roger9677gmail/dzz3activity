@@ -26,7 +26,7 @@ export default async function EventRegistrationsPage({ params }) {
     const regIds = registrations.map((r) => r.id);
     const placeholders = regIds.map(() => '?').join(',');
     const allItems = await db.prepare(`
-      SELECT ri.*, ei.name as item_name
+      SELECT ri.*, ei.name as item_name, ei.allow_custom_price
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id IN (${placeholders})
