@@ -76,12 +76,14 @@ export default function AdminSidebar({ permissions = [] }) {
         />
       )}
 
-      {/* Sidebar — drawer on mobile, static column on md+ */}
+      {/* Sidebar — drawer on mobile, sticky column on md+ so footer actions
+          stay reachable on long pages (otherwise the 回師兄姐介面 / 登出
+          buttons live at the very bottom of the long page). */}
       <aside
         className={`
           bg-temple-red-dark flex flex-col w-56 shrink-0
-          fixed md:static top-0 left-0 z-50 overflow-y-auto
-          h-[100dvh] md:h-auto md:min-h-screen
+          fixed md:sticky top-0 left-0 z-50 overflow-y-auto
+          h-[100dvh] md:h-screen
           transform transition-transform duration-200
           ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
         `}

@@ -49,10 +49,9 @@ export default function EventCard({ event, isRegistered = false, registration = 
           </div>
         </div>
 
-        {/* Description only shown when NOT registered (registered view is detail-focused) */}
-        {!isRegistered && event.description && (
-          <p className="text-sm text-gray-600 mt-1.5 line-clamp-2">{event.description}</p>
-        )}
+        {/* Description intentionally NOT shown on the card — admins paste long
+            marketing copy here and it overwhelms the card on wide screens. The
+            full description is still visible on the event detail page. */}
 
         <div className="mt-3 space-y-1.5 text-sm text-gray-600">
           <div className="flex items-center gap-1.5">
