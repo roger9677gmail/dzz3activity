@@ -60,12 +60,6 @@ export const POST = withAuth(async (request) => {
       return NextResponse.json({ error: '請至少選擇一個報名項目' }, { status: 400 });
     }
 
-    // DEBUG: log incoming items to track quantity inflation bug
-    console.log('[POST /registrations] incoming items:', JSON.stringify(items.map((i) => ({
-      eventItemId: i.eventItemId, quantity: i.quantity, namesLen: (i.names || []).length,
-      contentsLen: (i.contents || []).length, is_gift: i.is_gift,
-    }))));
-
     const memberId = request.session.sub;
     const member = await db.prepare('SELECT name, receipt_title FROM members WHERE id = ?').get(memberId);
     const memberDefaultTitle = (member?.receipt_title || member?.name || '').trim();

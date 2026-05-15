@@ -95,12 +95,6 @@ export const PATCH = withAuth(async (request, { params }) => {
       return NextResponse.json({ error: '請至少選擇一個報名項目' }, { status: 400 });
     }
 
-    // DEBUG: log incoming items to track quantity inflation bug
-    console.log('[PATCH /registrations/' + params.id + '] incoming items:', JSON.stringify(items.map((i) => ({
-      eventItemId: i.eventItemId, quantity: i.quantity, namesLen: (i.names || []).length,
-      contentsLen: (i.contents || []).length, is_gift: i.is_gift,
-    }))));
-
     const member = await db.prepare('SELECT name, receipt_title FROM members WHERE id = ?').get(memberId);
     const memberDefaultTitle = (member?.receipt_title || member?.name || '').trim();
     const normalizeItemTitle = (v) => {

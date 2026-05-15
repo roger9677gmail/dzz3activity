@@ -216,8 +216,8 @@ function QfList({ rows }) {
                 <td className="px-3 py-2 text-gray-700 align-top">
                   {it ? (
                     <div className="text-xs">
-                      {it.item_name} × {it.quantity}<span className="text-red-500 ml-1">[DEBUG:qty={JSON.stringify(it.quantity)}/sub={it.subtotal}]</span>
-                      {it.is_gift && <span className="text-temple-gold ml-1">（贈品）</span>}
+                      {it.item_name} × {it.quantity}
+                      {it.is_gift ? <span className="text-temple-gold ml-1">（贈品）</span> : null}
                       {it.names_arr.length > 0 && (
                         <span className="text-gray-400 ml-1">（{it.names_arr.join('、')}）</span>
                       )}
