@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation';
-import { getSession, hasPermission } from '@/lib/auth';
+import { getActiveSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatDate, formatMoney, getPaymentStatusLabel, getStatusLabel } from '@/lib/utils';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ import RegistrationPaymentInline from './RegistrationPaymentInline';
 export const dynamic = 'force-dynamic';
 
 export default async function EventRegistrationsPage({ params }) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'registrations:manage')) redirect('/admin');
 
   const event = await db.prepare('SELECT * FROM events WHERE id = ?').get(params.eventId);

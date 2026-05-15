@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import db from './db';
 
 const SESSION_COOKIE = 'temple_session';
 
@@ -92,4 +93,25 @@ export async function getSession() {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return verifyToken(token);
+}
+
+// Server components don't pass through the API middleware, so the JWT snapshot
+// they see for name / is_admin / permissions can be stale (e.g. user renamed
+// themselves, or an admin re-assigned permissions). Use this in server pages /
+// layouts so the rendered UI always reflects the authoritative DB state.
+// Returns null if the cookie is invalid, the account no longer exists, or it
+// has been disabled — caller should redirect to /login in that case.
+export async function getActiveSession() {
+  const session = await getSession();
+  if (!session) return null;
+  const member = await db
+    .prepare('SELECT id, name, is_admin, admin_permissions, is_disabled FROM members WHERE id = ?')
+    .get(session.sub);
+  if (!member || member.is_disabled) return null;
+  return {
+    ...session,
+    name: member.name,
+    is_admin: member.is_admin ? 1 : 0,
+    permissions: parsePermissions(member.admin_permissions),
+  };
 }

@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getSession, hasPermission } from '@/lib/auth';
+import { getActiveSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import AdminLocationsClient from './AdminLocationsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminLocationsPage() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'locations:manage')) redirect('/admin');
 
   const locations = await db.prepare(`

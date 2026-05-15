@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth';
+import { getActiveSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatMoney } from '@/lib/utils';
 import Link from 'next/link';
@@ -6,9 +6,11 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-  const session = await getSession();
+  const session = await getActiveSession();
 
-  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_admin=0 AND is_disabled=0").get()).count;
+  // Admins are members too — count everyone active so the dashboard total
+  // matches the members management list.
+  const totalMembers = (await db.prepare("SELECT COUNT(*) as count FROM members WHERE is_disabled=0").get()).count;
   const totalEvents = (await db.prepare("SELECT COUNT(*) as count FROM events WHERE status='active'").get()).count;
   const totalRegistrations = (await db.prepare(`
     SELECT COUNT(*) as count FROM registrations r

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getSession, hasPermission } from '@/lib/auth';
+import { getActiveSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import Link from 'next/link';
 import AdminMembersClient from './AdminMembersClient';
@@ -7,7 +7,7 @@ import AdminMembersClient from './AdminMembersClient';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminMembersPage({ searchParams }) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'members:manage')) redirect('/admin');
   const canDelete = hasPermission(session, 'members:delete');
 
@@ -22,12 +22,11 @@ export default async function AdminMembersPage({ searchParams }) {
   let members;
   if (mode === 'unregistered' && eventId) {
     members = await db.prepare(`
-      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.created_at,
+      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_admin, m.is_disabled, m.created_at,
              l.name AS location_name
       FROM members m
       LEFT JOIN locations l ON l.id = m.location_id
-      WHERE m.is_admin = 0
-        AND m.is_disabled = 0
+      WHERE m.is_disabled = 0
         AND m.id NOT IN (
           SELECT r.member_id FROM registrations r
           WHERE r.event_id = ? AND r.status != 'cancelled'
@@ -38,12 +37,12 @@ export default async function AdminMembersPage({ searchParams }) {
   } else {
     const disabledFilter = showDisabled ? '' : 'AND m.is_disabled = 0';
     members = await db.prepare(`
-      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_disabled, m.created_at,
+      SELECT m.id, m.name, m.phone, m.email, m.address, m.location_id, m.is_admin, m.is_disabled, m.created_at,
              l.name AS location_name,
         (SELECT COUNT(*) FROM registrations r WHERE r.member_id = m.id AND r.status != 'cancelled') as reg_count
       FROM members m
       LEFT JOIN locations l ON l.id = m.location_id
-      WHERE m.is_admin = 0
+      WHERE 1=1
         ${disabledFilter}
         ${search ? "AND (m.name LIKE ? OR m.phone LIKE ?)" : ""}
       ORDER BY m.name

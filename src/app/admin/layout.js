@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { getActiveSession } from '@/lib/auth';
 import AdminSidebar from '@/components/layout/AdminSidebar';
 
 export default async function AdminLayout({ children }) {
-  const session = await getSession();
+  // Re-read from DB so sidebar permissions reflect the current state, not the
+  // snapshot baked into the JWT at login time.
+  const session = await getActiveSession();
   if (!session) redirect('/login');
   if (!session.is_admin) redirect('/events');
 

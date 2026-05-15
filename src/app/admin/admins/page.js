@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getSession, hasPermission, parsePermissions } from '@/lib/auth';
+import { getActiveSession, hasPermission, parsePermissions } from '@/lib/auth';
 import db from '@/lib/db';
 import AdminAdminsClient from './AdminAdminsClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminsPage() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'admins:manage')) redirect('/admin');
 
   const rows = await db.prepare(

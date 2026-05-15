@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getSession, hasPermission } from '@/lib/auth';
+import { getActiveSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import { formatMoney, getPaymentStatusLabel } from '@/lib/utils';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ import AdminRegistrationsClient from './AdminRegistrationsClient';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminRegistrationsPage({ searchParams }) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'registrations:manage')) redirect('/admin');
 
   const eventId = searchParams.eventId || '';

@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import { getSession, hasPermission } from '@/lib/auth';
+import { getActiveSession, hasPermission } from '@/lib/auth';
 import EventForm from '@/components/events/EventForm';
 
 export default async function NewEventPage() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'events:manage')) redirect('/admin');
 
   return (

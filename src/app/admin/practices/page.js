@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getSession, hasPermission } from '@/lib/auth';
+import { getActiveSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
 import AdminPracticesClient from './AdminPracticesClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPracticesPage() {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!hasPermission(session, 'practices:manage')) redirect('/admin');
 
   const practices = await db
