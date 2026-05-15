@@ -255,11 +255,20 @@ export default function RegistrationForm({ event, existingRegistration, currentU
           });
         }
       } else {
+        // Force arrays to be exactly `qty` long. Legacy registrations may have
+        // been saved with names.length !== quantity (past bug), and just
+        // sending `names[itemId]` as-is would let that drift propagate on
+        // every re-save because the empty-name validator below only filters
+        // out blanks, never enforces length === qty.
+        const ns = names[itemId] || [];
+        const cs = contents[itemId] || [];
+        const normalizedNames = Array.from({ length: qty }, (_, i) => ns[i] || '');
+        const normalizedContents = Array.from({ length: qty }, (_, i) => cs[i] || '');
         items.push({
           eventItemId: parseInt(itemId),
           quantity: qty,
-          names: names[itemId] || [],
-          contents: contents[itemId] || [],
+          names: normalizedNames,
+          contents: normalizedContents,
           receipt_title: rt,
         });
       }
@@ -285,16 +294,16 @@ export default function RegistrationForm({ event, existingRegistration, currentU
         }
       }
       if (eventItem?.requires_name) {
-        const emptyNames = item.names.filter((n) => !n.trim());
-        if (emptyNames.length > 0) {
-          setError(`請填寫「${eventItem.name}」的功德主(陽上)姓名`);
+        // Check both length match AND no blanks. Legacy bug was names.length=1
+        // while quantity=10 passed validation because filter only counted blanks.
+        if (item.names.length !== item.quantity || item.names.some((n) => !n.trim())) {
+          setError(`請填寫「${eventItem.name}」的功德主(陽上)姓名（共 ${item.quantity} 位）`);
           return;
         }
       }
       if (eventItem?.requires_content) {
-        const emptyContents = item.contents.filter((c) => !c.trim());
-        if (emptyContents.length > 0) {
-          setError(`請填寫「${eventItem.name}」的超渡內容`);
+        if (item.contents.length !== item.quantity || item.contents.some((c) => !c.trim())) {
+          setError(`請填寫「${eventItem.name}」的超渡內容（共 ${item.quantity} 筆）`);
           return;
         }
       }
@@ -345,9 +354,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
       const body = isEditMode
         ? { items, notes }
         : { eventId: event.id, items, notes };
-      // DEBUG: log items being sent so we can see if qty is being inflated.
-      console.log('【報名提交】selectedItems=', selectedItems);
-      console.log('【報名提交】items=', JSON.parse(JSON.stringify(items)));
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },

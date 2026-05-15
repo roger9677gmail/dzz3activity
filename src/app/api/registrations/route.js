@@ -93,6 +93,19 @@ export const POST = withAuth(async (request) => {
           subtotal = eventItem.price * item.quantity;
         }
         total += subtotal;
+        // Defensive: reject when names/contents arrays are required but their
+        // length doesn't match qty, so a legacy client (or front-end bug)
+        // can't store quantity=10 with names=['只填一個'].
+        const inputNames = Array.isArray(item.names) ? item.names : [];
+        const inputContents = Array.isArray(item.contents) ? item.contents : [];
+        if (!eventItem.allow_custom_price) {
+          if (eventItem.requires_name && inputNames.length !== qty) {
+            throw new Error(`「${eventItem.name}」功德主姓名數 (${inputNames.length}) 與報名數 (${qty}) 不符`);
+          }
+          if (eventItem.requires_content && inputContents.length !== qty) {
+            throw new Error(`「${eventItem.name}」超渡內容數 (${inputContents.length}) 與報名數 (${qty}) 不符`);
+          }
+        }
         resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0, receipt_title: normalizeItemTitle(item.receipt_title) });
         if (eventItem.gift_event_item_id && eventItem.gift_quantity > 0) {
           giftAllowance[eventItem.gift_event_item_id] =
