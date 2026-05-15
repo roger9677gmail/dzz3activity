@@ -147,29 +147,29 @@ export default async function EventDetailPage({ params }) {
         </div>
 
         {/* 工作人員 (僅 staff/admin 可見) — load 失敗也要讓 admin 看到，避免靜默缺資料 */}
-        {isStaff && (staffList.length > 0 || (staffLoadError && session.is_admin)) && (
+        {isStaff && (staffList.length > 0 || (staffLoadError && session.is_admin)) ? (
           <div className="card p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-bold text-gray-800">🛠️ 工作人員</div>
               <span className="text-[11px] text-gray-400">{staffList.length} 位</span>
             </div>
-            {staffLoadError && session.is_admin && (
+            {staffLoadError && session.is_admin ? (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-2 mb-2">
                 ⚠ 工作人員名單載入失敗：{staffLoadError}
                 <div className="text-[11px] text-amber-700 mt-1">
                   通常是 schema 還沒升級。請至 Cloud Shell 跑 <code>npm run db:migrate</code>。
                 </div>
               </div>
-            )}
-            {staffList.length > 0 && <StaffByRole staffList={staffList} />}
-            {staffList.length > 0 && (
+            ) : null}
+            {staffList.length > 0 ? <StaffByRole staffList={staffList} /> : null}
+            {staffList.length > 0 ? (
               <Link
                 href={`/events/${event.id}/staff-view`}
                 className="mt-3 btn-secondary w-full text-center block text-sm"
               >📊 查看祈福 / 活動報名名單</Link>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
 
         {/* 活動登記入口（若主辦已建題目） */}
         {hasAttendance && (

@@ -317,7 +317,7 @@ export default function EventForm({ event = null }) {
                   onChange={(e) => updateItem(idx, 'requires_content', e.target.checked)} />
                 需要填寫超渡內容
               </label>
-              {item.requires_content && (
+              {item.requires_content ? (
                 <div className="ml-6 pt-1 pb-2 border-l-2 border-amber-200 pl-3">
                   <label className="text-xs text-gray-600 mb-1 block">超渡內容範例（選填）</label>
                   <textarea
@@ -329,7 +329,7 @@ export default function EventForm({ event = null }) {
                   />
                   <p className="text-xs text-gray-400 mt-1">會在報名表以 placeholder 的方式提示師兄姐。</p>
                 </div>
-              )}
+              ) : null}
 
               {/* Gift / 贈送設定 */}
               <div className="pt-2 mt-2 border-t border-dashed border-gray-200 space-y-2">

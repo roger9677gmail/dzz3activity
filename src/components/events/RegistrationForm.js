@@ -511,7 +511,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                     {Array.from({ length: qty }).map((_, idx) => (
                       <div key={idx} className="space-y-1.5 bg-gray-50 rounded-lg p-2">
                         <div className="text-xs text-gray-500 font-medium">第 {idx + 1} 筆</div>
-                        {item.allow_custom_price && (
+                        {item.allow_custom_price ? (
                           <input
                             type="number"
                             inputMode="numeric"
@@ -522,8 +522,8 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                             onChange={(e) => updateCustomPrice(item.id, idx, e.target.value)}
                             required
                           />
-                        )}
-                        {item.requires_name && (
+                        ) : null}
+                        {item.requires_name ? (
                           <input
                             type="text"
                             className="input-field text-sm"
@@ -532,8 +532,8 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                             onChange={(e) => updateName(item.id, idx, e.target.value)}
                             required
                           />
-                        )}
-                        {item.requires_content && (
+                        ) : null}
+                        {item.requires_content ? (
                           <textarea
                             className="input-field text-sm resize-none"
                             rows={2}
@@ -542,7 +542,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                             onChange={(e) => updateContent(item.id, idx, e.target.value)}
                             required
                           />
-                        )}
+                        ) : null}
                         <input
                           type="text"
                           maxLength={100}
@@ -568,7 +568,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                       {Array.from({ length: giftSlots }).map((_, idx) => (
                         <div key={idx} className="space-y-1">
                           <div className="text-xs text-amber-700">贈送 {idx + 1}</div>
-                          {gift.requires_name && (
+                          {gift.requires_name ? (
                             <input
                               type="text"
                               className="input-field text-sm"
@@ -577,8 +577,8 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                               onChange={(e) => updateGiftName(item.id, idx, e.target.value)}
                               required
                             />
-                          )}
-                          {gift.requires_content && (
+                          ) : null}
+                          {gift.requires_content ? (
                             <textarea
                               className="input-field text-sm resize-none"
                               rows={2}
@@ -587,7 +587,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                               onChange={(e) => updateGiftContent(item.id, idx, e.target.value)}
                               required
                             />
-                          )}
+                          ) : null}
                         </div>
                       ))}
                       <div>
