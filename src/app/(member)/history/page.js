@@ -64,6 +64,7 @@ export default async function HistoryPage() {
                 {reg.items.map((item) => {
                   const itemNames = item.names ? JSON.parse(item.names) : [];
                   const itemContents = item.contents ? JSON.parse(item.contents) : [];
+                  const itemTitle = item.receipt_title || reg.receipt_title || '';
                   return (
                     <div key={item.id} className="text-sm">
                       <div>
@@ -75,6 +76,11 @@ export default async function HistoryPage() {
                       {itemContents.length > 0 && itemContents.some((c) => c && c.trim()) && (
                         <div className="text-xs text-gray-500 mt-0.5 pl-3">
                           超渡內容：{itemContents.filter((c) => c && c.trim()).join('；')}
+                        </div>
+                      )}
+                      {itemTitle && (
+                        <div className="text-xs text-gray-500 mt-0.5 pl-3">
+                          收據抬頭：{itemTitle}
                         </div>
                       )}
                     </div>
