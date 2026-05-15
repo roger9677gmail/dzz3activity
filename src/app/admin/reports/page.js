@@ -6,6 +6,8 @@ import { parseOptions, formatAnswer } from '@/lib/attendance';
 import ReportsClient from './ReportsClient';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 export default async function AdminReportsPage({ searchParams }) {
   const session = await getSession();
@@ -106,6 +108,11 @@ async function loadQfRows(eventId, groupIds) {
       contents_arr: safeParseJSON(it.contents),
     });
   }
+  // DEBUG: log what DB returned so we can see if quantity is wrong here
+  console.log('[loadQfRows] event=' + eventId + ' raw items from DB:',
+    JSON.stringify(items.map((i) => ({
+      reg: i.registration_id, name: i.item_name, qty: i.quantity, subtotal: i.subtotal, is_gift: i.is_gift,
+    }))));
   for (const r of regs) r.items = byReg.get(r.id) || [];
   return regs;
 }
