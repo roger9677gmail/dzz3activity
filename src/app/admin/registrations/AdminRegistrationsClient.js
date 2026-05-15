@@ -195,6 +195,23 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                       setRegMap((prev) => ({ ...prev, [reg.id]: { ...data, ...updated } }));
                     }}
                   />
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`確定要永久刪除 ${reg.member_name} 在「${reg.event_name}」的這筆報名？\n\n此操作無法復原，會員可重新報名。`)) return;
+                        const res = await fetch(`/api/registrations/${reg.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                          router.refresh();
+                        } else {
+                          const d = await res.json().catch(() => ({}));
+                          alert(d.error || '刪除失敗');
+                        }
+                      }}
+                      className="text-xs text-red-600 hover:text-red-800 hover:underline"
+                    >
+                      🗑️ 永久刪除此筆報名
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

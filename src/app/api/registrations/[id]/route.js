@@ -33,6 +33,22 @@ export const PUT = withPermission('registrations:manage', async (request, { para
   return NextResponse.json({ success: true });
 });
 
+// Hard-delete a registration (admin). Used when the row is corrupt and we
+// want the member to re-register cleanly — soft-cancel doesn't free up the
+// UNIQUE(event_id, member_id) slot, so re-registration would be blocked.
+export const DELETE = withPermission('registrations:manage', async (request, { params }) => {
+  try {
+    await db.transaction(async (tx) => {
+      await tx.prepare('DELETE FROM registration_items WHERE registration_id = ?').run(params.id);
+      await tx.prepare('DELETE FROM registrations WHERE id = ?').run(params.id);
+    });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /registrations/[id] failed:', err);
+    return NextResponse.json({ error: err.message || '伺服器錯誤' }, { status: 500 });
+  }
+});
+
 // Member-facing edit: replace items / notes / receipt_title on an unpaid registration.
 export const PATCH = withAuth(async (request, { params }) => {
   try {
