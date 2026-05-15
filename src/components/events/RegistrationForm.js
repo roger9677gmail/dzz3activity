@@ -444,7 +444,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                           <textarea
                             className="input-field text-sm resize-none"
                             rows={2}
-                            placeholder={`第${idx + 1}位超渡內容（如：歷代祖先、冤親債主等）`}
+                            placeholder={item.content_example || `第${idx + 1}位超渡內容（如：歷代祖先、冤親債主等）`}
                             value={(contents[item.id] || [])[idx] || ''}
                             onChange={(e) => updateContent(item.id, idx, e.target.value)}
                             required
@@ -495,7 +495,7 @@ export default function RegistrationForm({ event, existingRegistration, currentU
                             <textarea
                               className="input-field text-sm resize-none"
                               rows={2}
-                              placeholder="超渡內容"
+                              placeholder={gift.content_example || '超渡內容'}
                               value={(giftContents[item.id] || [])[idx] || ''}
                               onChange={(e) => updateGiftContent(item.id, idx, e.target.value)}
                               required
