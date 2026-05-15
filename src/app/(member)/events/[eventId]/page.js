@@ -14,6 +14,10 @@ export default async function EventDetailPage({ params }) {
 
   event.items = await db.prepare('SELECT * FROM event_items WHERE event_id = ? ORDER BY sort_order').all(event.id);
 
+  // Need name + receipt_title so the registration form can default each item's
+  // 收據抬頭 to the logged-in member's value.
+  const currentUser = await db.prepare('SELECT name, receipt_title FROM members WHERE id = ?').get(session.sub);
+
   // 是否有活動登記題目（決定要不要顯示「活動登記」入口）
   const attendanceRow = await db
     .prepare('SELECT COUNT(*) AS c FROM event_attendance_questions WHERE event_id = ? AND active = 1')
@@ -81,6 +85,12 @@ export default async function EventDetailPage({ params }) {
       WHERE ri.registration_id = ?
       ORDER BY ri.is_gift, ri.id
     `).all(existingRegistration.id);
+    // Backfill missing per-item receipt_title from the registration-level value
+    // (or the member default) so older registrations behave consistently in edit mode.
+    const fallbackTitle = existingRegistration.receipt_title || currentUser?.receipt_title || currentUser?.name || '';
+    for (const ri of existingRegistration.items) {
+      if (!ri.receipt_title) ri.receipt_title = fallbackTitle;
+    }
     existingRegistration.items_summary = existingRegistration.items
       .filter((ri) => !ri.is_gift)
       .map((ri) => `${ri.item_name}x${ri.quantity}`)
@@ -228,6 +238,7 @@ export default async function EventDetailPage({ params }) {
               <RegistrationForm
                 event={event}
                 existingRegistration={existingRegistration && !isPaid ? existingRegistration : null}
+                currentUser={currentUser}
               />
             )}
 

@@ -94,6 +94,7 @@ export default function EventCard({ event, isRegistered = false, registration = 
             {registration.items.map((item) => {
               const names = safeParseJSON(item.names);
               const contents = safeParseJSON(item.contents);
+              const itemTitle = item.receipt_title || registration.receipt_title || '';
               return (
                 <div key={item.id} className="text-sm">
                   <div>
@@ -108,6 +109,11 @@ export default function EventCard({ event, isRegistered = false, registration = 
                   {contents.length > 0 && contents.some((c) => c && c.trim()) && (
                     <div className="text-xs text-gray-500 mt-0.5 pl-3">
                       超渡內容：{contents.filter((c) => c && c.trim()).join('；')}
+                    </div>
+                  )}
+                  {itemTitle && (
+                    <div className="text-xs text-gray-500 mt-0.5 pl-3">
+                      收據抬頭：{itemTitle}
                     </div>
                   )}
                 </div>

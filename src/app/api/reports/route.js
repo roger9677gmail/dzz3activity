@@ -38,7 +38,7 @@ function safeCell(v) {
 async function loadRows({ eventId, paymentStatus, status, groupIds }) {
   let query = `
     SELECT r.id, r.event_id, r.created_at, r.payment_status, r.status,
-           r.receipt_number, r.notes,
+           r.receipt_number, r.receipt_title AS reg_receipt_title, r.notes,
            m.name AS member_name, m.phone AS member_phone, m.address AS member_address,
            COALESCE(NULLIF(m.receipt_title, ''), m.name) AS member_receipt_title,
            l.name AS location_name,
@@ -66,7 +66,8 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
   const out = [];
   for (const r of regs) {
     const items = await db.prepare(`
-      SELECT ri.quantity, ri.names, ri.contents, ri.subtotal, ri.is_gift, ei.name AS item_name
+      SELECT ri.quantity, ri.names, ri.contents, ri.receipt_title AS item_receipt_title,
+             ri.subtotal, ri.is_gift, ei.name AS item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id = ?
@@ -79,6 +80,13 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
       const contentsArr = safeParseJSON(it.contents);
       const qty = it.quantity || 1;
       const unit = qty > 0 ? Math.round((it.subtotal || 0) / qty) : (it.subtotal || 0);
+      // Per-item receipt_title is the source of truth; fall back to the
+      // registration-level value (admin payment form) or the member default.
+      const rowTitle =
+        (it.item_receipt_title && String(it.item_receipt_title).trim()) ||
+        (r.reg_receipt_title && String(r.reg_receipt_title).trim()) ||
+        r.member_receipt_title ||
+        '';
       for (let i = 0; i < qty; i++) {
         const isGift = !!it.is_gift;
         if (isGift) giftCounter += 1;
@@ -89,7 +97,7 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
           金額: isGift ? `贈${giftCounter}` : unit,
           項目: safeCell(it.item_name),
           收據編號: safeCell(r.receipt_number || ''),
-          收據抬頭: safeCell(r.member_receipt_title),
+          收據抬頭: safeCell(rowTitle),
           連絡人: safeCell(r.member_name),
           電話: safeCell(r.member_phone || ''),
           地址: safeCell(r.member_address || ''),
