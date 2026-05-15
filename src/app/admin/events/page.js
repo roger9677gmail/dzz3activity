@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getSession, hasPermission } from '@/lib/auth';
 import db from '@/lib/db';
-import { formatDate, getEventStatusLabel } from '@/lib/utils';
+import { getEventStatusLabel, formatEventDateRange, formatDeadline } from '@/lib/utils';
 import Link from 'next/link';
 import DeleteEventButton from '@/components/events/DeleteEventButton';
+import DuplicateEventButton from '@/components/events/DuplicateEventButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,20 +13,33 @@ export default async function AdminEventsPage() {
   if (!hasPermission(session, 'events:manage')) redirect('/admin');
 
   // 排序：報名中 (start_date 遞增) → 草稿 (start_date 遞增) → 已截止 (start_date 遞減)
-  const events = await db.prepare(`
-    SELECT e.*,
-      (SELECT COUNT(*) FROM registrations r
-         JOIN members m ON m.id = r.member_id
-         WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) AS reg_count,
-      (SELECT COUNT(*) FROM registrations r
-         JOIN members m ON m.id = r.member_id
-         WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid' AND m.is_disabled = 0) AS paid_count
-    FROM events e
-    ORDER BY
-      CASE e.status WHEN 'active' THEN 1 WHEN 'draft' THEN 2 WHEN 'closed' THEN 3 ELSE 4 END,
-      CASE WHEN e.status = 'closed' THEN -UNIX_TIMESTAMP(e.start_date) ELSE UNIX_TIMESTAMP(e.start_date) END,
-      e.id
-  `).all();
+  // Wrapped defensively — a single bad SQL (e.g. event_attendance missing on a
+  // half-migrated DB) shouldn't 500 the whole admin landing. Fall back to a
+  // visible error block so an admin can still hit "+ 新增活動" / 編輯個別 row.
+  let events = [];
+  let loadError = '';
+  try {
+    events = await db.prepare(`
+      SELECT e.*,
+        (SELECT COUNT(*) FROM registrations r
+           JOIN members m ON m.id = r.member_id
+           WHERE r.event_id = e.id AND r.status != 'cancelled' AND m.is_disabled = 0) AS reg_count,
+        (SELECT COUNT(*) FROM registrations r
+           JOIN members m ON m.id = r.member_id
+           WHERE r.event_id = e.id AND r.status != 'cancelled' AND r.payment_status = 'paid' AND m.is_disabled = 0) AS paid_count,
+        (SELECT COUNT(*) FROM event_attendance a
+           JOIN members m ON m.id = a.member_id
+           WHERE a.event_id = e.id AND m.is_disabled = 0) AS att_count
+      FROM events e
+      ORDER BY
+        CASE e.status WHEN 'active' THEN 1 WHEN 'draft' THEN 2 WHEN 'closed' THEN 3 ELSE 4 END,
+        CASE WHEN e.status = 'closed' THEN -UNIX_TIMESTAMP(e.start_date) ELSE UNIX_TIMESTAMP(e.start_date) END,
+        e.id
+    `).all();
+  } catch (err) {
+    console.error('[admin/events] list query failed:', err);
+    loadError = err?.code || err?.message || '查詢失敗';
+  }
 
   return (
     <div className="p-6">
@@ -35,7 +49,17 @@ export default async function AdminEventsPage() {
       </div>
 
       <div className="space-y-3">
-        {events.length === 0 && (
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-4">
+            <div className="font-medium mb-1">活動列表載入失敗</div>
+            <div className="text-xs text-red-600 break-all">{loadError}</div>
+            <div className="text-xs text-red-500 mt-2">
+              通常是 schema 還沒升級（events.map_url / DATETIME 等）。請在 Cloud Shell 跑：
+              <code className="block mt-1 bg-red-100 px-2 py-1 rounded">git pull &amp;&amp; npm run db:migrate</code>
+            </div>
+          </div>
+        )}
+        {!loadError && events.length === 0 && (
           <div className="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm">
             <div className="text-4xl mb-2">🏛️</div>
             <p>尚無活動</p>
@@ -49,9 +73,9 @@ export default async function AdminEventsPage() {
                 <div>
                   <h3 className="font-bold text-gray-800">{ev.name}</h3>
                   <div className="text-sm text-gray-500 mt-1">
-                    {formatDate(ev.start_date)}{ev.start_date !== ev.end_date ? ` ～ ${formatDate(ev.end_date)}` : ''}
+                    {formatEventDateRange(ev.start_date, ev.end_date)}
                   </div>
-                  <div className="text-sm text-gray-400">報名截止：{formatDate(ev.registration_deadline)}</div>
+                  <div className="text-sm text-gray-400">報名截止：{formatDeadline(ev.registration_deadline)}</div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -60,19 +84,26 @@ export default async function AdminEventsPage() {
                   }`}>
                     {getEventStatusLabel(ev.status)}
                   </span>
-                  <span className="text-sm text-gray-600">{ev.reg_count} 人報名</span>
+                  <span className="text-sm text-gray-600">
+                    {ev.reg_count} 祈福 ・ {ev.att_count} 活動
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Link href={`/admin/events/${ev.id}`}
-                  className="flex-1 text-center text-sm py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  className="text-center text-sm py-1.5 px-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
                   編輯
                 </Link>
                 <Link href={`/admin/events/${ev.id}/registrations`}
-                  className="flex-1 text-center text-sm py-1.5 rounded-lg border border-temple-red text-temple-red hover:bg-red-50">
-                  查看名單 ({ev.reg_count})
+                  className="flex-1 min-w-[8rem] text-center text-sm py-1.5 px-2 rounded-lg border border-temple-red text-temple-red hover:bg-red-50">
+                  祈福名單 ({ev.reg_count})
                 </Link>
+                <Link href={`/admin/events/${ev.id}/attendance`}
+                  className="flex-1 min-w-[8rem] text-center text-sm py-1.5 px-2 rounded-lg border border-blue-400 text-blue-600 hover:bg-blue-50">
+                  活動名單 ({ev.att_count})
+                </Link>
+                <DuplicateEventButton eventId={ev.id} eventName={ev.name} />
                 <DeleteEventButton eventId={ev.id} eventName={ev.name} regCount={ev.reg_count} paidCount={ev.paid_count} />
               </div>
             </div>

@@ -1,14 +1,61 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { APP_NAME, APP_VERSION } from '@/lib/version';
+import InstallAppButtons from '@/components/pwa/InstallAppButtons';
+
+const REMEMBERED_EMAIL_KEY = 'dzz3activity:last_login_email';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const disabledFlag = searchParams.get('disabled') === '1';
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  // Track whether we recovered an email from localStorage so we can land
+  // focus on the password field instead of email (faster login).
+  const [hasRememberedEmail, setHasRememberedEmail] = useState(false);
+
+  // Prefill email from a previous successful login (client-only — never
+  // persists a password). Runs once on mount.
+  useEffect(() => {
+    try {
+      const remembered = window.localStorage?.getItem(REMEMBERED_EMAIL_KEY);
+      if (remembered) {
+        setForm((p) => ({ ...p, email: remembered }));
+        setHasRememberedEmail(true);
+      }
+    } catch {
+      // Private mode / storage disabled — silently skip.
+    }
+  }, []);
+
+  // Send focus to password field if we already have an email; otherwise email.
+  useEffect(() => {
+    if (hasRememberedEmail) passwordInputRef.current?.focus();
+    else emailInputRef.current?.focus();
+  }, [hasRememberedEmail]);
+
+  // When the layout bounced a disabled-account session here, clear the stale
+  // cookie immediately so it doesn't keep re-redirecting on the next nav.
+  useEffect(() => {
+    if (!disabledFlag) return;
+    setNotice('您的帳號已停用，無法登入。請聯繫管理員。');
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  }, [disabledFlag]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -24,6 +71,11 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || '登入失敗');
       } else {
+        try {
+          window.localStorage?.setItem(REMEMBERED_EMAIL_KEY, form.email.trim());
+        } catch {
+          // Storage disabled — login still succeeds, just no convenience.
+        }
         window.location.href = data.is_admin ? '/admin' : '/events';
       }
     } catch {
@@ -38,7 +90,6 @@ export default function LoginPage() {
       <div className="bg-temple-red px-6 py-8 text-center">
         <div className="text-4xl mb-2">⛩️</div>
         <h1 className="text-white text-xl font-bold">{APP_NAME}</h1>
-        <p className="text-red-200 text-sm mt-1">師兄姐專屬服務平台</p>
       </div>
 
       <div className="flex-1 px-5 pt-8">
@@ -48,6 +99,7 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
             <input
+              ref={emailInputRef}
               type="email"
               required
               autoComplete="email"
@@ -61,8 +113,10 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">密碼</label>
             <input
+              ref={passwordInputRef}
               type="password"
               required
+              autoComplete="current-password"
               className="input-field"
               placeholder="輸入密碼"
               value={form.password}
@@ -70,6 +124,11 @@ export default function LoginPage() {
             />
           </div>
 
+          {notice && !error && (
+            <div className="bg-amber-50 text-amber-800 text-sm px-4 py-3 rounded-lg border border-amber-200">
+              {notice}
+            </div>
+          )}
           {error && (
             <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">
               {error}
@@ -96,7 +155,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-8 mb-4 text-center">
+        <InstallAppButtons />
+
+        <div className="mt-6 mb-4 text-center">
           <p className="text-[10px] text-gray-300">{APP_VERSION}</p>
         </div>
       </div>

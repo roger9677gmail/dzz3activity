@@ -30,6 +30,23 @@ export const PUT = withPermission('locations:manage', async (request, { params }
     }
     args.push(id);
     await db.prepare(`UPDATE locations SET ${sets.join(', ')} WHERE id = ?`).run(...args);
+
+    // Keep the mirror member_group in sync (name + sort_order)
+    if (typeof name === 'string' || Number.isFinite(sort_order)) {
+      const mirrorSets = [];
+      const mirrorArgs = [];
+      if (typeof name === 'string') { mirrorSets.push('name = ?'); mirrorArgs.push(name.trim()); }
+      if (Number.isFinite(sort_order)) { mirrorSets.push('sort_order = ?'); mirrorArgs.push(sort_order); }
+      mirrorArgs.push(id);
+      try {
+        await db
+          .prepare(`UPDATE member_groups SET ${mirrorSets.join(', ')} WHERE location_id = ?`)
+          .run(...mirrorArgs);
+      } catch (err) {
+        console.error('Failed to sync mirror group:', err);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {

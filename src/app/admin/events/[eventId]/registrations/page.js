@@ -22,13 +22,22 @@ export default async function EventRegistrationsPage({ params }) {
     ORDER BY m.name
   `).all(params.eventId);
 
-  for (const reg of registrations) {
-    reg.items = await db.prepare(`
+  if (registrations.length > 0) {
+    const regIds = registrations.map((r) => r.id);
+    const placeholders = regIds.map(() => '?').join(',');
+    const allItems = await db.prepare(`
       SELECT ri.*, ei.name as item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
-      WHERE ri.registration_id = ?
-    `).all(reg.id);
+      WHERE ri.registration_id IN (${placeholders})
+      ORDER BY ri.registration_id, ri.is_gift, ri.id
+    `).all(...regIds);
+    const byReg = new Map();
+    for (const it of allItems) {
+      if (!byReg.has(it.registration_id)) byReg.set(it.registration_id, []);
+      byReg.get(it.registration_id).push(it);
+    }
+    for (const reg of registrations) reg.items = byReg.get(reg.id) || [];
   }
 
   const paidCount = registrations.filter((r) => r.payment_status === 'paid').length;
@@ -37,15 +46,21 @@ export default async function EventRegistrationsPage({ params }) {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-2">
+      <Link
+        href="/admin/events"
+        className="inline-flex items-center gap-1.5 text-sm text-temple-red hover:bg-red-50 px-3 py-1.5 -ml-1 rounded-lg font-medium border border-temple-red/30 transition-colors mb-3"
+      >
+        <span className="text-base leading-none">←</span>
+        返回活動列表
+      </Link>
+      <div className="flex items-center justify-between mb-2 gap-3">
         <div>
-          <Link href="/admin/events" className="text-sm text-gray-400 hover:text-gray-600">← 返回活動列表</Link>
-          <h1 className="text-2xl font-bold text-gray-800 mt-1">{event.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-800">{event.name}</h1>
           <p className="text-sm text-gray-500">報名名單 ・ {formatDate(event.start_date)}</p>
         </div>
         <a
           href={`/api/reports?format=xlsx&eventId=${event.id}`}
-          className="btn-secondary text-sm px-4 py-2"
+          className="btn-secondary text-sm px-4 py-2 shrink-0"
         >
           📥 匯出 Excel
         </a>

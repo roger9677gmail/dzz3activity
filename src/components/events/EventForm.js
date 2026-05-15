@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toDateTimeLocalValue } from '@/lib/utils';
 
 const DEFAULT_COLORS = ['#8B1A1A', '#1A4A8B', '#1A6B2A', '#7A1A8B', '#8B5E1A'];
 
@@ -11,10 +12,11 @@ export default function EventForm({ event = null }) {
   const [form, setForm] = useState({
     name: event?.name || '',
     description: event?.description || '',
-    start_date: event?.start_date || '',
-    end_date: event?.end_date || '',
-    registration_deadline: event?.registration_deadline || '',
+    start_date: toDateTimeLocalValue(event?.start_date),
+    end_date: toDateTimeLocalValue(event?.end_date),
+    registration_deadline: toDateTimeLocalValue(event?.registration_deadline),
     location: event?.location || '',
+    map_url: event?.map_url || '',
     status: event?.status || 'active',
     banner_color: event?.banner_color || '#8B1A1A',
   });
@@ -22,7 +24,9 @@ export default function EventForm({ event = null }) {
   // Stable per-item uid so gift target references survive reordering and edit/save round-trips.
   const uidCounter = useRef(0);
   function newUid() { uidCounter.current += 1; return `c${uidCounter.current}`; }
-  const initialItems = (event?.items || [{ name: '', description: '', price: 0, requires_name: true, requires_content: false }])
+  // Default to no items so admins can create pure attendance-only events
+  // (the existing event's items override this on edit).
+  const initialItems = (event?.items || [])
     .map((it) => ({
       _uid: it.id ? `db${it.id}` : newUid(),
       ...it,
@@ -164,27 +168,43 @@ export default function EventForm({ event = null }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">開始日期 *</label>
-            <input type="date" required className="input-field"
+            <label className="block text-sm font-medium text-gray-700 mb-1">開始時間 *</label>
+            <input type="datetime-local" required className="input-field"
               value={form.start_date} onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">結束日期 *</label>
-            <input type="date" required className="input-field"
+            <label className="block text-sm font-medium text-gray-700 mb-1">結束時間 *</label>
+            <input type="datetime-local" required className="input-field"
               value={form.end_date} onChange={(e) => setForm((p) => ({ ...p, end_date: e.target.value }))} />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">報名截止日期 *</label>
-          <input type="date" required className="input-field"
+          <label className="block text-sm font-medium text-gray-700 mb-1">報名截止時間 *</label>
+          <input type="datetime-local" required className="input-field"
             value={form.registration_deadline} onChange={(e) => setForm((p) => ({ ...p, registration_deadline: e.target.value }))} />
+          <p className="text-xs text-gray-400 mt-1">含時間點，師兄姐介面會顯示完整截止時間。</p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">地點</label>
           <input type="text" className="input-field" placeholder="活動地點（選填）"
             value={form.location} onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))} />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Google 地圖連結</label>
+          <input
+            type="url"
+            className="input-field"
+            placeholder="https://maps.app.goo.gl/... 或完整 Google Maps 連結"
+            value={form.map_url}
+            onChange={(e) => setForm((p) => ({ ...p, map_url: e.target.value }))}
+            maxLength={1000}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Google Maps → 找到地點 → 分享 → 複製連結，貼到這裡。師兄姐端點地點會直接打開這個 pin。留空則自動用上方「地點」文字當搜尋。
+          </p>
         </div>
 
         <div>
@@ -214,6 +234,12 @@ export default function EventForm({ event = null }) {
           <h3 className="font-bold text-temple-dark">報名項目</h3>
           <button type="button" onClick={addItem} className="text-sm text-temple-red font-medium">+ 新增項目</button>
         </div>
+
+        {items.length === 0 && (
+          <div className="text-xs text-gray-400 mb-3">
+            （未新增任何報名項目；此活動將為「純活動登記」模式，師兄姐只能透過「活動登記」題目參加，沒有報名祈福項目）
+          </div>
+        )}
 
         <div className="space-y-4">
           {items.map((item, idx) => (
@@ -256,7 +282,7 @@ export default function EventForm({ event = null }) {
                     className="text-gray-500 text-sm disabled:opacity-30"
                     aria-label="下移"
                   >↓</button>
-                  {items.length > 1 && (
+                  {items.length >= 1 && (
                     <button type="button" onClick={() => removeItem(idx)} className="text-red-500 text-sm">移除</button>
                   )}
                 </div>
@@ -343,7 +369,7 @@ export default function EventForm({ event = null }) {
         </div>
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
+      {error && <div role="alert" aria-live="polite" className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>}
 
       <div className="flex gap-3">
         <button type="button" onClick={() => router.back()} className="flex-1 btn-secondary">取消</button>

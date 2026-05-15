@@ -6,7 +6,7 @@ export const GET = withPermission('members:manage', async (request) => {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search');
 
-  let query = "SELECT id, name, phone, email, is_admin, admin_permissions, created_at FROM members WHERE is_admin = 0";
+  let query = "SELECT id, name, phone, email, is_admin, admin_permissions, created_at FROM members WHERE is_disabled = 0";
   const params = [];
   if (search) {
     query += ' AND (name LIKE ? OR phone LIKE ?)';

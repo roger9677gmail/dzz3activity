@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSession, parsePermissions } from '@/lib/auth';
+import { getSession, parsePermissions, buildSessionPayload, createSessionResponse, IMPERSONATION_TTL } from '@/lib/auth';
 import db from '@/lib/db';
+import { syncMirrorGroup } from '@/lib/group-sync';
 
 const ME_QUERY = `
   SELECT m.id, m.name, m.phone, m.email, m.role, m.is_admin, m.admin_permissions,
@@ -100,8 +101,24 @@ export async function PUT(request) {
       throw err;
     }
 
+    // Re-sync the location mirror group when location may have changed.
+    if (sets.some((s) => s.startsWith('location_id'))) {
+      try { await syncMirrorGroup(session.sub); }
+      catch (err) { console.error('mirror sync failed:', err); }
+    }
+
     const user = await db.prepare(ME_QUERY).get(session.sub);
-    return NextResponse.json({ success: true, user: shapeMember(user) });
+
+    // Re-issue the session cookie so JWT-cached fields (name) reflect the
+    // update on every subsequent server-render — otherwise pages like
+    // /admin still show the old name until the user logs out + back in.
+    const payload = buildSessionPayload(
+      { id: user.id, name: user.name, email: user.email,
+        is_admin: user.is_admin, admin_permissions: user.admin_permissions },
+      session.imp || null,
+    );
+    const opts = session.imp ? { expiresIn: IMPERSONATION_TTL } : {};
+    return createSessionResponse(payload, { success: true, user: shapeMember(user) }, opts);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: '伺服器錯誤' }, { status: 500 });

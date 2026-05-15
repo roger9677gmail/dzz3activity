@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, safeParseJSON } from '@/lib/utils';
 import PaymentForm from '@/components/registrations/PaymentForm';
 
 export default function AdminRegistrationsClient({ registrations, events, initialFilters }) {
@@ -92,8 +92,9 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                 <div className="px-4 pb-4 border-t border-gray-100 pt-3">
                   <div className="mb-3 space-y-1">
                     {reg.items.map((item) => {
-                      const names = item.names ? JSON.parse(item.names) : [];
-                      const contents = item.contents ? JSON.parse(item.contents) : [];
+                      const names = safeParseJSON(item.names);
+                      const contents = safeParseJSON(item.contents);
+                      const itemTitle = item.receipt_title || reg.receipt_title || '';
                       return (
                         <div key={item.id} className="text-sm">
                           <div>
@@ -103,6 +104,11 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                           {contents.length > 0 && contents.some((c) => c && c.trim()) && (
                             <div className="text-xs text-gray-500 mt-0.5 pl-2">
                               超渡內容：{contents.filter((c) => c && c.trim()).join('；')}
+                            </div>
+                          )}
+                          {itemTitle && (
+                            <div className="text-xs text-gray-500 mt-0.5 pl-2">
+                              收據抬頭：{itemTitle}
                             </div>
                           )}
                         </div>

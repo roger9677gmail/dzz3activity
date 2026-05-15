@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import db from '@/lib/db';
 import { withPermission } from '@/lib/middleware';
+import { safeParseJSON } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,14 +20,6 @@ const HEADERS = [
   '道場',
 ];
 
-function safeParse(val) {
-  if (!val) return [];
-  try {
-    const v = JSON.parse(val);
-    return Array.isArray(v) ? v : [];
-  } catch { return []; }
-}
-
 function fmtDate(d) {
   if (!d) return '';
   const s = (d instanceof Date) ? d.toISOString() : String(d);
@@ -42,10 +35,10 @@ function safeCell(v) {
   return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 }
 
-async function loadRows({ eventId, paymentStatus, status }) {
+async function loadRows({ eventId, paymentStatus, status, groupIds }) {
   let query = `
     SELECT r.id, r.event_id, r.created_at, r.payment_status, r.status,
-           r.receipt_number, r.notes,
+           r.receipt_number, r.receipt_title AS reg_receipt_title, r.notes,
            m.name AS member_name, m.phone AS member_phone, m.address AS member_address,
            COALESCE(NULLIF(m.receipt_title, ''), m.name) AS member_receipt_title,
            l.name AS location_name,
@@ -60,6 +53,12 @@ async function loadRows({ eventId, paymentStatus, status }) {
   if (eventId) { query += ' AND r.event_id = ?'; params.push(eventId); }
   if (paymentStatus) { query += ' AND r.payment_status = ?'; params.push(paymentStatus); }
   if (status) { query += ' AND r.status = ?'; params.push(status); }
+  if (Array.isArray(groupIds) && groupIds.length > 0) {
+    const placeholders = groupIds.map(() => '?').join(',');
+    query += ` AND EXISTS (SELECT 1 FROM member_group_assignments mga
+                            WHERE mga.member_id = m.id AND mga.group_id IN (${placeholders}))`;
+    params.push(...groupIds);
+  }
   query += ' ORDER BY e.name, r.created_at, m.name, r.id';
 
   const regs = await db.prepare(query).all(...params);
@@ -67,7 +66,8 @@ async function loadRows({ eventId, paymentStatus, status }) {
   const out = [];
   for (const r of regs) {
     const items = await db.prepare(`
-      SELECT ri.quantity, ri.names, ri.contents, ri.subtotal, ri.is_gift, ei.name AS item_name
+      SELECT ri.quantity, ri.names, ri.contents, ri.receipt_title AS item_receipt_title,
+             ri.subtotal, ri.is_gift, ei.name AS item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
       WHERE ri.registration_id = ?
@@ -76,10 +76,17 @@ async function loadRows({ eventId, paymentStatus, status }) {
 
     let giftCounter = 0;
     for (const it of items) {
-      const namesArr = safeParse(it.names);
-      const contentsArr = safeParse(it.contents);
+      const namesArr = safeParseJSON(it.names);
+      const contentsArr = safeParseJSON(it.contents);
       const qty = it.quantity || 1;
       const unit = qty > 0 ? Math.round((it.subtotal || 0) / qty) : (it.subtotal || 0);
+      // Per-item receipt_title is the source of truth; fall back to the
+      // registration-level value (admin payment form) or the member default.
+      const rowTitle =
+        (it.item_receipt_title && String(it.item_receipt_title).trim()) ||
+        (r.reg_receipt_title && String(r.reg_receipt_title).trim()) ||
+        r.member_receipt_title ||
+        '';
       for (let i = 0; i < qty; i++) {
         const isGift = !!it.is_gift;
         if (isGift) giftCounter += 1;
@@ -90,7 +97,7 @@ async function loadRows({ eventId, paymentStatus, status }) {
           金額: isGift ? `贈${giftCounter}` : unit,
           項目: safeCell(it.item_name),
           收據編號: safeCell(r.receipt_number || ''),
-          收據抬頭: safeCell(r.member_receipt_title),
+          收據抬頭: safeCell(rowTitle),
           連絡人: safeCell(r.member_name),
           電話: safeCell(r.member_phone || ''),
           地址: safeCell(r.member_address || ''),
@@ -141,8 +148,10 @@ export const GET = withPermission('reports:view', async (request) => {
   const eventId = searchParams.get('eventId');
   const paymentStatus = searchParams.get('payment_status');
   const status = searchParams.get('status');
+  const groupIds = (searchParams.get('group_ids') || '')
+    .split(',').map((s) => parseInt(s)).filter((n) => Number.isInteger(n) && n > 0);
 
-  const rows = await loadRows({ eventId, paymentStatus, status });
+  const rows = await loadRows({ eventId, paymentStatus, status, groupIds });
   const buf = await buildXlsx(rows);
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
   return new NextResponse(buf, {

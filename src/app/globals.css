@@ -14,21 +14,35 @@
   }
 }
 
+@layer base {
+  /* Visible keyboard focus everywhere by default. Pointer focus is suppressed
+     by browsers when :focus-visible is supported, so we don't break mouse UX. */
+  :focus-visible {
+    outline: 2px solid #8B1A1A;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
 @layer components {
   .btn-primary {
     @apply bg-temple-red text-white font-medium py-2.5 px-4 rounded-lg
            active:bg-temple-red-dark transition-colors
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-temple-red
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
     @apply bg-white text-temple-red border border-temple-red font-medium py-2.5 px-4 rounded-lg
-           active:bg-red-50 transition-colors;
+           active:bg-red-50 transition-colors
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-temple-red
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-gold {
     @apply bg-temple-gold text-white font-medium py-2.5 px-4 rounded-lg
-           active:bg-amber-600 transition-colors;
+           active:bg-amber-600 transition-colors
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-temple-gold;
   }
 
   .input-field {

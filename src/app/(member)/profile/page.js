@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { APP_VERSION } from '@/lib/version';
 import PushSubscribe from '@/components/pwa/PushSubscribe';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 // Resize an image File to at most maxSize on the longest side, return a JPEG data URL.
 async function resizeImage(file, maxSize = 400, quality = 0.85) {
@@ -20,6 +21,7 @@ async function resizeImage(file, maxSize = 400, quality = 0.85) {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const fileInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -32,7 +34,7 @@ export default function ProfilePage() {
   const [updating, setUpdating] = useState(false);
 
   async function handleForceUpdate() {
-    if (!confirm('將清除 App 快取並重新載入，確定？')) return;
+    if (!(await confirm({ title: '清除 App 快取', message: '將清除快取並重新載入，確定？', confirmText: '清除' }))) return;
     setUpdating(true);
     try {
       if ('serviceWorker' in navigator) {

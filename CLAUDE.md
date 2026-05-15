@@ -25,7 +25,9 @@ v<YYMMDD>.<SS>
 
 1. **每次改版必須更新版號**。即使只是小改 UI 字、改一行 bug，只要要部署上線就要 bump。
 2. **同一天再次改版**，`SS` 加 1（`v260509.01` → `v260509.02`）。
-3. **跨日**重新從 `01` 起算（`v260509.05` → `v260510.01`）。
+3. **跨日**重新從 `01` 起算（`v260509.05` → `v260510.01`）。⚠️ 一定要看當天日期、不要沿用前一天的 YYMMDD。
+   - ❌ 錯誤：今天 5/11，繼續用 `v260509.17`
+   - ✅ 正確：今天 5/11，改用 `v260511.01`
 4. **單一 source of truth**：版號定義在 `src/lib/version.js`，整個專案都從這裡 import，不要在其他地方寫死。
 5. **登入頁底部必顯示版號**（會員 `/login` 與管理員 `/admin/login` 都要）；個人資料頁「關於本系統」也會顯示。
 6. 版號 bump 與功能修改 **同一個 commit**，避免漏更新。
@@ -108,6 +110,13 @@ done
 | `member_practices` | member_id, practice_id (UNIQUE pair), daily_target, active — 師兄姐訂閱 |
 | `practice_logs` | member_id, practice_id, log_date, value (UNIQUE 三聯) — 每日紀錄；count 為次數、duration 為分鐘 |
 | `practice_notes` | member_id, log_date, content, is_public — 修行筆記 |
+| `member_groups` | id, name (UNIQUE), color, sort_order, active, `location_id` (UNIQUE NULL, FK→locations) — 群組主檔；預設「全體師兄姐」自動套到所有師兄姐；`location_id` 非 NULL 為道場鏡射群組（依 locations 自動同步） |
+| `member_group_assignments` | member_id, group_id (UNIQUE pair) — 師兄姐 ↔ 群組 |
+| `announcements` | id, title, content, image (data:URL), link_url, attachment_url, pinned, starts_at, ends_at, created_by |
+| `announcement_groups` | announcement_id, group_id (UNIQUE pair) — 公告 ↔ 目標群組 |
+| `event_attendance_questions` | event_id, label, type, options JSON, required, sort_order — 活動登記題目，type: text\|choice\|multi_date\|count\|checkbox |
+| `event_attendance` | event_id, member_id, `attendee_name` (NULL=本人，NOT NULL=親友姓名), `attendee_relation`, notes — 一筆=一個人；本人每場至多 1 筆 (app 層約束)，親友可多筆 |
+| `event_attendance_answers` | attendance_id, question_id (UNIQUE pair), value JSON — 每題回覆 |
 
 ### 後台權限模型
 
@@ -117,8 +126,11 @@ done
 - 細權限存在 `members.admin_permissions` JSON 陣列。`['*']` 代表全部權限；其餘可組合：
   - `events:manage`、`registrations:manage`、`members:manage`、`locations:manage`
   - `members:delete`（**永久刪除師兄姐帳號+全部相關資料**，高風險、與 `members:manage` 獨立授權）
+  - `members:impersonate`（模擬師兄姐身分檢視 / 代為操作，唯讀 / 可寫兩種模式，可寫會留 audit log）
   - `admins:manage`（含指派/撤銷管理員與權限）
   - `reports:view`、`notifications:send`、`practices:manage`
+  - `announcements:manage`、`groups:manage`
+  - `attendance:manage`（每場活動的「活動登記表」題目設計 + 已登記名單 + Excel 匯出）
 - API：用 `withPermission('xxx:yyy', handler)` 或 `withAdminAuth(handler)` 包裝。
 - UI：`AdminSidebar` 依當前 session 的 `permissions` 過濾選單；無權的頁面會 server-side redirect 回 `/admin`。
 - 撤銷管理員不會刪除師兄姐帳號，只是 `is_admin=0` 並清空 `admin_permissions`，報名紀錄全部保留。
@@ -131,6 +143,38 @@ done
 - 功課主檔由 `practices:manage` 管理員在 `/admin/practices` 維護；type=count 存次數、type=duration 存分鐘。
 - 排名指標：近 90 天 `SUM(value)` per member；可切「全體 / 同道場」。
 - `practice_notes.is_public=1` 才會出現在大眾分享 feed (`/api/notes/public`)，作者可隨時切換私人/公開。
+
+### 道場 ↔ 群組鏡射
+
+- 每個 `locations` 自動掛一個對應的 `member_groups` (`location_id` 指向 locations.id)，admin 只在 `/admin/locations` 維護道場
+- 師兄姐 `members.location_id` 變動時，`src/lib/group-sync.js` 的 `syncMirrorGroup(memberId)` 會把舊鏡射 group assignment 移除、加上新道場的鏡射 — 在 register / `/api/auth/me` PUT / `/api/admin/members/[id]` PATCH 都會呼叫
+- `/admin/groups` 看得到鏡射群組（前綴 🏯 + 「道場鏡射」標籤），但無法改名、停用、刪、手動加減成員；color 與 sort_order 仍可改
+- `/admin/announcements` 群組選單一個 list；鏡射群組排在前面 + 🏯 前綴
+- 刪除 location 時 FK CASCADE 連帶清掉鏡射群組與其 assignments；不會刪到師兄姐本身
+
+### 公告訊息 + 群組標籤
+
+- 底部 nav 第二項是「公告訊息」(`/announcements`)，已取代舊「報名紀錄」。報名歷史改在「法會活動」卡片內就地顯示。
+- 群組主檔 `/admin/groups`（需 `groups:manage`）。預設 `全體師兄姐` 群組由 migration seed、所有新註冊師兄姐自動加入，無法刪除。
+- 公告主檔 `/admin/announcements`（需 `announcements:manage`）：
+  - 圖片內嵌 data:URL（client 端 resize 至 1280px / JPEG 0.85），跟 avatar 同模式
+  - 外部連結 / 附件連結為純 URL（沒有實體上傳）
+  - `pinned=1` 在師兄姐端釘最上
+  - `starts_at` / `ends_at` 控制可見區間；NULL 等於開放
+  - 必須選至少一個目標群組
+- `/api/announcements` (GET) 自動依師兄姐所屬群組過濾，置頂 → 新→舊排序。
+
+### 活動登記表（與報名祈福並存）
+
+同一個 event 下，「報名祈福（付費功德主/蓮位）」與「活動登記（交通/住宿/用餐等）」是兩個獨立子模組，師兄姐可只填其一或兩者皆填。
+
+- Admin 設計題目：`/admin/events/[eventId]/attendance` → 題目設計分頁，支援五種題型：
+  - `text` 單行文字 / `choice` 單選（可加自訂文字欄位，例：車號）/ `multi_date` 多選清單（每行一個選項，可填日期或自訂文字；type 名沿用 multi_date 為向後相容）/ `count` 數字 / `checkbox` 是否參加
+- Admin 看名單：同頁的「已登記名單」分頁；按右上「📄 匯出 Excel」拿到完整表格（`multi_date` 自動展開為一日一欄、勾選為 1）
+- 師兄姐填表：`/events/[eventId]/attendance`；event 詳情頁有題目時會出現「📋 活動登記」入口
+- 同一師兄姐可登記「本人 + N 位親友」：本人 attendee_name=NULL（每場至多 1 筆），親友 attendee_name+relation 必填、可多筆。各自獨立填寫所有題目，互不影響
+- API：`GET /api/me/attendance/[eventId]` 回 `{entries:[...]}`；`POST` 新增；`PUT /api/me/attendance/[eventId]/[attendanceId]` 更新；`DELETE` 刪除（含本人取消登記）
+- Admin 名單與 Excel 一列＝一個人，含「登記對象 / 關係」兩欄
 
 ### 報表 (Excel 匯出)
 
@@ -161,6 +205,12 @@ gcloud builds submit --config=cloudbuild.yaml \
 
 ```bash
 gcloud auth login
+gcloud auth application-default login
+```
+
+⚠️ **ADC token 會過期**（Cloud Shell 每次重開、本機約 1 小時）。如果跑 `npm run db:migrate` 看到「could not find default credentials」或「invalid_grant」之類錯誤，重跑這條再來：
+
+```bash
 gcloud auth application-default login
 ```
 

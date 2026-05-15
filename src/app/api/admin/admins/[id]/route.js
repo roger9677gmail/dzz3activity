@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { withAuth, withPermission } from '@/lib/middleware';
 
@@ -14,6 +13,9 @@ const KNOWN_PERMS = new Set([
   'reports:view',
   'notifications:send',
   'practices:manage',
+  'announcements:manage',
+  'groups:manage',
+  'attendance:manage',
 ]);
 
 function sanitizePermissions(input) {
@@ -54,35 +56,15 @@ export const DELETE = withPermission('admins:manage', async (request, { params }
   return NextResponse.json({ success: true });
 });
 
-// PATCH dispatches by payload shape:
-//  - { old_password, new_password } → self-only password change (any signed-in user)
-//  - { permissions: [...] }          → admins:manage; replace target's permissions
+// PATCH: { permissions: [...] } → admins:manage; replace target's permissions.
+// (Password changes go through the standard /忘記密碼 flow at login — admins
+// don't get a separate inline change-password form anymore.)
 export const PATCH = withAuth(async (request, { params }) => {
   try {
     const targetId = parseInt(params.id);
     if (!targetId) return NextResponse.json({ error: '無效的 ID' }, { status: 400 });
     const body = await request.json();
     const session = request.session;
-
-    if (body.old_password !== undefined || body.new_password !== undefined) {
-      if (Number(session.sub) !== targetId) {
-        return NextResponse.json({ error: '只能修改自己的密碼' }, { status: 403 });
-      }
-      const { old_password, new_password } = body;
-      if (!old_password || !new_password) {
-        return NextResponse.json({ error: '請輸入舊密碼與新密碼' }, { status: 400 });
-      }
-      if (String(new_password).length < 8) {
-        return NextResponse.json({ error: '新密碼至少需 8 碼' }, { status: 400 });
-      }
-      const me = await db.prepare('SELECT id, password FROM members WHERE id = ?').get(targetId);
-      if (!me) return NextResponse.json({ error: '帳號不存在' }, { status: 404 });
-      const ok = await bcrypt.compare(old_password, me.password);
-      if (!ok) return NextResponse.json({ error: '舊密碼不正確' }, { status: 401 });
-      const hash = await bcrypt.hash(new_password, 10);
-      await db.prepare('UPDATE members SET password = ? WHERE id = ?').run(hash, targetId);
-      return NextResponse.json({ success: true });
-    }
 
     if (Array.isArray(body.permissions)) {
       if (!session.is_admin) {

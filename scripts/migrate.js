@@ -46,10 +46,11 @@ CREATE TABLE IF NOT EXISTS events (
   id                      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name                    VARCHAR(255) NOT NULL,
   description             TEXT,
-  start_date              DATE         NOT NULL,
-  end_date                DATE         NOT NULL,
-  registration_deadline   DATE         NOT NULL,
+  start_date              DATETIME     NOT NULL,
+  end_date                DATETIME     NOT NULL,
+  registration_deadline   DATETIME     NOT NULL,
   location                VARCHAR(255),
+  map_url                 VARCHAR(1000) NULL,
   status                  VARCHAR(20)  NOT NULL DEFAULT 'active',
   banner_color            VARCHAR(20)  DEFAULT '#8B1A1A',
   created_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -103,6 +104,7 @@ CREATE TABLE IF NOT EXISTS registration_items (
   quantity        INT          NOT NULL DEFAULT 1,
   names           TEXT,
   contents        TEXT,
+  receipt_title   VARCHAR(100) NULL,
   subtotal        INT          NOT NULL DEFAULT 0,
   is_gift         TINYINT(1)   NOT NULL DEFAULT 0,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -208,12 +210,172 @@ CREATE TABLE IF NOT EXISTS practice_notes (
   member_id   INT UNSIGNED NOT NULL,
   log_date    DATE NOT NULL,
   content     TEXT NOT NULL,
+  image       MEDIUMTEXT NULL,
+  link_url    VARCHAR(500) NULL,
   is_public   TINYINT(1) NOT NULL DEFAULT 0,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_note_member (member_id, log_date),
   INDEX idx_note_public (is_public, created_at),
   CONSTRAINT fk_note_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_groups (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(50) NOT NULL UNIQUE,
+  color       VARCHAR(20) NOT NULL DEFAULT '#8B1A1A',
+  sort_order  INT NOT NULL DEFAULT 0,
+  active      TINYINT(1) NOT NULL DEFAULT 1,
+  location_id INT UNSIGNED NULL UNIQUE,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_mg_location FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS member_group_assignments (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  member_id   INT UNSIGNED NOT NULL,
+  group_id    INT UNSIGNED NOT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_member_group (member_id, group_id),
+  INDEX idx_mga_member (member_id),
+  INDEX idx_mga_group (group_id),
+  CONSTRAINT fk_mga_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+  CONSTRAINT fk_mga_group  FOREIGN KEY (group_id)  REFERENCES member_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS announcements (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title           VARCHAR(200) NOT NULL,
+  content         TEXT,
+  image           MEDIUMTEXT NULL,
+  link_url        VARCHAR(500) NULL,
+  attachment_url  VARCHAR(500) NULL,
+  attachment_name VARCHAR(255) NULL,
+  pinned          TINYINT(1) NOT NULL DEFAULT 0,
+  starts_at       DATETIME NULL,
+  ends_at         DATETIME NULL,
+  created_by      INT UNSIGNED NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_ann_visibility (pinned, created_at),
+  INDEX idx_ann_window (starts_at, ends_at),
+  CONSTRAINT fk_ann_creator FOREIGN KEY (created_by) REFERENCES members(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS announcement_groups (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  announcement_id INT UNSIGNED NOT NULL,
+  group_id        INT UNSIGNED NOT NULL,
+  UNIQUE KEY uk_ann_group (announcement_id, group_id),
+  INDEX idx_ag_ann (announcement_id),
+  INDEX idx_ag_group (group_id),
+  CONSTRAINT fk_ag_ann   FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ag_group FOREIGN KEY (group_id)        REFERENCES member_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_attendance_questions (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id    INT UNSIGNED NOT NULL,
+  label       VARCHAR(200) NOT NULL,
+  type        VARCHAR(20)  NOT NULL,
+  options     JSON         NULL,
+  required    TINYINT(1)   NOT NULL DEFAULT 0,
+  sort_order  INT          NOT NULL DEFAULT 0,
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_eaq_event (event_id, sort_order),
+  CONSTRAINT fk_eaq_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_attendance (
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id           INT UNSIGNED NOT NULL,
+  member_id          INT UNSIGNED NOT NULL,
+  attendee_name      VARCHAR(100) NULL,
+  attendee_relation  VARCHAR(20)  NULL,
+  notes              TEXT NULL,
+  created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_ea_event (event_id),
+  INDEX idx_ea_member (member_id),
+  INDEX idx_ea_event_member (event_id, member_id),
+  CONSTRAINT fk_ea_event  FOREIGN KEY (event_id)  REFERENCES events(id)  ON DELETE CASCADE,
+  CONSTRAINT fk_ea_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_attendance_answers (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  attendance_id   INT UNSIGNED NOT NULL,
+  question_id     INT UNSIGNED NOT NULL,
+  value           JSON NOT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_eaa_attendance_question (attendance_id, question_id),
+  INDEX idx_eaa_attendance (attendance_id),
+  INDEX idx_eaa_question (question_id),
+  CONSTRAINT fk_eaa_attendance FOREIGN KEY (attendance_id) REFERENCES event_attendance(id)           ON DELETE CASCADE,
+  CONSTRAINT fk_eaa_question   FOREIGN KEY (question_id)   REFERENCES event_attendance_questions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS push_presets (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title       VARCHAR(200) NOT NULL,
+  body        TEXT NOT NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS event_staff (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_id    INT UNSIGNED NOT NULL,
+  role_name   VARCHAR(50) NOT NULL,
+  member_id   INT UNSIGNED NOT NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_staff (event_id, role_name, member_id),
+  INDEX idx_staff_event (event_id),
+  INDEX idx_staff_member (member_id),
+  CONSTRAINT fk_staff_event  FOREIGN KEY (event_id)  REFERENCES events(id)  ON DELETE CASCADE,
+  CONSTRAINT fk_staff_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_note_reactions (
+  note_id    INT UNSIGNED NOT NULL,
+  member_id  INT UNSIGNED NOT NULL,
+  emoji      VARCHAR(8) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (note_id, member_id, emoji),
+  INDEX idx_pnr_note (note_id),
+  CONSTRAINT fk_pnr_note   FOREIGN KEY (note_id)   REFERENCES practice_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pnr_member FOREIGN KEY (member_id) REFERENCES members(id)        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS practice_note_comments (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  note_id    INT UNSIGNED NOT NULL,
+  member_id  INT UNSIGNED NOT NULL,
+  content    TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_pnc_note (note_id, created_at),
+  CONSTRAINT fk_pnc_note   FOREIGN KEY (note_id)   REFERENCES practice_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pnc_member FOREIGN KEY (member_id) REFERENCES members(id)        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS impersonation_logs (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  admin_id    INT UNSIGNED NOT NULL,
+  target_id   INT UNSIGNED NOT NULL,
+  mode        VARCHAR(10)  NOT NULL,
+  started_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ended_at    DATETIME     NULL,
+  ip          VARCHAR(45)  NULL,
+  user_agent  VARCHAR(500) NULL,
+  INDEX idx_il_admin  (admin_id, started_at),
+  INDEX idx_il_target (target_id, started_at),
+  CONSTRAINT fk_il_admin  FOREIGN KEY (admin_id)  REFERENCES members(id) ON DELETE CASCADE,
+  CONSTRAINT fk_il_target FOREIGN KEY (target_id) REFERENCES members(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
@@ -366,6 +528,8 @@ CREATE TABLE IF NOT EXISTS practice_notes (
         "ALTER TABLE members ADD COLUMN address VARCHAR(255) AFTER location_id"],
       ["ADD registrations.receipt_title",
         "ALTER TABLE registrations ADD COLUMN receipt_title VARCHAR(100) AFTER receipt_number"],
+      ["ADD registration_items.receipt_title",
+        "ALTER TABLE registration_items ADD COLUMN receipt_title VARCHAR(100) NULL AFTER contents"],
     ];
     for (const [label, sql] of LOC_ALTERS) {
       try {
@@ -396,22 +560,210 @@ CREATE TABLE IF NOT EXISTS practice_notes (
       }
     }
 
-    // Seed default locations (idempotent — UNIQUE on name protects).
-    const DEFAULT_LOCATIONS = [
-      ['明心禪苑(永和)', 1],
-      ['靜心禪苑(新竹)', 2],
-      ['台中禪林', 3],
-    ];
-    for (const [name, sort] of DEFAULT_LOCATIONS) {
-      const [r] = await conn.query(
-        `INSERT IGNORE INTO locations (name, sort_order) VALUES (?, ?)`,
-        [name, sort]
-      );
-      if (r.affectedRows > 0) {
-        console.log(`✅ Seeded location: ${name}`);
+    // (No default-location seeding here — locations are managed entirely
+    // through /admin/locations.  Previously this block re-inserted a hard-
+    // coded list each migrate, which had the obnoxious side effect of
+    // resurrecting locations the admin had intentionally deleted.)
+
+    // Mirror-group integration: each `locations` row gets a corresponding
+    // `member_groups` row (location_id NOT NULL), so admins can target
+    // announcements at a 道場 via the same group system.
+    console.log('— Locations ↔ groups mirror —');
+    try {
+      await conn.query('ALTER TABLE member_groups ADD COLUMN location_id INT UNSIGNED NULL AFTER active');
+      console.log('✅ Applied: ADD member_groups.location_id');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD member_groups.location_id');
       } else {
-        console.log(`ℹ️  Location exists: ${name}`);
+        throw err;
       }
+    }
+    try {
+      await conn.query('ALTER TABLE member_groups ADD UNIQUE KEY uk_mg_location (location_id)');
+      console.log('✅ Applied: UNIQUE member_groups.location_id');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_KEYNAME' || /Duplicate key name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (index exists): uk_mg_location');
+      } else {
+        throw err;
+      }
+    }
+    try {
+      await conn.query(
+        'ALTER TABLE member_groups ADD CONSTRAINT fk_mg_location ' +
+        'FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE'
+      );
+      console.log('✅ Applied: FK member_groups.location_id → locations.id');
+    } catch (err) {
+      if (err && (err.code === 'ER_FK_DUP_NAME' || err.code === 'ER_DUP_KEYNAME' || /Duplicate (?:foreign key|key)/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (FK exists): fk_mg_location');
+      } else {
+        console.log('ℹ️  Skipped (likely exists): fk_mg_location -', err.code || err.message);
+      }
+    }
+    // Seed mirror group for each existing location (idempotent — UNIQUE on
+    // location_id protects).
+    try {
+      const [r] = await conn.query(`
+        INSERT IGNORE INTO member_groups (name, color, sort_order, location_id)
+        SELECT l.name, '#8B1A1A', l.sort_order, l.id
+          FROM locations l
+         WHERE NOT EXISTS (SELECT 1 FROM member_groups g WHERE g.location_id = l.id)
+      `);
+      console.log(`✅ Mirror groups created: ${r.affectedRows}`);
+    } catch (err) {
+      console.log('ℹ️  Skipped mirror-group seed -', err.code || err.message);
+    }
+    // Backfill assignments: every member with a location → mirror group.
+    try {
+      const [r] = await conn.query(`
+        INSERT IGNORE INTO member_group_assignments (member_id, group_id)
+        SELECT m.id, g.id
+          FROM members m
+          JOIN member_groups g ON g.location_id = m.location_id
+         WHERE m.location_id IS NOT NULL
+      `);
+      console.log(`✅ Mirror assignments backfilled: ${r.affectedRows}`);
+    } catch (err) {
+      console.log('ℹ️  Skipped mirror-assignment backfill -', err.code || err.message);
+    }
+
+    // Seed default member group "全體師兄姐" and backfill assignments for all
+    // existing members so admins always have a sane "broadcast to everyone"
+    // target when authoring announcements.
+    console.log('— Member groups seed —');
+    try {
+      const [rs] = await conn.query(
+        `INSERT IGNORE INTO member_groups (name, sort_order, color) VALUES (?, ?, ?)`,
+        ['全體師兄姐', 0, '#8B1A1A']
+      );
+      if (rs.affectedRows > 0) console.log('✅ Seeded group: 全體師兄姐');
+      else console.log('ℹ️  Group exists: 全體師兄姐');
+    } catch (err) {
+      console.log('ℹ️  Skipped group seed -', err.code || err.message);
+    }
+    try {
+      const [r] = await conn.query(`
+        INSERT IGNORE INTO member_group_assignments (member_id, group_id)
+        SELECT m.id, g.id
+          FROM members m
+          JOIN member_groups g ON g.name = '全體師兄姐'
+      `);
+      console.log(`✅ Assigned ${r.affectedRows} member(s) to 全體師兄姐`);
+    } catch (err) {
+      console.log('ℹ️  Skipped group backfill -', err.code || err.message);
+    }
+
+    // Attendance: multi-attendee support (本人 + 親友)
+    console.log('— Attendance multi-attendee migration —');
+    try {
+      await conn.query('ALTER TABLE event_attendance ADD COLUMN attendee_name VARCHAR(100) NULL AFTER member_id');
+      console.log('✅ Applied: ADD event_attendance.attendee_name');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD event_attendance.attendee_name');
+      } else { throw err; }
+    }
+    try {
+      await conn.query('ALTER TABLE event_attendance ADD COLUMN attendee_relation VARCHAR(20) NULL AFTER attendee_name');
+      console.log('✅ Applied: ADD event_attendance.attendee_relation');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD event_attendance.attendee_relation');
+      } else { throw err; }
+    }
+    try {
+      await conn.query('ALTER TABLE event_attendance DROP INDEX uk_ea_event_member');
+      console.log('✅ Applied: DROP UNIQUE uk_ea_event_member (one row per attendee now)');
+    } catch (err) {
+      if (err && (err.code === 'ER_CANT_DROP_FIELD_OR_KEY' || /check that .* exists/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (index already dropped): uk_ea_event_member');
+      } else {
+        console.log('ℹ️  Skipped UNIQUE drop -', err.code || err.message);
+      }
+    }
+    try {
+      await conn.query('ALTER TABLE event_attendance ADD INDEX idx_ea_event_member (event_id, member_id)');
+      console.log('✅ Applied: ADD INDEX idx_ea_event_member');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_KEYNAME' || /Duplicate key name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (index exists): idx_ea_event_member');
+      } else {
+        console.log('ℹ️  Skipped INDEX add -', err.code || err.message);
+      }
+    }
+
+    // Push notification presets: seed default templates once.
+    console.log('— Push presets seed —');
+    try {
+      const DEFAULTS = [
+        ['活動提醒', '親愛的師兄姐，法會活動即將舉行，請記得準時參加，阿彌陀佛！'],
+        ['報名截止提醒', '親愛的師兄姐，法會報名即將截止，尚未報名的師兄姐請抓緊時間！'],
+        ['繳款提醒', '親愛的師兄姐，您的報名已確認，請盡快至服務台完成繳款，謝謝！'],
+      ];
+      const [[{ c }]] = await conn.query('SELECT COUNT(*) AS c FROM push_presets');
+      if (c === 0) {
+        for (let i = 0; i < DEFAULTS.length; i++) {
+          await conn.query(
+            'INSERT INTO push_presets (title, body, sort_order) VALUES (?, ?, ?)',
+            [DEFAULTS[i][0], DEFAULTS[i][1], i]
+          );
+        }
+        console.log(`✅ Seeded ${DEFAULTS.length} push preset(s)`);
+      } else {
+        console.log(`ℹ️  Skipped (already has ${c} presets)`);
+      }
+    } catch (err) {
+      console.log('ℹ️  Skipped push presets seed -', err.code || err.message);
+    }
+
+    // Practice notes: image (data: URL inline like announcements) + link_url
+    console.log('— Practice notes image/link —');
+    const NOTE_COLS = [
+      ['practice_notes.image', "ALTER TABLE practice_notes ADD COLUMN image MEDIUMTEXT NULL AFTER content"],
+      ['practice_notes.link_url', "ALTER TABLE practice_notes ADD COLUMN link_url VARCHAR(500) NULL AFTER image"],
+    ];
+    for (const [label, sql] of NOTE_COLS) {
+      try {
+        await conn.query(sql);
+        console.log(`✅ Applied: ADD ${label}`);
+      } catch (err) {
+        if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+          console.log(`ℹ️  Skipped (already applied): ADD ${label}`);
+        } else { throw err; }
+      }
+    }
+
+    // events.start_date / end_date / registration_deadline: DATE → DATETIME so admins
+    // can specify hour:minute (e.g. 兩小時的法會、報名截止精確到時間點). MODIFY COLUMN
+    // is safe: existing DATE values get auto-promoted to 00:00:00 same day. Idempotent
+    // because re-running on already-DATETIME is a no-op (MySQL just rewrites the same type).
+    console.log('— events date columns → DATETIME —');
+    const EVENT_DT_COLS = [
+      ['events.start_date',            'ALTER TABLE events MODIFY COLUMN start_date DATETIME NOT NULL'],
+      ['events.end_date',              'ALTER TABLE events MODIFY COLUMN end_date DATETIME NOT NULL'],
+      ['events.registration_deadline', 'ALTER TABLE events MODIFY COLUMN registration_deadline DATETIME NOT NULL'],
+    ];
+    for (const [label, sql] of EVENT_DT_COLS) {
+      try {
+        await conn.query(sql);
+        console.log(`✅ Applied: MODIFY ${label} → DATETIME`);
+      } catch (err) {
+        console.log(`ℹ️  Skipped ${label} -`, err.code || err.message);
+      }
+    }
+
+    // events.map_url: optional Google Maps share link (e.g. https://maps.app.goo.gl/...)
+    // so admins can pin the exact location instead of relying on a free-text search.
+    console.log('— events.map_url —');
+    try {
+      await conn.query("ALTER TABLE events ADD COLUMN map_url VARCHAR(1000) NULL AFTER location");
+      console.log('✅ Applied: ADD events.map_url');
+    } catch (err) {
+      if (err && (err.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(err.message || ''))) {
+        console.log('ℹ️  Skipped (already applied): ADD events.map_url');
+      } else { throw err; }
     }
 
     // Drop deprecated columns (idempotent — catch ER_CANT_DROP_FIELD_OR_KEY when already dropped).
