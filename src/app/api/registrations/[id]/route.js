@@ -36,11 +36,33 @@ export const PUT = withPermission('registrations:manage', async (request, { para
 // Hard-delete a registration (admin). Used when the row is corrupt and we
 // want the member to re-register cleanly — soft-cancel doesn't free up the
 // UNIQUE(event_id, member_id) slot, so re-registration would be blocked.
+//
+// Body { wipe: 'all' } also clears the member's 活動登記 (event_attendance)
+// for the same event — for the "整筆清乾淨重報" workflow. Default keeps
+// 活動登記 untouched (祈福 and 活動登記 are independent sub-modules).
 export const DELETE = withPermission('registrations:manage', async (request, { params }) => {
   try {
+    let wipeAll = false;
+    try {
+      const body = await request.json();
+      wipeAll = body?.wipe === 'all';
+    } catch {
+      // empty body is fine
+    }
+
+    const reg = await db.prepare('SELECT event_id, member_id FROM registrations WHERE id = ?').get(params.id);
+    if (!reg) return NextResponse.json({ error: '報名記錄不存在' }, { status: 404 });
+
     await db.transaction(async (tx) => {
       await tx.prepare('DELETE FROM registration_items WHERE registration_id = ?').run(params.id);
       await tx.prepare('DELETE FROM registrations WHERE id = ?').run(params.id);
+      if (wipeAll) {
+        // event_attendance_answers FK cascades on attendance row delete,
+        // so we only need to drop the attendance rows themselves.
+        await tx.prepare(
+          'DELETE FROM event_attendance WHERE event_id = ? AND member_id = ?'
+        ).run(reg.event_id, reg.member_id);
+      }
     });
     return NextResponse.json({ success: true });
   } catch (err) {
