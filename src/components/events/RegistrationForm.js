@@ -345,6 +345,9 @@ export default function RegistrationForm({ event, existingRegistration, currentU
       const body = isEditMode
         ? { items, notes }
         : { eventId: event.id, items, notes };
+      // DEBUG: log items being sent so we can see if qty is being inflated.
+      console.log('【報名提交】selectedItems=', selectedItems);
+      console.log('【報名提交】items=', JSON.parse(JSON.stringify(items)));
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
