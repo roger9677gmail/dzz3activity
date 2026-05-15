@@ -246,11 +246,9 @@ function QfList({ rows }) {
                     </div>
                   </td>
                 )}
-                {idx === 0 && (
-                  <td rowSpan={span} className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap align-top border-t border-gray-100">
-                    {r.receipt_number || '—'}
-                  </td>
-                )}
+                <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap align-top">
+                  {it ? (it.receipt_number || r.receipt_number || '—') : (r.receipt_number || '—')}
+                </td>
               </tr>
             ));
           })}

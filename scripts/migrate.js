@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS event_items (
   sort_order       INT          NOT NULL DEFAULT 0,
   gift_event_item_id INT UNSIGNED NULL,
   gift_quantity      INT          NOT NULL DEFAULT 0,
+  content_example    TEXT,
   created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_event_items_event (event_id),
   INDEX idx_event_items_gift  (gift_event_item_id),
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS registration_items (
   names           TEXT,
   contents        TEXT,
   receipt_title   VARCHAR(100) NULL,
+  receipt_number  VARCHAR(50)  NULL,
   subtotal        INT          NOT NULL DEFAULT 0,
   is_gift         TINYINT(1)   NOT NULL DEFAULT 0,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -530,6 +532,10 @@ CREATE TABLE IF NOT EXISTS impersonation_logs (
         "ALTER TABLE registrations ADD COLUMN receipt_title VARCHAR(100) AFTER receipt_number"],
       ["ADD registration_items.receipt_title",
         "ALTER TABLE registration_items ADD COLUMN receipt_title VARCHAR(100) NULL AFTER contents"],
+      ["ADD registration_items.receipt_number",
+        "ALTER TABLE registration_items ADD COLUMN receipt_number VARCHAR(50) NULL AFTER receipt_title"],
+      ["ADD event_items.content_example",
+        "ALTER TABLE event_items ADD COLUMN content_example TEXT AFTER gift_quantity"],
     ];
     for (const [label, sql] of LOC_ALTERS) {
       try {

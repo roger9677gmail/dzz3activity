@@ -55,18 +55,18 @@ export const PUT = withPermission('events:manage', async (request, { params }) =
         await tx.prepare(`
           UPDATE event_items
           SET name=?, description=?, price=?, allow_custom_price=?,
-              requires_name=?, requires_content=?, sort_order=?, gift_quantity=?
+              requires_name=?, requires_content=?, sort_order=?, gift_quantity=?, content_example=?
           WHERE id=? AND event_id=?
         `).run(item.name, item.description || null, item.price || 0, allowCp,
-               reqName, reqContent, i, giftQty, matchId, eventId);
+               reqName, reqContent, i, giftQty, item.content_example || null, matchId, eventId);
         keepIds.add(matchId);
         if (item._uid) uidToId[item._uid] = matchId;
       } else {
         const r = await tx.prepare(`
-          INSERT INTO event_items (event_id, name, description, price, allow_custom_price, requires_name, requires_content, sort_order, gift_quantity)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO event_items (event_id, name, description, price, allow_custom_price, requires_name, requires_content, sort_order, gift_quantity, content_example)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(eventId, item.name, item.description || null, item.price || 0, allowCp,
-               reqName, reqContent, i, giftQty);
+               reqName, reqContent, i, giftQty, item.content_example || null);
         const newId = Number(r.lastInsertRowid);
         keepIds.add(newId);
         if (item._uid) uidToId[item._uid] = newId;

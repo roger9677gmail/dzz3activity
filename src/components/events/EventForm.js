@@ -47,7 +47,7 @@ export default function EventForm({ event = null }) {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { _uid: newUid(), name: '', description: '', price: 0, allow_custom_price: false, requires_name: true, requires_content: false, gift_quantity: 0, gift_uid: '' }]);
+    setItems((prev) => [...prev, { _uid: newUid(), name: '', description: '', price: 0, allow_custom_price: false, requires_name: true, requires_content: false, content_example: '', gift_quantity: 0, gift_uid: '' }]);
   }
 
   function removeItem(idx) {
@@ -317,6 +317,19 @@ export default function EventForm({ event = null }) {
                   onChange={(e) => updateItem(idx, 'requires_content', e.target.checked)} />
                 需要填寫超渡內容
               </label>
+              {item.requires_content && (
+                <div className="ml-6 pt-1 pb-2 border-l-2 border-amber-200 pl-3">
+                  <label className="text-xs text-gray-600 mb-1 block">超渡內容範例（選填）</label>
+                  <textarea
+                    className="input-field text-sm resize-none"
+                    rows={2}
+                    placeholder="例如：亡者名字、生卒年月&#10;或其他提示文字..."
+                    value={item.content_example || ''}
+                    onChange={(e) => updateItem(idx, 'content_example', e.target.value)}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">會在報名表以 placeholder 的方式提示師兄姐。</p>
+                </div>
+              )}
 
               {/* Gift / 贈送設定 */}
               <div className="pt-2 mt-2 border-t border-dashed border-gray-200 space-y-2">

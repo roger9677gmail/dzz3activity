@@ -67,6 +67,7 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
   for (const r of regs) {
     const items = await db.prepare(`
       SELECT ri.quantity, ri.names, ri.contents, ri.receipt_title AS item_receipt_title,
+             ri.receipt_number AS item_receipt_number,
              ri.subtotal, ri.is_gift, ei.name AS item_name
       FROM registration_items ri
       JOIN event_items ei ON ei.id = ri.event_item_id
@@ -87,6 +88,10 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
         (r.reg_receipt_title && String(r.reg_receipt_title).trim()) ||
         r.member_receipt_title ||
         '';
+      const rowNumber =
+        (it.item_receipt_number && String(it.item_receipt_number).trim()) ||
+        (r.receipt_number && String(r.receipt_number).trim()) ||
+        '';
       for (let i = 0; i < qty; i++) {
         const isGift = !!it.is_gift;
         if (isGift) giftCounter += 1;
@@ -96,7 +101,7 @@ async function loadRows({ eventId, paymentStatus, status, groupIds }) {
           超度內容: safeCell(contentsArr[i] || ''),
           金額: isGift ? `贈${giftCounter}` : unit,
           項目: safeCell(it.item_name),
-          收據編號: safeCell(r.receipt_number || ''),
+          收據編號: safeCell(rowNumber),
           收據抬頭: safeCell(rowTitle),
           連絡人: safeCell(r.member_name),
           電話: safeCell(r.member_phone || ''),

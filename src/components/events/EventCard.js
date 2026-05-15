@@ -95,6 +95,7 @@ export default function EventCard({ event, isRegistered = false, registration = 
               const names = safeParseJSON(item.names);
               const contents = safeParseJSON(item.contents);
               const itemTitle = item.receipt_title || registration.receipt_title || '';
+              const itemNumber = item.receipt_number || '';
               return (
                 <div key={item.id} className="text-sm">
                   <div>
@@ -111,9 +112,11 @@ export default function EventCard({ event, isRegistered = false, registration = 
                       超渡內容：{contents.filter((c) => c && c.trim()).join('；')}
                     </div>
                   )}
-                  {itemTitle && (
+                  {(itemTitle || itemNumber) && (
                     <div className="text-xs text-gray-500 mt-0.5 pl-3">
-                      收據抬頭：{itemTitle}
+                      {itemTitle && <>收據抬頭：{itemTitle}</>}
+                      {itemTitle && itemNumber && <span className="mx-1">・</span>}
+                      {itemNumber && <span className="text-blue-500">收據單號：{itemNumber}</span>}
                     </div>
                   )}
                 </div>
@@ -148,12 +151,21 @@ export default function EventCard({ event, isRegistered = false, registration = 
               </span>
               <span className="font-bold text-temple-red">{formatMoney(registration.total_amount)}</span>
             </div>
-            {registration.receipt_number && (
-              <div className="mt-2 text-xs text-gray-400">
-                收據：{registration.receipt_number}
-                {registration.payment_date && ` ・ ${formatDate(registration.payment_date)}`}
-              </div>
-            )}
+            {(() => {
+              const nums = Array.from(new Set(
+                (registration.items || [])
+                  .map((i) => (i.receipt_number || '').toString().trim())
+                  .filter(Boolean)
+              ));
+              const display = nums.length > 0 ? nums.join('、') : (registration.receipt_number || '');
+              if (!display) return null;
+              return (
+                <div className="mt-2 text-xs text-gray-400">
+                  收據：{display}
+                  {registration.payment_date && ` ・ ${formatDate(registration.payment_date)}`}
+                </div>
+              );
+            })()}
             {registration.notes && (
               <div className="mt-1 text-xs text-gray-400">備註：{registration.notes}</div>
             )}
