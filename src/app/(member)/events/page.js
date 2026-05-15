@@ -49,7 +49,7 @@ export default async function EventsPage() {
     const allRegItems = await db
       .prepare(
         `SELECT ri.id, ri.registration_id, ri.quantity, ri.names, ri.contents,
-                ri.receipt_title, ri.subtotal, ri.is_gift, ei.name AS item_name
+                ri.receipt_title, ri.receipt_number, ri.subtotal, ri.is_gift, ei.name AS item_name
            FROM registration_items ri
            JOIN event_items ei ON ei.id = ri.event_item_id
           WHERE ri.registration_id IN (${placeholders})

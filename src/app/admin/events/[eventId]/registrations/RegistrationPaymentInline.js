@@ -31,11 +31,20 @@ export default function RegistrationPaymentInline({ reg }) {
             <span className="text-xs text-gray-400">{expanded ? '▲ 收合' : '▼ 繳款登錄'}</span>
           </div>
         </div>
-        {currentReg.receipt_number && (
-          <div className="text-xs text-blue-500 mt-1.5">
-            收據：{currentReg.receipt_number} {currentReg.payment_date && `・ ${currentReg.payment_date}`}
-          </div>
-        )}
+        {(() => {
+          const nums = Array.from(new Set(
+            (currentReg.items || reg.items || [])
+              .map((i) => (i.receipt_number || '').toString().trim())
+              .filter(Boolean)
+          ));
+          const display = nums.length > 0 ? nums.join('、') : (currentReg.receipt_number || '');
+          if (!display) return null;
+          return (
+            <div className="text-xs text-blue-500 mt-1.5">
+              收據：{display} {currentReg.payment_date && `・ ${currentReg.payment_date}`}
+            </div>
+          );
+        })()}
       </button>
 
       {expanded && (
@@ -45,15 +54,18 @@ export default function RegistrationPaymentInline({ reg }) {
             {reg.items.map((item) => {
               const names = safeParseJSON(item.names);
               const itemTitle = item.receipt_title || reg.receipt_title || '';
+              const itemNumber = (currentReg.items?.find((d) => d.id === item.id)?.receipt_number) || item.receipt_number || '';
               return (
                 <div key={item.id} className="text-sm">
                   <div>
                     <span className="text-gray-700">{item.item_name} × {item.quantity}</span>
                     {names.length > 0 && <span className="text-gray-400 ml-1">（{names.join('、')}）</span>}
                   </div>
-                  {itemTitle && (
+                  {(itemTitle || itemNumber) && (
                     <div className="text-xs text-gray-500 mt-0.5 pl-2">
-                      收據抬頭：{itemTitle}
+                      {itemTitle && <>收據抬頭：{itemTitle}</>}
+                      {itemTitle && itemNumber && <span className="mx-1">・</span>}
+                      {itemNumber && <span className="text-blue-500">收據單號：{itemNumber}</span>}
                     </div>
                   )}
                 </div>

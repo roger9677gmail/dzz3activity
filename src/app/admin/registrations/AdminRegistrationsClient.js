@@ -83,9 +83,18 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                     <span className="font-bold text-temple-red text-sm">{formatMoney(reg.total_amount)}</span>
                   </div>
                 </div>
-                {data.receipt_number && (
-                  <div className="text-xs text-blue-500 mt-1">收據：{data.receipt_number}{data.payment_date && ` ・ ${data.payment_date}`}</div>
-                )}
+                {(() => {
+                  const nums = Array.from(new Set(
+                    (data.items || reg.items || [])
+                      .map((i) => (i.receipt_number || '').toString().trim())
+                      .filter(Boolean)
+                  ));
+                  const display = nums.length > 0 ? nums.join('、') : (data.receipt_number || '');
+                  if (!display) return null;
+                  return (
+                    <div className="text-xs text-blue-500 mt-1">收據：{display}{data.payment_date && ` ・ ${data.payment_date}`}</div>
+                  );
+                })()}
               </button>
 
               {isExpanded && (
@@ -95,6 +104,7 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                       const names = safeParseJSON(item.names);
                       const contents = safeParseJSON(item.contents);
                       const itemTitle = item.receipt_title || reg.receipt_title || '';
+                      const itemNumber = (data.items?.find((d) => d.id === item.id)?.receipt_number) || item.receipt_number || '';
                       return (
                         <div key={item.id} className="text-sm">
                           <div>
@@ -106,9 +116,11 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                               超渡內容：{contents.filter((c) => c && c.trim()).join('；')}
                             </div>
                           )}
-                          {itemTitle && (
+                          {(itemTitle || itemNumber) && (
                             <div className="text-xs text-gray-500 mt-0.5 pl-2">
-                              收據抬頭：{itemTitle}
+                              {itemTitle && <>收據抬頭：{itemTitle}</>}
+                              {itemTitle && itemNumber && <span className="mx-1">・</span>}
+                              {itemNumber && <span className="text-blue-500">收據單號：{itemNumber}</span>}
                             </div>
                           )}
                         </div>

@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS registration_items (
   names           TEXT,
   contents        TEXT,
   receipt_title   VARCHAR(100) NULL,
+  receipt_number  VARCHAR(50)  NULL,
   subtotal        INT          NOT NULL DEFAULT 0,
   is_gift         TINYINT(1)   NOT NULL DEFAULT 0,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -530,6 +531,8 @@ CREATE TABLE IF NOT EXISTS impersonation_logs (
         "ALTER TABLE registrations ADD COLUMN receipt_title VARCHAR(100) AFTER receipt_number"],
       ["ADD registration_items.receipt_title",
         "ALTER TABLE registration_items ADD COLUMN receipt_title VARCHAR(100) NULL AFTER contents"],
+      ["ADD registration_items.receipt_number",
+        "ALTER TABLE registration_items ADD COLUMN receipt_number VARCHAR(50) NULL AFTER receipt_title"],
     ];
     for (const [label, sql] of LOC_ALTERS) {
       try {

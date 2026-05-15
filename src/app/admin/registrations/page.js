@@ -26,8 +26,10 @@ export default async function AdminRegistrationsPage({ searchParams }) {
   if (eventId) { query += ' AND r.event_id = ?'; params.push(eventId); }
   if (paymentStatus) { query += ' AND r.payment_status = ?'; params.push(paymentStatus); }
   if (search) {
-    query += ' AND (m.name LIKE ? OR m.phone LIKE ? OR r.receipt_number LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    query += ` AND (m.name LIKE ? OR m.phone LIKE ? OR r.receipt_number LIKE ?
+               OR EXISTS (SELECT 1 FROM registration_items ri
+                           WHERE ri.registration_id = r.id AND ri.receipt_number LIKE ?))`;
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
   }
   query += ' ORDER BY r.created_at DESC LIMIT 200';
 
