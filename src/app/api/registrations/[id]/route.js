@@ -57,6 +57,13 @@ export const PATCH = withAuth(async (request, { params }) => {
       return NextResponse.json({ error: '請至少選擇一個報名項目' }, { status: 400 });
     }
 
+    const member = await db.prepare('SELECT name, receipt_title FROM members WHERE id = ?').get(memberId);
+    const memberDefaultTitle = (member?.receipt_title || member?.name || '').trim();
+    const normalizeItemTitle = (v) => {
+      const s = v == null ? '' : String(v).trim();
+      return (s || memberDefaultTitle).slice(0, 100) || null;
+    };
+
     await db.transaction(async (tx) => {
       let total = 0;
       const resolvedItems = [];
@@ -79,7 +86,7 @@ export const PATCH = withAuth(async (request, { params }) => {
           subtotal = eventItem.price * item.quantity;
         }
         total += subtotal;
-        resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0 });
+        resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0, receipt_title: normalizeItemTitle(item.receipt_title) });
         if (eventItem.gift_event_item_id && eventItem.gift_quantity > 0) {
           giftAllowance[eventItem.gift_event_item_id] =
             (giftAllowance[eventItem.gift_event_item_id] || 0) + qty * eventItem.gift_quantity;
@@ -94,24 +101,33 @@ export const PATCH = withAuth(async (request, { params }) => {
           throw new Error(`贈送「${eventItem.name}」數量超過上限`);
         }
         giftAllowance[item.eventItemId] = allowed - item.quantity;
-        resolvedItems.push({ ...item, subtotal: 0, is_gift: 1 });
+        resolvedItems.push({ ...item, subtotal: 0, is_gift: 1, receipt_title: normalizeItemTitle(item.receipt_title) });
       }
 
       await tx.prepare('DELETE FROM registration_items WHERE registration_id = ?').run(params.id);
       for (const item of resolvedItems) {
         await tx.prepare(`
-          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, contents, subtotal, is_gift)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, contents, receipt_title, subtotal, is_gift)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(params.id, item.eventItemId, item.quantity,
                JSON.stringify(item.names || []), JSON.stringify(item.contents || []),
-               item.subtotal, item.is_gift);
+               item.receipt_title, item.subtotal, item.is_gift);
       }
 
-      const titleVal = receipt_title ? String(receipt_title).trim().slice(0, 100) : null;
-      await tx.prepare(`
-        UPDATE registrations SET total_amount=?, notes=?, receipt_title=?, updated_at=NOW()
-        WHERE id=?
-      `).run(total, notes || null, titleVal, params.id);
+      // Receipt title is now per-item; only touch the legacy registration-level
+      // column when the caller explicitly sends it (so admin-set values aren't wiped).
+      if (receipt_title !== undefined) {
+        const titleVal = receipt_title ? String(receipt_title).trim().slice(0, 100) : null;
+        await tx.prepare(`
+          UPDATE registrations SET total_amount=?, notes=?, receipt_title=?, updated_at=NOW()
+          WHERE id=?
+        `).run(total, notes || null, titleVal, params.id);
+      } else {
+        await tx.prepare(`
+          UPDATE registrations SET total_amount=?, notes=?, updated_at=NOW()
+          WHERE id=?
+        `).run(total, notes || null, params.id);
+      }
     });
 
     return NextResponse.json({ success: true });
