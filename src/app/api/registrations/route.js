@@ -61,12 +61,6 @@ export const POST = withAuth(async (request) => {
     }
 
     const memberId = request.session.sub;
-    const member = await db.prepare('SELECT name, receipt_title FROM members WHERE id = ?').get(memberId);
-    const memberDefaultTitle = (member?.receipt_title || member?.name || '').trim();
-    const normalizeItemTitle = (v) => {
-      const s = v == null ? '' : String(v).trim();
-      return (s || memberDefaultTitle).slice(0, 100) || null;
-    };
     const regId = await db.transaction(async (tx) => {
       let total = 0;
       const resolvedItems = [];
@@ -93,7 +87,7 @@ export const POST = withAuth(async (request) => {
           subtotal = eventItem.price * item.quantity;
         }
         total += subtotal;
-        resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0, receipt_title: normalizeItemTitle(item.receipt_title) });
+        resolvedItems.push({ ...item, quantity: qty, subtotal, is_gift: 0 });
         if (eventItem.gift_event_item_id && eventItem.gift_quantity > 0) {
           giftAllowance[eventItem.gift_event_item_id] =
             (giftAllowance[eventItem.gift_event_item_id] || 0) + qty * eventItem.gift_quantity;
@@ -109,7 +103,7 @@ export const POST = withAuth(async (request) => {
           throw new Error(`贈送「${eventItem.name}」數量超過上限`);
         }
         giftAllowance[item.eventItemId] = allowed - item.quantity;
-        resolvedItems.push({ ...item, subtotal: 0, is_gift: 1, receipt_title: normalizeItemTitle(item.receipt_title) });
+        resolvedItems.push({ ...item, subtotal: 0, is_gift: 1 });
       }
 
       const titleVal = receipt_title ? String(receipt_title).trim().slice(0, 100) : null;
@@ -121,9 +115,9 @@ export const POST = withAuth(async (request) => {
       const newRegId = reg.lastInsertRowid;
       for (const item of resolvedItems) {
         await tx.prepare(`
-          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, contents, receipt_title, subtotal, is_gift)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(newRegId, item.eventItemId, item.quantity, JSON.stringify(item.names || []), JSON.stringify(item.contents || []), item.receipt_title, item.subtotal, item.is_gift);
+          INSERT INTO registration_items (registration_id, event_item_id, quantity, names, contents, subtotal, is_gift)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(newRegId, item.eventItemId, item.quantity, JSON.stringify(item.names || []), JSON.stringify(item.contents || []), item.subtotal, item.is_gift);
       }
       return newRegId;
     });

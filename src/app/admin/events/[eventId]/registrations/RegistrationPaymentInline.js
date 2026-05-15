@@ -44,18 +44,10 @@ export default function RegistrationPaymentInline({ reg }) {
           <div className="mb-3 space-y-1">
             {reg.items.map((item) => {
               const names = item.names ? JSON.parse(item.names) : [];
-              const itemTitle = item.receipt_title || reg.receipt_title || '';
               return (
                 <div key={item.id} className="text-sm">
-                  <div>
-                    <span className="text-gray-700">{item.item_name} × {item.quantity}</span>
-                    {names.length > 0 && <span className="text-gray-400 ml-1">（{names.join('、')}）</span>}
-                  </div>
-                  {itemTitle && (
-                    <div className="text-xs text-gray-500 mt-0.5 pl-2">
-                      收據抬頭：{itemTitle}
-                    </div>
-                  )}
+                  <span className="text-gray-700">{item.item_name} × {item.quantity}</span>
+                  {names.length > 0 && <span className="text-gray-400 ml-1">（{names.join('、')}）</span>}
                 </div>
               );
             })}
