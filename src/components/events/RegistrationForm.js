@@ -16,33 +16,30 @@ function buildInitialFromRegistration(reg, eventItems) {
     receiptTitles: {}, giftReceiptTitles: {},
   };
   if (!reg || !Array.isArray(reg.items)) return init;
-  // DEBUG: Log all gift items
-  const allGifts = reg.items.filter((ri) => ri.is_gift);
-  if (allGifts.length > 0) {
-    console.log('【贈送調試】saved gift items:', allGifts.length);
-    allGifts.forEach((ri) => {
-      const ns = safeParseArray(ri.names);
-      const cs = safeParseArray(ri.contents);
-      console.log(`  event_item_id=${ri.event_item_id}: names=[${ns.join(', ')}], contents=[${cs.join(', ')}]`);
-    });
-  }
+  // Track which parents are actually registered so we can disambiguate when
+  // multiple event_items point at the same gift event_item — without this,
+  // find() would always pick the lowest-id parent and the gift names would
+  // appear under the wrong (often unselected) parent.
+  const registeredParentIds = new Set(
+    reg.items.filter((r) => !r.is_gift).map((r) => Number(r.event_item_id))
+  );
   for (const ri of reg.items) {
     const ei = eventItems.find((e) => Number(e.id) === Number(ri.event_item_id));
-    if (!ei) {
-      if (ri.is_gift) console.log(`【贈送調試】找不到 event_item id=${ri.event_item_id}`);
-      continue;
-    }
+    if (!ei) continue;
     const ns = safeParseArray(ri.names);
     const cs = safeParseArray(ri.contents);
     const rt = ri.receipt_title || '';
     if (ri.is_gift) {
-      // Find the parent item that gifts to this event_item.
-      const parent = eventItems.find((e) => Number(e.gift_event_item_id) === Number(ri.event_item_id) && (e.gift_quantity || 0) > 0);
-      if (!parent) {
-        console.log(`【贈送調試】找不到 parent (找的 gift_event_item_id=${ri.event_item_id})`);
-        continue;
-      }
-      console.log(`【贈送調試】載入 parent id=${parent.id}, names=[${ns.join(', ')}]`);
+      // Prefer a parent that is actually in this registration. Falls back to
+      // any matching parent for orphaned gifts (e.g., the parent was removed
+      // from the registration after save).
+      const matchingParents = eventItems.filter(
+        (e) => Number(e.gift_event_item_id) === Number(ri.event_item_id) && (e.gift_quantity || 0) > 0
+      );
+      const parent =
+        matchingParents.find((e) => registeredParentIds.has(Number(e.id))) ||
+        matchingParents[0];
+      if (!parent) continue;
       init.giftNames[parent.id] = (init.giftNames[parent.id] || []).concat(ns);
       init.giftContents[parent.id] = (init.giftContents[parent.id] || []).concat(cs);
       // Gift sub-row → one receipt_title per parent line; first non-empty wins.
@@ -312,8 +309,6 @@ export default function RegistrationForm({ event, existingRegistration, currentU
       const giftSlots = qty * parent.gift_quantity;
       const gNames = (giftNames[itemId] || []).slice(0, giftSlots);
       const gContents = (giftContents[itemId] || []).slice(0, giftSlots);
-      // DEBUG: Log gift data being submitted
-      console.log(`【贈送提交】parent id=${parent.id}, itemId=${itemId}, gNames=[${gNames.join(', ')}], gContents=[${gContents.join(', ')}]`);
       if (gift.requires_name) {
         const empty = gNames.filter((n) => !n.trim());
         if (empty.length > 0 || gNames.length < giftSlots) {
