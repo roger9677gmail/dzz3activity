@@ -61,7 +61,7 @@ function ItemQtyEditor({ item, onSaved }) {
   );
 }
 
-export default function AdminRegistrationsClient({ registrations, events, initialFilters }) {
+export default function AdminRegistrationsClient({ registrations, events, initialFilters, canDelete }) {
   const router = useRouter();
   const pathname = usePathname();
   const [filters, setFilters] = useState(initialFilters);
@@ -195,34 +195,36 @@ export default function AdminRegistrationsClient({ registrations, events, initia
                       setRegMap((prev) => ({ ...prev, [reg.id]: { ...data, ...updated } }));
                     }}
                   />
-                  <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`確定要永久刪除 ${reg.member_name} 在「${reg.event_name}」的「祈福報名」？\n\n會員的「活動登記」（交通／住宿／用餐等）會保留。`)) return;
-                        const res = await fetch(`/api/registrations/${reg.id}`, { method: 'DELETE' });
-                        if (res.ok) router.refresh();
-                        else { const d = await res.json().catch(() => ({})); alert(d.error || '刪除失敗'); }
-                      }}
-                      className="block text-xs text-red-600 hover:text-red-800 hover:underline"
-                    >
-                      🗑️ 永久刪除「祈福報名」（保留活動登記）
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`確定要永久刪除 ${reg.member_name} 在「${reg.event_name}」的所有資料？\n\n包含「祈福報名」+「活動登記」（題目答案）。\n此操作無法復原，會員需重新填寫。`)) return;
-                        const res = await fetch(`/api/registrations/${reg.id}`, {
-                          method: 'DELETE',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ wipe: 'all' }),
-                        });
-                        if (res.ok) router.refresh();
-                        else { const d = await res.json().catch(() => ({})); alert(d.error || '刪除失敗'); }
-                      }}
-                      className="block text-xs text-red-700 hover:text-red-900 hover:underline font-medium"
-                    >
-                      🗑️ 永久刪除「祈福報名 + 活動登記」（整筆清乾淨）
-                    </button>
-                  </div>
+                  {canDelete ? (
+                    <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`確定要永久刪除 ${reg.member_name} 在「${reg.event_name}」的「祈福報名」？\n\n會員的「活動登記」（交通／住宿／用餐等）會保留。`)) return;
+                          const res = await fetch(`/api/registrations/${reg.id}`, { method: 'DELETE' });
+                          if (res.ok) router.refresh();
+                          else { const d = await res.json().catch(() => ({})); alert(d.error || '刪除失敗'); }
+                        }}
+                        className="block text-xs text-red-600 hover:text-red-800 hover:underline"
+                      >
+                        🗑️ 永久刪除「祈福報名」（保留活動登記）
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`確定要永久刪除 ${reg.member_name} 在「${reg.event_name}」的所有資料？\n\n包含「祈福報名」+「活動登記」（題目答案）。\n此操作無法復原，會員需重新填寫。`)) return;
+                          const res = await fetch(`/api/registrations/${reg.id}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ wipe: 'all' }),
+                          });
+                          if (res.ok) router.refresh();
+                          else { const d = await res.json().catch(() => ({})); alert(d.error || '刪除失敗'); }
+                        }}
+                        className="block text-xs text-red-700 hover:text-red-900 hover:underline font-medium"
+                      >
+                        🗑️ 永久刪除「祈福報名 + 活動登記」（整筆清乾淨）
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

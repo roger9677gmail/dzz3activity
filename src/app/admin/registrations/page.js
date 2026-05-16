@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminRegistrationsPage({ searchParams }) {
   const session = await getSession();
   if (!hasPermission(session, 'registrations:manage')) redirect('/admin');
+  const canDelete = hasPermission(session, 'registrations:delete');
 
   const eventId = searchParams.eventId || '';
   const paymentStatus = searchParams.payment_status || '';
@@ -66,6 +67,7 @@ export default async function AdminRegistrationsPage({ searchParams }) {
         registrations={registrations}
         events={events}
         initialFilters={{ eventId, paymentStatus, search }}
+        canDelete={canDelete}
       />
     </div>
   );

@@ -125,6 +125,7 @@ done
 - 任何 `is_admin=1` 的師兄姐都可以從 `/profile`「進入後台」。
 - 細權限存在 `members.admin_permissions` JSON 陣列。`['*']` 代表全部權限；其餘可組合：
   - `events:manage`、`registrations:manage`、`members:manage`、`locations:manage`
+  - `registrations:delete`（**永久刪除報名資料**，可只刪祈福報名或連同活動登記整筆清乾淨，高風險、與 `registrations:manage` 獨立授權）
   - `members:delete`（**永久刪除師兄姐帳號+全部相關資料**，高風險、與 `members:manage` 獨立授權）
   - `members:impersonate`（模擬師兄姐身分檢視 / 代為操作，唯讀 / 可寫兩種模式，可寫會留 audit log）
   - `admins:manage`（含指派/撤銷管理員與權限）

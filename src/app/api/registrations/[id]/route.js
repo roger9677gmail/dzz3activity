@@ -40,7 +40,10 @@ export const PUT = withPermission('registrations:manage', async (request, { para
 // Body { wipe: 'all' } also clears the member's 活動登記 (event_attendance)
 // for the same event — for the "整筆清乾淨重報" workflow. Default keeps
 // 活動登記 untouched (祈福 and 活動登記 are independent sub-modules).
-export const DELETE = withPermission('registrations:manage', async (request, { params }) => {
+//
+// Requires `registrations:delete` (separate from `registrations:manage`)
+// because the action is irreversible and high-risk.
+export const DELETE = withPermission('registrations:delete', async (request, { params }) => {
   try {
     let wipeAll = false;
     try {

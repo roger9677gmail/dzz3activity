@@ -7,6 +7,7 @@ const PERMISSION_OPTIONS = [
   { key: '*', label: '全部權限（最高管理員）' },
   { key: 'events:manage', label: '活動管理' },
   { key: 'registrations:manage', label: '繳款收據登錄' },
+  { key: 'registrations:delete', label: '報名資料永久刪除（高風險）' },
   { key: 'members:manage', label: '師兄姐管理' },
   { key: 'members:impersonate', label: '模擬師兄姐身分（檢視 / 代操作）' },
   { key: 'members:delete', label: '師兄姐帳號刪除（高風險）' },
